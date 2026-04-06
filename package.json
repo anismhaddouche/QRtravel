@@ -1,0 +1,26 @@
+{
+  "name": "qr-checkin-mvp",
+  "version": "1.0.0",
+  "description": "Offline QR-based passenger check-in system for group travel",
+  "private": true,
+  "scripts": {
+    "server": "node server/index.js",
+    "client": "cd client && npm run dev",
+    "seed": "node server/seed.js",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "cd client && npm run build",
+    "start": "npm run build && npm run server"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.1",
+    "express": "^4.21.0",
+    "qrcode": "^1.5.4",
+    "sql.js": "^1.11.0",
+    "uuid": "^10.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
