@@ -5,11 +5,14 @@
   "private": true,
   "scripts": {
     "server": "node server/index.js",
+    "server:https": "node server/index.js --https",
     "client": "cd client && npm run dev",
     "seed": "node server/seed.js",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev:https": "concurrently \"npm run server:https\" \"npm run client\"",
     "build": "cd client && npm run build",
-    "start": "npm run build && npm run server"
+    "start": "npm run build && npm run server",
+    "generate-cert": "node server/generate-cert.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

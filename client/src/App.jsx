@@ -42,7 +42,7 @@ export default function App() {
             <Dashboard tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />
           } />
           <Route path="/scanner" element={
-            <Scanner wsStatus={wsStatus} offlineQueue={offlineQueue} tripId={tripCtx.selectedTripId} />
+            <Scanner wsStatus={wsStatus} offlineQueue={offlineQueue} tripId={tripCtx.selectedTripId} trip={tripCtx.selectedTrip} />
           } />
           <Route path="/travelers" element={
             <TravelerList tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />

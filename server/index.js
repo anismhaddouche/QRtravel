@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const { WebSocketServer } = require('ws');
@@ -8,8 +10,8 @@ const { setupWebSocket } = require('./websocket');
 const { initDb } = require('./db');
 
 const app = express();
-const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
+const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 
 // Middleware
 app.use(cors());
@@ -30,11 +32,11 @@ app.get('/api/health', (req, res) => {
 const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientBuildPath));
 
-// SPA fallback — serve index.html for all non-API routes
+// SPA fallback
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
     const indexPath = path.join(clientBuildPath, 'index.html');
-    if (require('fs').existsSync(indexPath)) {
+    if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
       res.status(404).json({ error: 'Frontend not built. Run: cd client && npm run build' });
@@ -42,24 +44,77 @@ app.get('*', (req, res) => {
   }
 });
 
-// WebSocket server
-const wss = new WebSocketServer({ server });
+// Create HTTP server
+const httpServer = http.createServer(app);
+const wss = new WebSocketServer({ server: httpServer });
 setupWebSocket(wss);
 
-// Initialize database then start server
+// Optional HTTPS server for LAN camera access
+let httpsServer = null;
+const certPath = path.join(__dirname, 'certs', 'cert.pem');
+const keyPath = path.join(__dirname, 'certs', 'key.pem');
+const enableHttps = process.env.ENABLE_HTTPS === 'true' || process.argv.includes('--https');
+
+if (enableHttps && fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+  const sslOptions = {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath),
+  };
+  httpsServer = https.createServer(sslOptions, app);
+  const wssSecure = new WebSocketServer({ server: httpsServer });
+  setupWebSocket(wssSecure);
+}
+
+// Get local network IPs for display
+function getNetworkIPs() {
+  const os = require('os');
+  const interfaces = os.networkInterfaces();
+  const ips = [];
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        ips.push(iface.address);
+      }
+    }
+  }
+  return ips;
+}
+
+// Start servers
 initDb().then(() => {
-  server.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    const ips = getNetworkIPs();
     console.log('');
     console.log('╔══════════════════════════════════════════════════╗');
     console.log('║     🚌 QR Check-In Server                      ║');
     console.log('╠══════════════════════════════════════════════════╣');
-    console.log(`║  Port:     ${PORT}                                  ║`);
-    console.log(`║  Env:      ${(process.env.NODE_ENV || 'development').padEnd(37)}║`);
-    console.log('║  API:      /api/*                                ║');
-    console.log('║  WS:       same port                             ║');
-    console.log('║  Health:   /api/health                           ║');
-    console.log('╚══════════════════════════════════════════════════╝');
-    console.log('');
+    console.log(`║  HTTP:     http://localhost:${PORT}`.padEnd(51) + '║');
+    if (ips.length > 0) {
+      console.log(`║  LAN:      http://${ips[0]}:${PORT}`.padEnd(51) + '║');
+    }
+
+    if (httpsServer) {
+      httpsServer.listen(HTTPS_PORT, '0.0.0.0', () => {
+        console.log('║                                                  ║');
+        console.log(`║  HTTPS:    https://localhost:${HTTPS_PORT}`.padEnd(51) + '║');
+        if (ips.length > 0) {
+          console.log(`║  LAN(📱):  https://${ips[0]}:${HTTPS_PORT}`.padEnd(51) + '║');
+        }
+        console.log('║                                                  ║');
+        console.log('║  📱 Use the HTTPS LAN address for iPhone/iPad    ║');
+        console.log('║     camera scanning over Wi-Fi.                  ║');
+        console.log('╚══════════════════════════════════════════════════╝');
+        console.log('');
+      });
+    } else {
+      if (enableHttps) {
+        console.log('║                                                  ║');
+        console.log('║  ⚠️  HTTPS requested but certs not found.        ║');
+        console.log('║  Run: node server/generate-cert.js               ║');
+      }
+      console.log('╚══════════════════════════════════════════════════╝');
+      console.log('');
+    }
   });
 }).catch(err => {
   console.error('Failed to initialize database:', err);

@@ -14,20 +14,25 @@ export default function Header({ wsStatus, queueLength, syncStatus, trips, selec
         <div className="header-brand">
           <span className="header-logo">🚌</span>
           <span className="header-title">QR Check-In</span>
-          {trips && trips.length > 1 && (
-            <select
-              className="trip-selector"
-              value={selectedTrip?.id || ''}
-              onChange={e => onSelectTrip(e.target.value)}
-            >
-              {trips.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          )}
-          {selectedTrip && trips.length <= 1 && (
-            <span className="trip-name">{selectedTrip.name}</span>
-          )}
+        </div>
+
+        {/* Trip selector — always visible */}
+        <div className="trip-selector-wrapper">
+          <select
+            className="trip-selector"
+            value={selectedTrip?.id || ''}
+            onChange={e => onSelectTrip(e.target.value)}
+            id="select-trip"
+          >
+            {!selectedTrip && (
+              <option value="" disabled>— Select a trip —</option>
+            )}
+            {trips.map(t => (
+              <option key={t.id} value={t.id}>
+                {t.name} {t.date ? `(${t.date})` : ''}
+              </option>
+            ))}
+          </select>
         </div>
 
         <nav className="header-nav">

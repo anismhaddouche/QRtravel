@@ -871,30 +871,30 @@ a {
 }
 
 /* ========== Trip Selector ========== */
+.trip-selector-wrapper {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
 .trip-selector {
-  padding: 4px 10px;
+  padding: 6px 12px;
   background: var(--bg-primary);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   color: var(--accent-light);
   font-family: var(--font);
-  font-size: 0.8rem;
-  font-weight: 500;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   outline: none;
-  margin-left: 4px;
+  max-width: 260px;
+  width: 100%;
+  text-overflow: ellipsis;
 }
 
 .trip-selector:focus {
-  border-color: var(--accent);
-}
-
-.trip-name {
-  font-size: 0.8rem;
-  color: var(--accent-light);
-  font-weight: 500;
-  opacity: 0.8;
-  margin-left: 2px;
+  border-color: var(--accent-light);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 /* ========== Queue Badge ========== */
@@ -971,16 +971,35 @@ a {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
-  
+
+  .header-inner {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 10px 0;
+    gap: 8px;
+  }
+
   .header-nav {
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    order: 3;
   }
 
-  .header-brand .trip-name,
-  .header-brand .trip-selector {
-    display: none;
+  .trip-selector-wrapper {
+    order: 2;
+    flex: 1;
+  }
+
+  .trip-selector {
+    max-width: 100%;
+    font-size: 0.8rem;
+  }
+
+  .nav-link {
+    white-space: nowrap;
+    font-size: 0.8rem;
+    padding: 6px 10px;
   }
 }
 
@@ -998,4 +1017,76 @@ a {
 /* ========== Warning Feedback ========== */
 .scan-feedback.warning .scan-feedback-inner {
   border-color: var(--warning);
+}
+
+/* ========== Scanner Header ========== */
+.scanner-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.scanner-trip-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.scanner-trip-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent-light);
+}
+
+.scanner-trip-date {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+}
+
+.scanner-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* ========== Camera Warning ========== */
+.camera-warning {
+  text-align: center;
+  padding: 32px 24px;
+  margin-bottom: 20px;
+  border-color: var(--warning) !important;
+}
+
+.camera-warning-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+
+.camera-warning-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--warning);
+  margin-bottom: 8px;
+}
+
+.camera-warning-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 12px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.camera-warning-tip {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
 }
