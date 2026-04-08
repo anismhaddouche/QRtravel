@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 
-const TYPE_ICONS = { person: '👤', couple: '💑', family: '👨‍👩‍👧‍👦', group: '👥' };
+const TYPE_ICONS = { person: '👤', couple: '👥', family: '👨‍👩‍👧‍👦', group: '👥' };
 
 export default function QRCodes({ tripId, trip }) {
   const [qrCodes, setQrCodes] = useState([]);

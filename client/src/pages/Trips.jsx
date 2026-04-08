@@ -231,7 +231,7 @@ export default function Trips({ onTripChange }) {
               Are you sure you want to delete <strong>"{deleteConfirm.name}"</strong>?
             </p>
             <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: '20px' }}>
-              ⚠️ This will permanently delete all associated travelers ({deleteConfirm.travelerCount || 0} units) 
+              ⚠️ This will permanently delete all associated travelers ({deleteConfirm.travelerCount || 0} units)
               and scan history. This action cannot be undone.
             </p>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
