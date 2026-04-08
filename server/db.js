@@ -1,22 +1,86 @@
 const { Pool } = require('pg');
 
-// PostgreSQL connection pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/qrcheckin',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
+// ─── Supabase / Vercel Serverless PostgreSQL Configuration ─────────────────
+//
+// Key settings for Vercel serverless + Supabase transaction pooler:
+//  - max: 1        → Don't keep idle connections across invocations
+//  - connectionTimeoutMillis: 10000 → Supabase pooler can take a few seconds
+//  - idleTimeoutMillis: 0  → Close connection immediately after use
+//  - ssl: required → Supabase always requires SSL
 
-pool.on('error', (err) => {
-  console.error('Unexpected PostgreSQL pool error:', err);
-});
+let pool = null;
+
+function getPool() {
+  if (pool) return pool;
+
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('DATABASE_URL environment variable is not set');
+  }
+
+  console.log('[DB] Creating new PostgreSQL connection pool...');
+
+  pool = new Pool({
+    connectionString: dbUrl,
+    ssl: { rejectUnauthorized: false },
+    // Serverless-optimized settings
+    max: 2,                          // Minimal connections per function instance
+    min: 0,                          // Don't maintain idle connections
+    idleTimeoutMillis: 5000,         // Release idle connections quickly
+    connectionTimeoutMillis: 10000,  // 10s to connect — enough for Supabase cold start
+    allowExitOnIdle: true,           // Let the process exit cleanly
+  });
+
+  pool.on('connect', () => {
+    console.log('[DB] ✅ PostgreSQL connection established');
+  });
+
+  pool.on('error', (err) => {
+    console.error('[DB] ❌ Unexpected PostgreSQL pool error:', err.message);
+    // Reset pool so it's recreated on the next request
+    pool = null;
+  });
+
+  return pool;
+}
+
+// ─── Query helpers with timeout guard ──────────────────────────────────────
+
+async function query(sql, params = []) {
+  const p = getPool();
+  try {
+    const result = await p.query(sql, params);
+    return result;
+  } catch (err) {
+    console.error('[DB] Query error:', err.message, '| SQL:', sql.substring(0, 80));
+    throw err;
+  }
+}
+
+async function run(sql, params = []) {
+  await query(sql, params);
+}
+
+async function get(sql, params = []) {
+  const result = await query(sql, params);
+  return result.rows[0] || null;
+}
+
+async function all(sql, params = []) {
+  const result = await query(sql, params);
+  return result.rows;
+}
+
+// ─── Schema initialization ──────────────────────────────────────────────────
+// Run once via `npm run seed` or when server starts in local dev.
+// On Vercel serverless this is called lazily only once per cold start.
 
 async function initDb() {
-  const client = await pool.connect();
+  console.log('[DB] Initializing schema...');
+  const p = getPool();
+  const client = await p.connect();
+
   try {
-    // Create tables
     await client.query(`
       CREATE TABLE IF NOT EXISTS trips (
         id TEXT PRIMARY KEY,
@@ -67,47 +131,46 @@ async function initDb() {
       )
     `);
 
-    // Create indexes (IF NOT EXISTS is supported in PostgreSQL)
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_travelers_reference ON travelers("referenceCode")`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_travelers_trip ON travelers("tripId")`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_scan_events_reference ON scan_events("referenceCode")`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_scan_events_trip ON scan_events("tripId")`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_trips_status ON trips(status)`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions("expiresAt")`);
+    // Indexes
+    const indexes = [
+      `CREATE INDEX IF NOT EXISTS idx_travelers_reference ON travelers("referenceCode")`,
+      `CREATE INDEX IF NOT EXISTS idx_travelers_trip ON travelers("tripId")`,
+      `CREATE INDEX IF NOT EXISTS idx_scan_events_reference ON scan_events("referenceCode")`,
+      `CREATE INDEX IF NOT EXISTS idx_scan_events_trip ON scan_events("tripId")`,
+      `CREATE INDEX IF NOT EXISTS idx_trips_status ON trips(status)`,
+      `CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions("expiresAt")`,
+    ];
+    for (const sql of indexes) {
+      await client.query(sql);
+    }
 
-    // Safe migrations for existing databases
+    // Safe migrations
     const migrations = [
       `ALTER TABLE trips ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''`,
       `ALTER TABLE scan_events ADD COLUMN IF NOT EXISTS "tripId" TEXT REFERENCES trips(id) ON DELETE CASCADE`,
     ];
     for (const sql of migrations) {
-      try { await client.query(sql); } catch (e) { /* column already exists */ }
+      try { await client.query(sql); } catch { /* column already exists */ }
     }
 
-    console.log('✅ Database initialized');
+    console.log('[DB] ✅ Schema initialized successfully');
+  } catch (err) {
+    console.error('[DB] ❌ Schema initialization failed:', err.message);
+    throw err;
   } finally {
     client.release();
   }
 }
 
-// Query helpers
-async function query(sql, params = []) {
-  const result = await pool.query(sql, params);
-  return result;
+// ─── Health check ──────────────────────────────────────────────────────────
+
+async function checkConnection() {
+  try {
+    await query('SELECT 1');
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-async function run(sql, params = []) {
-  await pool.query(sql, params);
-}
-
-async function get(sql, params = []) {
-  const result = await pool.query(sql, params);
-  return result.rows[0] || null;
-}
-
-async function all(sql, params = []) {
-  const result = await pool.query(sql, params);
-  return result.rows;
-}
-
-module.exports = { initDb, query, run, get, all, pool };
+module.exports = { initDb, query, run, get, all, getPool, checkConnection };

@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const { initDb } = require('./db');
+const { initDb, checkConnection } = require('./db');
 const { requireAuth } = require('./middleware/auth');
 
 const app = express();
@@ -18,8 +18,13 @@ app.use(express.json());
 app.use(cookieParser());
 
 // ─── Public routes ───
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  const dbOk = await checkConnection();
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    database: dbOk ? 'connected' : 'error'
+  });
 });
 app.use('/api/auth', require('./routes/auth'));
 
@@ -40,37 +45,52 @@ if (fs.existsSync(clientBuildPath)) {
   });
 }
 
+// ─── Vercel / Serverless Initialization ───
+let dbInitialized = false;
+let dbInitPromise = null;
+
+// Middleware to lazily initialize the database schema on the first API request
+app.use('/api', async (req, res, next) => {
+  if (dbInitialized) return next();
+  
+  if (!dbInitPromise) {
+    dbInitPromise = initDb()
+      .then(() => {
+        dbInitialized = true;
+      })
+      .catch((err) => {
+        console.error('[SERVER] Database initialization failed:', err.message);
+        dbInitPromise = null; // allow retrying
+        throw err;
+      });
+  }
+
+  try {
+    await dbInitPromise;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Database is starting up or temporarily unavailable', details: err.message });
+  }
+});
+
 // ─── Local dev: start HTTP server ───
-// On Vercel this file is imported as a serverless function (no listen).
 if (process.env.NODE_ENV !== 'production' || process.env.LOCAL_SERVER === 'true') {
   const PORT = process.env.PORT || 3000;
+  
+  // We trigger initialization explicitly for local dev
   initDb()
     .then(() => {
+      dbInitialized = true;
       app.listen(PORT, '0.0.0.0', () => {
         console.log(`\n🚌 QR Check-In running at http://localhost:${PORT}`);
         console.log(`🔐 Login: ${process.env.ADMIN_USERNAME || 'ADMIN'} / ${process.env.ADMIN_PASSWORD || 'ADMIN123'}`);
-        console.log(`📊 Database: PostgreSQL (Supabase)\n`);
+        console.log(`📊 Database: PostgreSQL\n`);
       });
     })
     .catch(err => {
-      console.error('Failed to initialize database:', err);
+      console.error('Failed to initialize database on startup:', err);
       process.exit(1);
     });
-} else {
-  // On Vercel: initialize DB lazily on first request
-  let dbReady = false;
-  app.use(async (req, res, next) => {
-    if (!dbReady) {
-      try {
-        await initDb();
-        dbReady = true;
-      } catch (err) {
-        console.error('DB init error:', err);
-        return res.status(500).json({ error: 'Database initialization failed' });
-      }
-    }
-    next();
-  });
 }
 
 module.exports = app;
