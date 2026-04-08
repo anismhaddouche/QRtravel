@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
 import StatusBadge from '../components/StatusBadge';
 
-const TYPE_ICONS = { person: '👤', couple: '💑', family: '👨‍👩‍👧‍👦', group: '👥' };
+const TYPE_ICONS = { person: '👤', couple: '👥', family: '👨‍👩‍👧‍👦', group: '👥' };
 
 export default function Dashboard({ tripId, lastMessage, trip }) {
   const [stats, setStats] = useState(null);
