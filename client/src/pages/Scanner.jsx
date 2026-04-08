@@ -33,7 +33,7 @@ async function detectCameraCapability() {
   }
 }
 
-export default function Scanner({ wsStatus, offlineQueue, tripId, trip }) {
+export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
   const [scanning, setScanning] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [lastScanned, setLastScanned] = useState(null);
@@ -209,9 +209,9 @@ export default function Scanner({ wsStatus, offlineQueue, tripId, trip }) {
             {trip?.date && <span className="scanner-trip-date">{trip.date}</span>}
           </div>
           <div className="scanner-status-row">
-            <span className={`connection-badge ${wsStatus === 'connected' ? 'connected' : 'disconnected'}`}>
+            <span className={`connection-badge ${isOnline ? 'connected' : 'disconnected'}`}>
               <span className="connection-dot"></span>
-              {wsStatus === 'connected' ? 'Online' : 'Offline'}
+              {isOnline ? 'Online' : 'Offline'}
             </span>
             {offlineQueue.queueLength > 0 && (
               <span className="queue-badge">
@@ -229,7 +229,7 @@ export default function Scanner({ wsStatus, offlineQueue, tripId, trip }) {
                 ? `⟳ Syncing ${offlineQueue.queueLength} scan(s)...`
                 : `⏳ ${offlineQueue.queueLength} scan(s) pending`}
             </span>
-            {wsStatus === 'connected' && offlineQueue.syncStatus !== 'syncing' && (
+            {isOnline === 'connected' && offlineQueue.syncStatus !== 'syncing' && (
               <button className="btn btn-sm btn-primary" onClick={offlineQueue.syncQueue}>Sync Now</button>
             )}
           </div>

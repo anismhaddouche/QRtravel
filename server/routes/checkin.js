@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { run, get, all } = require('../db');
 const { v4: uuidv4 } = require('uuid');
-const { broadcast } = require('../websocket');
+
+// No-op broadcast — polling replaces WebSocket
+function broadcast() {}
 
 // POST /api/checkin — check in a traveler by referenceCode
 router.post('/', async (req, res) => {
@@ -43,13 +45,6 @@ router.post('/', async (req, res) => {
     );
 
     const updatedTraveler = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
-
-    broadcast({
-      type: 'check_in',
-      traveler: updatedTraveler,
-      timestamp: now,
-      eventId
-    });
 
     res.json({
       success: true,
@@ -99,13 +94,6 @@ router.post('/undo', async (req, res) => {
 
     const updatedTraveler = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
 
-    broadcast({
-      type: 'undo_check_in',
-      traveler: updatedTraveler,
-      timestamp: now,
-      eventId
-    });
-
     res.json({
       success: true,
       message: `${updatedTraveler.displayName} check-in undone`,
@@ -153,13 +141,6 @@ router.post('/manual', async (req, res) => {
     );
 
     const updatedTraveler = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
-
-    broadcast({
-      type: 'check_in',
-      traveler: updatedTraveler,
-      timestamp: now,
-      eventId
-    });
 
     res.json({
       success: true,
@@ -226,8 +207,6 @@ router.post('/sync', async (req, res) => {
             `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId") VALUES ($1, $2, $3, $4, $5, 1, $6)`,
             [eventId, referenceCode, action, timestamp, deviceId || 'offline', traveler.tripId]
           );
-          const updated = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
-          broadcast({ type: 'check_in', traveler: updated, timestamp, eventId });
           results.push({ eventId, status: 'success', message: `${traveler.displayName} checked in` });
         }
       } else if (action === 'undo_check_in') {
@@ -236,8 +215,6 @@ router.post('/sync', async (req, res) => {
           `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId") VALUES ($1, $2, $3, $4, $5, 1, $6)`,
           [eventId, referenceCode, action, timestamp, deviceId || 'offline', traveler.tripId]
         );
-        const updated = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
-        broadcast({ type: 'undo_check_in', traveler: updated, timestamp, eventId });
         results.push({ eventId, status: 'success', message: `${traveler.displayName} check-in undone` });
       }
     }

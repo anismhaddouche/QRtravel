@@ -5,8 +5,8 @@ const statusConfig = {
   disconnected: { label: 'Offline', className: 'disconnected' },
 };
 
-export default function Header({ wsStatus, queueLength, syncStatus, trips, selectedTrip, onSelectTrip, username, onLogout }) {
-  const st = statusConfig[wsStatus] || statusConfig.disconnected;
+export default function Header({ isOnline, queueLength, syncStatus, trips, selectedTrip, onSelectTrip, username, onLogout }) {
+  const st = statusConfig[isOnline] || statusConfig.disconnected;
 
   return (
     <header className="header">

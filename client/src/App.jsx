@@ -7,7 +7,7 @@ import Scanner from './pages/Scanner';
 import TravelerList from './pages/TravelerList';
 import QRCodes from './pages/QRCodes';
 import Trips from './pages/Trips';
-import { useWebSocket } from './hooks/useWebSocket';
+import { usePolling } from './hooks/usePolling';
 import { useOfflineQueue } from './hooks/useOfflineQueue';
 import { useTripContext } from './hooks/useTripContext';
 import { api, setAuthErrorHandler } from './utils/api';
@@ -71,9 +71,9 @@ export default function App() {
 }
 
 function AuthenticatedApp({ username, onLogout }) {
-  const { status: wsStatus, lastMessage } = useWebSocket();
+  const { status: isOnline, lastMessage } = usePolling();
   const tripCtx = useTripContext();
-  const offlineQueue = useOfflineQueue(wsStatus, tripCtx.selectedTripId);
+  const offlineQueue = useOfflineQueue(isOnline, tripCtx.selectedTripId);
 
   if (tripCtx.loading) {
     return (
@@ -92,7 +92,7 @@ function AuthenticatedApp({ username, onLogout }) {
     <BrowserRouter>
       <div className="app">
         <Header
-          wsStatus={wsStatus}
+          isOnline={isOnline}
           queueLength={offlineQueue.queueLength}
           syncStatus={offlineQueue.syncStatus}
           trips={tripCtx.trips}
@@ -106,7 +106,7 @@ function AuthenticatedApp({ username, onLogout }) {
             <Dashboard tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />
           } />
           <Route path="/scanner" element={
-            <Scanner wsStatus={wsStatus} offlineQueue={offlineQueue} tripId={tripCtx.selectedTripId} trip={tripCtx.selectedTrip} />
+            <Scanner isOnline={isOnline} offlineQueue={offlineQueue} tripId={tripCtx.selectedTripId} trip={tripCtx.selectedTrip} />
           } />
           <Route path="/travelers" element={
             <TravelerList tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />

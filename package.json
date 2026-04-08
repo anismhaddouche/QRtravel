@@ -1,15 +1,14 @@
 {
   "name": "qr-checkin-mvp",
   "version": "2.0.0",
-  "description": "Travel agency QR check-in system — deployable on Render free tier",
+  "description": "Travel agency QR check-in system — Vercel + Supabase",
   "private": true,
   "scripts": {
     "server": "node server/index.js",
-    "server:https": "node server/index.js --https",
+    "server:https": "ENABLE_HTTPS=true node server/index.js",
     "client": "cd client && npm run dev",
     "seed": "node server/seed.js",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "dev:https": "concurrently \"npm run server:https\" \"npm run client\"",
     "build": "cd client && npm install && npx vite build",
     "start": "node server/index.js",
     "generate-cert": "node server/generate-cert.js",
@@ -23,8 +22,7 @@
     "express": "^4.21.0",
     "pg": "^8.13.0",
     "qrcode": "^1.5.4",
-    "uuid": "^10.0.0",
-    "ws": "^8.18.0"
+    "uuid": "^10.0.0"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

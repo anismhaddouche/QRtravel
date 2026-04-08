@@ -1,4 +1,4 @@
-# 🚌 QR Check-In System
+# 🚌 QR Check-In System (Vercel + Supabase)
 
 A production-ready, offline-first QR check-in system designed for travel agency staff.
 
@@ -6,8 +6,8 @@ A production-ready, offline-first QR check-in system designed for travel agency 
 - **🔐 Admin Auth**: Session-based login with bcrypt.
 - **🗺️ Management**: Full CRUD for Trips and Travelers.
 - **📷 Scanner**: QR scanning with offline queue & auto-sync.
-- **📊 Dashboard**: Real-time attendance tracking via WebSockets.
-- **🐘 Database**: PostgreSQL (Optimized for Render Free Tier).
+- **📊 Dashboard**: Real-time attendance tracking via polling.
+- **🐘 Database**: PostgreSQL.
 
 ---
 
@@ -15,40 +15,52 @@ A production-ready, offline-first QR check-in system designed for travel agency 
 
 ### 1. Requirements
 - Node.js 18+
-- PostgreSQL (Local or Docker)
+- PostgreSQL (Local, Docker, or Supabase connection string)
 
-### 2. Database (Docker example)
-```bash
-docker run --name qrcheckin-pg -e POSTGRES_DB=qrcheckin -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres
-```
-
-### 3. Installation
+### 2. Installation
 ```bash
 cp .env.example .env
 npm install
 npm run seed     # Initialize demo data
-npm run dev      # Start backend + frontend
+npm run dev      # Start Vite + Local Express Server
 ```
 
 **Login**: `ADMIN` / `ADMIN123`
 
 ---
 
-## ☁️ Deployment (Render)
+## ☁️ Deployment (Vercel + Supabase)
 
-This project is configured for **one-click deployment** on Render.
+This project is configured for **free deployment** via Vercel for hosting and Supabase for the database.
 
+### 1. Database (Supabase)
+1. Create a free account and project on [Supabase](https://supabase.com).
+2. Go to **Project Settings** > **Database** and copy your **Connection String (URI format)**.
+3. Replace the placeholder items `[YOUR-PASSWORD]` in the URI.
+
+### 2. Hosting (Vercel)
 1. Push this folder to a GitHub repository.
-2. Link the repository to [Render](https://render.com).
-3. Render will automatically detect `render.yaml` and provision:
-   - **Web Service** (Node.js)
-   - **PostgreSQL Database** (Free Tier)
-4. Once deployed, run `node server/seed.js` via the Render Shell tab to initialize your data.
+2. Link the repository to [Vercel](https://vercel.com).
+3. In Vercel, add the following **Environment Variables**:
+   - `NODE_ENV` = `production`
+   - `DATABASE_URL` = `(Your Supabase Connection String)`
+   - `ADMIN_USERNAME` = `ADMIN`
+   - `ADMIN_PASSWORD` = `ADMIN123`
+   - `SESSION_SECRET` = `(Generate a long random string)`
+4. Deploy the project. The `vercel.json` handles routing the API.
+
+### 3. Initialize Data
+Because Vercel functions are serverless, there's no persistent terminal.
+To seed your Supabase database, run the seed script locally *while pointing your local `.env` to the Supabase database*:
+```bash
+# In your local .env, temporarily set DATABASE_URL to your Supabase URL
+npm run seed
+```
 
 ---
 
 ## 🛠 Tech Stack
 - **Frontend**: React (Vite), HTML5-QRCode
-- **Backend**: Node.js, Express, WS (WebSockets)
-- **Database**: PostgreSQL (pg)
+- **Backend / Routing**: Vercel Serverless Functions (Express-adapter via `@vercel/node`)
+- **Database**: PostgreSQL (pg pool via Supabase)
 - **Styling**: Vanilla CSS (Premium Dark Theme)
