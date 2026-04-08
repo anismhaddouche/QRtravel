@@ -6,7 +6,6 @@
   "framework": null,
   "functions": {
     "server/index.js": {
-      "runtime": "@vercel/node",
       "memory": 512,
       "maxDuration": 10
     }
