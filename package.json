@@ -9,10 +9,10 @@
     "client": "cd client && npm run dev",
     "seed": "node server/seed.js",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "build": "cd client && npm install && npx vite build",
+    "build": "cd client && npm install --include=dev && npm run build",
     "start": "node server/index.js",
     "generate-cert": "node server/generate-cert.js",
-    "postinstall": "cd client && npm install"
+    "postinstall": "cd client && npm install --include=dev"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
