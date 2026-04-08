@@ -5,7 +5,7 @@ const statusConfig = {
   disconnected: { label: 'Offline', className: 'disconnected' },
 };
 
-export default function Header({ wsStatus, queueLength, syncStatus, trips, selectedTrip, onSelectTrip }) {
+export default function Header({ wsStatus, queueLength, syncStatus, trips, selectedTrip, onSelectTrip, username, onLogout }) {
   const st = statusConfig[wsStatus] || statusConfig.disconnected;
 
   return (
@@ -48,6 +48,9 @@ export default function Header({ wsStatus, queueLength, syncStatus, trips, selec
           <NavLink to="/qrcodes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
             🔲 QR Codes
           </NavLink>
+          <NavLink to="/trips" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            🗺️ Trips
+          </NavLink>
         </nav>
 
         <div className="header-status">
@@ -60,6 +63,11 @@ export default function Header({ wsStatus, queueLength, syncStatus, trips, selec
             <span className="connection-dot"></span>
             {st.label}
           </span>
+          {username && (
+            <button className="btn btn-sm btn-logout" onClick={onLogout} title={`Logged in as ${username}`} id="btn-logout">
+              🚪 Logout
+            </button>
+          )}
         </div>
       </div>
     </header>

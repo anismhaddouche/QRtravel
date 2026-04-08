@@ -1,7 +1,7 @@
 {
   "name": "qr-checkin-mvp",
-  "version": "1.0.0",
-  "description": "Offline QR-based passenger check-in system for group travel",
+  "version": "2.0.0",
+  "description": "Travel agency QR check-in system — deployable on Render free tier",
   "private": true,
   "scripts": {
     "server": "node server/index.js",
@@ -10,20 +10,26 @@
     "seed": "node server/seed.js",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "dev:https": "concurrently \"npm run server:https\" \"npm run client\"",
-    "build": "cd client && npm run build",
-    "start": "npm run build && npm run server",
-    "generate-cert": "node server/generate-cert.js"
+    "build": "cd client && npm install && npx vite build",
+    "start": "node server/index.js",
+    "generate-cert": "node server/generate-cert.js",
+    "postinstall": "cd client && npm install"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^17.4.1",
     "express": "^4.21.0",
+    "pg": "^8.13.0",
     "qrcode": "^1.5.4",
-    "sql.js": "^1.11.0",
     "uuid": "^10.0.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

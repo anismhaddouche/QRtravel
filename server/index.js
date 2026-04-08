@@ -5,28 +5,38 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const { WebSocketServer } = require('ws');
 const { setupWebSocket } = require('./websocket');
 const { initDb } = require('./db');
+const { requireAuth } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true,
+}));
 app.use(express.json());
+app.use(cookieParser());
 
-// API Routes
-app.use('/api/trips', require('./routes/trips'));
-app.use('/api/checkin', require('./routes/checkin'));
-app.use('/api/qrcodes', require('./routes/qrcodes'));
-app.use('/api/travelers', require('./routes/travelers'));
+// Trust proxy (Render runs behind a reverse proxy)
+app.set('trust proxy', 1);
 
-// Health check
+// ─── Public routes (no auth required) ───
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+app.use('/api/auth', require('./routes/auth'));
+
+// ─── Protected routes (auth required) ───
+app.use('/api/trips', requireAuth, require('./routes/trips'));
+app.use('/api/checkin', requireAuth, require('./routes/checkin'));
+app.use('/api/qrcodes', requireAuth, require('./routes/qrcodes'));
+app.use('/api/travelers', requireAuth, require('./routes/travelers'));
 
 // Serve React build in production
 const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');
@@ -39,7 +49,7 @@ app.get('*', (req, res) => {
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
-      res.status(404).json({ error: 'Frontend not built. Run: cd client && npm run build' });
+      res.status(404).json({ error: 'Frontend not built. Run: npm run build' });
     }
   }
 });
@@ -49,7 +59,7 @@ const httpServer = http.createServer(app);
 const wss = new WebSocketServer({ server: httpServer });
 setupWebSocket(wss);
 
-// Optional HTTPS server for LAN camera access
+// Optional HTTPS server for LAN camera access (local dev only)
 let httpsServer = null;
 const certPath = path.join(__dirname, 'certs', 'cert.pem');
 const keyPath = path.join(__dirname, 'certs', 'key.pem');
@@ -115,6 +125,9 @@ initDb().then(() => {
       console.log('╚══════════════════════════════════════════════════╝');
       console.log('');
     }
+    console.log('  🔐 Admin login: /api/auth/login');
+    console.log(`  📊 Database: PostgreSQL`);
+    console.log('');
   });
 }).catch(err => {
   console.error('Failed to initialize database:', err);

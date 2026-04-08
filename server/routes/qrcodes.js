@@ -5,11 +5,11 @@ const QRCode = require('qrcode');
 
 // GET /api/qrcodes — get all QR codes as data URLs (for print/export page)
 router.get('/', async (req, res) => {
-  const tripId = req.query.tripId;
-  if (!tripId) return res.status(400).json({ error: 'tripId query param is required' });
-  const travelers = all('SELECT * FROM travelers WHERE tripId = ? ORDER BY referenceCode', [tripId]);
-
   try {
+    const tripId = req.query.tripId;
+    if (!tripId) return res.status(400).json({ error: 'tripId query param is required' });
+    const travelers = await all('SELECT * FROM travelers WHERE "tripId" = $1 ORDER BY "referenceCode"', [tripId]);
+
     const qrCodes = await Promise.all(
       travelers.map(async (t) => {
         const dataUrl = await QRCode.toDataURL(t.referenceCode, { margin: 2, width: 200 });
@@ -25,20 +25,21 @@ router.get('/', async (req, res) => {
     );
     res.json(qrCodes);
   } catch (err) {
+    console.error('Error generating QR codes:', err);
     res.status(500).json({ error: 'Failed to generate QR codes' });
   }
 });
 
 // GET /api/qrcodes/:referenceCode — generate a single QR code
 router.get('/:referenceCode', async (req, res) => {
-  const { referenceCode } = req.params;
-
-  const traveler = get('SELECT * FROM travelers WHERE referenceCode = ?', [referenceCode]);
-  if (!traveler) {
-    return res.status(404).json({ error: `Unknown reference code: ${referenceCode}` });
-  }
-
   try {
+    const { referenceCode } = req.params;
+
+    const traveler = await get('SELECT * FROM travelers WHERE "referenceCode" = $1', [referenceCode]);
+    if (!traveler) {
+      return res.status(404).json({ error: `Unknown reference code: ${referenceCode}` });
+    }
+
     const format = req.query.format || 'png';
 
     if (format === 'svg') {
@@ -52,6 +53,7 @@ router.get('/:referenceCode', async (req, res) => {
       res.type('image/png').send(buffer);
     }
   } catch (err) {
+    console.error('Error generating QR code:', err);
     res.status(500).json({ error: 'Failed to generate QR code' });
   }
 });

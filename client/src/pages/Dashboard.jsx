@@ -16,7 +16,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
       const [statsData, travelersData, eventsData] = await Promise.all([
         api.getStats(tripId),
         api.getTravelers(tripId),
-        api.getEvents(10),
+        api.getEvents(10, tripId),
       ]);
       setStats(statsData);
       setTravelers(travelersData);
@@ -40,7 +40,8 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
     return (
       <div className="page"><div className="empty-state">
         <div className="empty-state-icon">📋</div>
-        <p>No trip selected. Create a trip first.</p>
+        <h2 style={{ marginBottom: '8px', color: 'var(--text-primary)' }}>No Trip Selected</h2>
+        <p>Select a trip from the header or <a href="/trips" style={{ color: 'var(--accent-light)' }}>create one</a> to view the dashboard.</p>
       </div></div>
     );
   }

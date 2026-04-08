@@ -4,71 +4,111 @@ const { run, get, all } = require('../db');
 const { v4: uuidv4 } = require('uuid');
 
 // GET /api/trips — list all trips
-router.get('/', (req, res) => {
-  const { status } = req.query;
-  let trips;
-  if (status) {
-    trips = all('SELECT * FROM trips WHERE status = ? ORDER BY date DESC', [status]);
-  } else {
-    trips = all('SELECT * FROM trips ORDER BY date DESC');
+router.get('/', async (req, res) => {
+  try {
+    const { status } = req.query;
+    let trips;
+    if (status) {
+      trips = await all('SELECT * FROM trips WHERE status = $1 ORDER BY date DESC', [status]);
+    } else {
+      trips = await all('SELECT * FROM trips ORDER BY date DESC');
+    }
+
+    // Attach stats to each trip
+    const enriched = await Promise.all(trips.map(async (trip) => {
+      const total = await get('SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1', [trip.id]);
+      const checkedIn = await get(`SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1 AND status = 'checked_in'`, [trip.id]);
+      const totalPeople = await get('SELECT COALESCE(SUM("peopleCount"), 0) as count FROM travelers WHERE "tripId" = $1', [trip.id]);
+      return {
+        ...trip,
+        travelerCount: parseInt(total.count),
+        checkedInCount: parseInt(checkedIn.count),
+        totalPeople: parseInt(totalPeople.count),
+      };
+    }));
+
+    res.json(enriched);
+  } catch (err) {
+    console.error('Error fetching trips:', err);
+    res.status(500).json({ error: 'Failed to fetch trips' });
   }
-
-  // Attach stats to each trip
-  const enriched = trips.map(trip => {
-    const total = get('SELECT COUNT(*) as count FROM travelers WHERE tripId = ?', [trip.id]);
-    const checkedIn = get("SELECT COUNT(*) as count FROM travelers WHERE tripId = ? AND status = 'checked_in'", [trip.id]);
-    const totalPeople = get('SELECT COALESCE(SUM(peopleCount), 0) as count FROM travelers WHERE tripId = ?', [trip.id]);
-    return {
-      ...trip,
-      travelerCount: total.count,
-      checkedInCount: checkedIn.count,
-      totalPeople: totalPeople.count,
-    };
-  });
-
-  res.json(enriched);
 });
 
 // GET /api/trips/:id
-router.get('/:id', (req, res) => {
-  const trip = get('SELECT * FROM trips WHERE id = ?', [req.params.id]);
-  if (!trip) return res.status(404).json({ error: 'Trip not found' });
-  res.json(trip);
+router.get('/:id', async (req, res) => {
+  try {
+    const trip = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    res.json(trip);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch trip' });
+  }
 });
 
 // POST /api/trips — create a new trip
-router.post('/', (req, res) => {
-  const { name, date } = req.body;
-  if (!name) return res.status(400).json({ error: 'name is required' });
+router.post('/', async (req, res) => {
+  try {
+    const { name, date, notes } = req.body;
+    if (!name) return res.status(400).json({ error: 'name is required' });
 
-  const id = uuidv4();
-  const now = new Date().toISOString();
+    const id = uuidv4();
+    const now = new Date().toISOString();
 
-  run(
-    'INSERT INTO trips (id, name, date, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, name, date || now.split('T')[0], 'active', now, now]
-  );
+    await run(
+      `INSERT INTO trips (id, name, date, notes, status, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [id, name, date || now.split('T')[0], notes || '', 'active', now, now]
+    );
 
-  const trip = get('SELECT * FROM trips WHERE id = ?', [id]);
-  res.status(201).json(trip);
+    const trip = await get('SELECT * FROM trips WHERE id = $1', [id]);
+    res.status(201).json(trip);
+  } catch (err) {
+    console.error('Error creating trip:', err);
+    res.status(500).json({ error: 'Failed to create trip' });
+  }
 });
 
 // PUT /api/trips/:id
-router.put('/:id', (req, res) => {
-  const trip = get('SELECT * FROM trips WHERE id = ?', [req.params.id]);
-  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+router.put('/:id', async (req, res) => {
+  try {
+    const trip = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
 
-  const { name, date, status } = req.body;
-  const now = new Date().toISOString();
+    const { name, date, status, notes } = req.body;
+    const now = new Date().toISOString();
 
-  run(
-    `UPDATE trips SET name = COALESCE(?, name), date = COALESCE(?, date),
-     status = COALESCE(?, status), updatedAt = ? WHERE id = ?`,
-    [name || null, date || null, status || null, now, req.params.id]
-  );
+    await run(
+      `UPDATE trips SET 
+        name = COALESCE($1, name), 
+        date = COALESCE($2, date),
+        status = COALESCE($3, status), 
+        notes = COALESCE($4, notes),
+        "updatedAt" = $5 
+      WHERE id = $6`,
+      [name || null, date || null, status || null, notes !== undefined ? notes : null, now, req.params.id]
+    );
 
-  const updated = get('SELECT * FROM trips WHERE id = ?', [req.params.id]);
-  res.json(updated);
+    const updated = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
+    res.json(updated);
+  } catch (err) {
+    console.error('Error updating trip:', err);
+    res.status(500).json({ error: 'Failed to update trip' });
+  }
+});
+
+// DELETE /api/trips/:id — cascade deletes travelers + scan events
+router.delete('/:id', async (req, res) => {
+  try {
+    const trip = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    // CASCADE handles travelers and scan_events deletion via FK
+    await run('DELETE FROM trips WHERE id = $1', [req.params.id]);
+
+    res.json({ success: true, message: `Trip "${trip.name}" and all associated data deleted` });
+  } catch (err) {
+    console.error('Error deleting trip:', err);
+    res.status(500).json({ error: 'Failed to delete trip' });
+  }
 });
 
 module.exports = router;

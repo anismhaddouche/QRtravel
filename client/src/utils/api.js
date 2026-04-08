@@ -18,9 +18,16 @@ export function getWsUrl() {
   return `${protocol}//${host}`;
 }
 
+// Global auth state callback — set by App.jsx
+let onAuthError = null;
+export function setAuthErrorHandler(handler) {
+  onAuthError = handler;
+}
+
 async function request(url, options = {}) {
   const config = {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', // Send HttpOnly cookies
     ...options,
   };
 
@@ -29,6 +36,15 @@ async function request(url, options = {}) {
   }
 
   const response = await fetch(`${API_BASE}${url}`, config);
+
+  // Handle 401 globally — redirect to login
+  if (response.status === 401 && onAuthError) {
+    onAuthError();
+    const error = new Error('Authentication required');
+    error.status = 401;
+    throw error;
+  }
+
   const data = await response.json();
 
   if (!response.ok) {
@@ -43,11 +59,17 @@ async function request(url, options = {}) {
 }
 
 export const api = {
+  // Auth
+  login: (username, password) => request('/auth/login', { method: 'POST', body: { username, password } }),
+  logout: () => request('/auth/logout', { method: 'POST' }),
+  me: () => request('/auth/me'),
+
   // Trips
   getTrips: () => request('/trips'),
   getTrip: (id) => request(`/trips/${id}`),
   createTrip: (data) => request('/trips', { method: 'POST', body: data }),
   updateTrip: (id, data) => request(`/trips/${id}`, { method: 'PUT', body: data }),
+  deleteTrip: (id) => request(`/trips/${id}`, { method: 'DELETE' }),
 
   // Travelers
   getTravelers: (tripId) => request(`/travelers?tripId=${tripId}`),
@@ -61,12 +83,12 @@ export const api = {
   checkIn: (referenceCode, deviceId) => request('/checkin', { method: 'POST', body: { referenceCode, deviceId } }),
   undoCheckIn: (referenceCode) => request('/checkin/undo', { method: 'POST', body: { referenceCode } }),
   manualCheckIn: (travelerId) => request('/checkin/manual', { method: 'POST', body: { travelerId } }),
-  getEvents: (limit = 20) => request(`/checkin/events?limit=${limit}`),
+  getEvents: (limit = 20, tripId) => request(`/checkin/events?limit=${limit}${tripId ? `&tripId=${tripId}` : ''}`),
   syncEvents: (events) => request('/checkin/sync', { method: 'POST', body: { events } }),
 
   // QR Codes
   getQRCodes: (tripId) => request(`/qrcodes?tripId=${tripId}`),
 
   // Health
-  health: () => request('/health'),
+  health: () => fetch(`${API_BASE}/health`).then(r => r.json()),
 };
