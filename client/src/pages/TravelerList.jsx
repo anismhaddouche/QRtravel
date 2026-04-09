@@ -10,6 +10,7 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState({
     referenceCode: '', displayName: '', type: 'person', peopleCount: 1, notes: '',
   });
@@ -109,6 +110,17 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
 
   const totalPeople = travelers.reduce((sum, t) => sum + t.peopleCount, 0);
 
+  const filtered = search.trim()
+    ? travelers.filter(t => {
+      const q = search.toLowerCase();
+      return (
+        t.displayName.toLowerCase().includes(q) ||
+        t.referenceCode.toLowerCase().includes(q) ||
+        (t.notes || '').toLowerCase().includes(q)
+      );
+    })
+    : travelers;
+
   return (
     <div className="page">
       <div className="page-header">
@@ -119,6 +131,19 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
         <button className="btn btn-primary" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }} id="btn-add-traveler">
           {showForm ? '✕ Cancel' : '+ Add Traveler'}
         </button>
+      </div>
+
+      {/* Search bar */}
+      <div style={{ marginBottom: '16px' }}>
+        <input
+          className="form-input"
+          type="search"
+          placeholder="Search traveler..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          id="input-traveler-search"
+          style={{ maxWidth: '360px', width: '100%' }}
+        />
       </div>
 
       {showForm && (
@@ -160,7 +185,7 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
                   id="select-traveler-type"
                 >
                   <option value="person">👤 Person</option>
-                  <option value="couple">💑 Couple</option>
+                  <option value="couple">👥 Couple</option>
                   <option value="family">👨‍👩‍👧‍👦 Family</option>
                   <option value="group">👥 Group</option>
                 </select>
@@ -193,6 +218,12 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
           <h2 style={{ marginBottom: '8px', color: 'var(--text-primary)' }}>No Travelers Yet</h2>
           <p>Add travelers to this trip to start managing check-ins.</p>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">🔍</div>
+          <h2 style={{ marginBottom: '8px', color: 'var(--text-primary)' }}>No travelers found</h2>
+          <p>No travelers found for this search.</p>
+        </div>
       ) : (
         <div className="card">
           <table className="traveler-table">
@@ -203,7 +234,7 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
               </tr>
             </thead>
             <tbody>
-              {travelers.map(t => (
+              {filtered.map(t => (
                 <tr key={t.id}>
                   <td>
                     <div className="traveler-name">{t.displayName}</div>
