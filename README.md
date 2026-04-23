@@ -1,36 +1,32 @@
-# 🚌 Système de Check-In par QR Code
+# Travel QR Check-in
 
-Un système de check-in par QR code prêt pour la production et fonctionnel hors-ligne, conçu pour le personnel d'agences de voyages.
+Application web de check-in par QR code pour la gestion des embarquements d'agences de voyage.
 
-## 🚀 Fonctionnalités
-- **🔐 Authentification Admin** : Connexion par session avec bcrypt.
-- **🗺️ Gestion** : Interface complète (CRUD) pour les Voyages et les Voyageurs.
-- **📷 Scanner** : Scan de QR codes avec file d'attente hors-ligne & synchronisation automatique.
-- **📊 Tableau de bord** : Suivi des présences en temps réel (via polling).
-- **🐘 Base de Données** : PostgreSQL.
+![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=flat-square&logo=pwa&logoColor=white)
 
----
+## Aperçu du projet
 
-## 💻 Installation Locale
+Ce projet fournit une interface permettant au personnel d'une agence de voyages de gérer les listes de passagers et de valider les présences le jour du départ. Le système utilise le scan de QR codes pour automatiser l'enregistrement et assurer un suivi des embarquements en temps réel.
 
-### 1. Prérequis
-- Node.js 18+
-- PostgreSQL (Local ou Docker)
+## Fonctionnalités clés
 
-### 2. Installation
-```bash
-cp .env.example .env
-npm install
-npm run seed     # Initialise les données de démonstration
-npm run dev      # Démarre Vite + le serveur local Express
-```
+- Création et gestion des voyages.
+- Enregistrement des voyageurs et génération de QR codes uniques.
+- Scan des QR codes sur le terrain pour l'embarquement.
+- Suivi des présences en temps réel.
+- Support hors-ligne (PWA) pour garantir la continuité de service.
 
-**Identifiants par défaut** : `ADMIN` / `ADMIN123`
+## Stack technique
 
----
+- **Frontend** : React (Vite), HTML5-QRCode, PWA
+- **Backend** : Node.js, Express
+- **Base de données** : PostgreSQL
+- **Déploiement** : Vercel
 
-## 🛠 Tech Stack
-- **Frontend** : React (Vite), HTML5-QRCode
-- **Backend / Routing** : Node.js, Express
-- **Base de Données** : PostgreSQL (pool de connexion via `pg`)
-- **Style** : Vanilla CSS 
+## Licence
+
+Distribué sous la licence MIT.
