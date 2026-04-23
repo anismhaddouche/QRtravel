@@ -1,11 +1,11 @@
 {
-  "name": "QR Check-In",
-  "short_name": "Check-In",
-  "description": "Offline-capable QR code check-in system for travel agencies",
+  "name": "VoyageCheck — Check-in QR",
+  "short_name": "VoyageCheck",
+  "description": "Système de check-in par QR code pour agences de voyage",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0e1a",
-  "theme_color": "#6c5ce7",
+  "background_color": "#0a0f1e",
+  "theme_color": "#0a0f1e",
   "orientation": "any",
   "icons": [
     {

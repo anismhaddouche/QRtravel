@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qr-checkin-v1';
+const CACHE_NAME = 'qr-checkin-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

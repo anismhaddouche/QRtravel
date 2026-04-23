@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
 import StatusBadge from '../components/StatusBadge';
+import Modal from '../components/Modal';
+import EmptyState from '../components/EmptyState';
+import { LoadingState } from '../components/Skeleton';
+import { Users, User, Users2, Search, Plus, Edit2, Trash2, QrCode, CornerUpLeft, Check } from 'lucide-react';
 
-const TYPE_ICONS = { person: '👤', couple: '👥', family: '👨‍👩‍👧‍👦', group: '👥' };
+const TYPE_ICONS = { person: User, couple: Users, family: Users2, group: Users };
+const TYPE_LABELS = { person: 'Individuel', couple: 'Couple', family: 'Famille', group: 'Groupe' };
 
 export default function TravelerList({ tripId, lastMessage, trip }) {
   const [travelers, setTravelers] = useState([]);
@@ -11,6 +16,7 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
   const [editingId, setEditingId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all'); // all, person, couple, family, group
   const [form, setForm] = useState({
     referenceCode: '', displayName: '', type: 'person', peopleCount: 1, notes: '',
   });
@@ -42,7 +48,7 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
     setFormError('');
 
     if (!form.referenceCode || !form.displayName) {
-      setFormError('Reference code and display name are required');
+      setFormError('Le code de référence et le nom sont requis');
       return;
     }
 
@@ -78,7 +84,7 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
       setDeleteConfirm(null);
       fetchTravelers();
     } catch (err) {
-      alert('Failed to delete: ' + err.message);
+      alert('Erreur lors de la suppression : ' + err.message);
     }
   };
 
@@ -92,199 +98,310 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
 
   if (!tripId) {
     return (
-      <div className="page"><div className="empty-state">
-        <div className="empty-state-icon">📋</div>
-        <h2 style={{ marginBottom: '8px', color: 'var(--text-primary)' }}>No Trip Selected</h2>
-        <p>Select a trip from the header or <a href="/trips" style={{ color: 'var(--accent-light)' }}>create one</a> to manage travelers.</p>
-      </div></div>
+      <div style={{ marginTop: '48px' }}>
+        <EmptyState 
+          icon={Users}
+          title="Aucun voyage sélectionné"
+          description="Sélectionnez un voyage dans le menu ou créez-en un nouveau pour gérer les voyageurs."
+        />
+      </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="page"><div className="empty-state">
-        <div className="empty-state-icon">⏳</div><p>Loading travelers...</p>
-      </div></div>
+      <div>
+        <div className="page-header">
+          <div>
+            <h1 className="page-title"><Users size={28} className="text-accent" /> Voyageurs</h1>
+          </div>
+        </div>
+        <LoadingState message="Chargement des voyageurs..." />
+      </div>
     );
   }
 
   const totalPeople = travelers.reduce((sum, t) => sum + t.peopleCount, 0);
 
-  const filtered = search.trim()
-    ? travelers.filter(t => {
-      const q = search.toLowerCase();
-      return (
-        t.displayName.toLowerCase().includes(q) ||
-        t.referenceCode.toLowerCase().includes(q) ||
-        (t.notes || '').toLowerCase().includes(q)
-      );
-    })
-    : travelers;
+  let filtered = travelers;
+  
+  if (filter !== 'all') {
+    filtered = filtered.filter(t => t.type === filter);
+  }
+  
+  if (search.trim()) {
+    const q = search.toLowerCase();
+    filtered = filtered.filter(t => 
+      t.displayName.toLowerCase().includes(q) ||
+      t.referenceCode.toLowerCase().includes(q) ||
+      (t.notes || '').toLowerCase().includes(q)
+    );
+  }
 
   return (
-    <div className="page">
+    <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">👥 Travelers</h1>
-          <p className="page-subtitle">{travelers.length} units • {totalPeople} people — {trip?.name || 'Trip'}</p>
+          <h1 className="page-title"><Users size={28} style={{ color: 'var(--accent)' }} /> Voyageurs</h1>
+          <p className="page-subtitle">{travelers.length} unités • {totalPeople} personnes — {trip?.name || 'Voyage'}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }} id="btn-add-traveler">
-          {showForm ? '✕ Cancel' : '+ Add Traveler'}
+        <button 
+          className="btn btn-primary" 
+          onClick={() => { setShowForm(true); resetForm(); }} 
+          id="btn-add-traveler"
+        >
+          <Plus size={18} /> Ajouter un voyageur
         </button>
       </div>
 
-      {/* Search bar */}
-      <div style={{ marginBottom: '16px' }}>
-        <input
-          className="form-input"
-          type="search"
-          placeholder="Search traveler..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          id="input-traveler-search"
-          style={{ maxWidth: '360px', width: '100%' }}
-        />
+      <div className="glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+              <Search size={18} />
+            </div>
+            <input
+              className="form-input"
+              style={{ paddingLeft: '44px' }}
+              type="search"
+              placeholder="Rechercher par nom, code ou notes..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              id="input-traveler-search"
+            />
+          </div>
+        </div>
+        
+        {/* Quick Filters */}
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginTop: '16px', paddingBottom: '4px' }}>
+          <button 
+            className={`badge ${filter === 'all' ? 'badge-success' : 'badge-neutral'}`}
+            style={{ cursor: 'pointer', padding: '6px 12px' }}
+            onClick={() => setFilter('all')}
+          >
+            Tous
+          </button>
+          <button 
+            className={`badge ${filter === 'person' ? 'badge-success' : 'badge-neutral'}`}
+            style={{ cursor: 'pointer', padding: '6px 12px' }}
+            onClick={() => setFilter('person')}
+          >
+            <User size={14} /> Individuels
+          </button>
+          <button 
+            className={`badge ${filter === 'couple' ? 'badge-success' : 'badge-neutral'}`}
+            style={{ cursor: 'pointer', padding: '6px 12px' }}
+            onClick={() => setFilter('couple')}
+          >
+            <Users size={14} /> Couples
+          </button>
+          <button 
+            className={`badge ${filter === 'family' ? 'badge-success' : 'badge-neutral'}`}
+            style={{ cursor: 'pointer', padding: '6px 12px' }}
+            onClick={() => setFilter('family')}
+          >
+            <Users2 size={14} /> Familles
+          </button>
+        </div>
       </div>
 
-      {showForm && (
-        <div className="card" style={{ marginBottom: '20px' }}>
-          <h3 className="card-title" style={{ marginBottom: '16px' }}>
-            {editingId ? '✏️ Edit Traveler' : '🆕 New Traveler Unit'}
-          </h3>
-          {formError && <div className="form-error">❌ {formError}</div>}
-          <form onSubmit={handleSubmit}>
-            <div className="form-grid-2">
-              <div className="form-group">
-                <label className="form-label">Reference Code *</label>
-                <input
-                  className="form-input" placeholder="e.g. TRV-011"
-                  value={form.referenceCode}
-                  onChange={e => setForm({ ...form, referenceCode: e.target.value.toUpperCase() })}
-                  required disabled={!!editingId}
-                  id="input-traveler-code"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Display Name *</label>
-                <input
-                  className="form-input" placeholder="e.g. John Smith"
-                  value={form.displayName}
-                  onChange={e => setForm({ ...form, displayName: e.target.value })}
-                  required
-                  id="input-traveler-name"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Type</label>
-                <select className="form-select" value={form.type}
-                  onChange={e => {
-                    const type = e.target.value;
-                    const count = type === 'person' ? 1 : type === 'couple' ? 2 : 3;
-                    setForm({ ...form, type, peopleCount: count });
-                  }}
-                  id="select-traveler-type"
-                >
-                  <option value="person">👤 Person</option>
-                  <option value="couple">👥 Couple</option>
-                  <option value="family">👨‍👩‍👧‍👦 Family</option>
-                  <option value="group">👥 Group</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">People Count</label>
-                <input type="number" className="form-input" min="1" max="50" value={form.peopleCount}
-                  onChange={e => setForm({ ...form, peopleCount: parseInt(e.target.value) || 1 })}
-                  id="input-traveler-count"
-                />
-              </div>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                <label className="form-label">Notes (optional)</label>
-                <input className="form-input" placeholder="Dietary needs, accessibility, etc."
-                  value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })}
-                  id="input-traveler-notes"
-                />
-              </div>
+      {/* Form Modal */}
+      <Modal
+        isOpen={showForm}
+        onClose={() => { setShowForm(false); resetForm(); }}
+        title={editingId ? 'Modifier le voyageur' : 'Nouveau voyageur'}
+      >
+        {formError && <div className="form-error">{formError}</div>}
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Nom d'affichage *</label>
+            <input
+              className="form-input" 
+              placeholder="ex: Jean Dupont"
+              value={form.displayName}
+              onChange={e => setForm({ ...form, displayName: e.target.value })}
+              required
+              id="input-traveler-name"
+            />
+          </div>
+          <div className="form-grid-2">
+            <div className="form-group">
+              <label className="form-label">Code de référence *</label>
+              <input
+                className="form-input" 
+                placeholder="ex: TRV-011"
+                value={form.referenceCode}
+                onChange={e => setForm({ ...form, referenceCode: e.target.value.toUpperCase() })}
+                required 
+                disabled={!!editingId}
+                id="input-traveler-code"
+              />
             </div>
-            <button type="submit" className="btn btn-success" style={{ marginTop: '8px' }} id="btn-save-traveler">
-              {editingId ? '💾 Save Changes' : '✓ Create Traveler'}
+            <div className="form-group">
+              <label className="form-label">Type</label>
+              <select 
+                className="form-select" 
+                value={form.type}
+                onChange={e => {
+                  const type = e.target.value;
+                  const count = type === 'person' ? 1 : type === 'couple' ? 2 : 3;
+                  setForm({ ...form, type, peopleCount: count });
+                }}
+                id="select-traveler-type"
+              >
+                <option value="person">Individuel</option>
+                <option value="couple">Couple</option>
+                <option value="family">Famille</option>
+                <option value="group">Groupe</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Nombre de personnes</label>
+            <input 
+              type="number" 
+              className="form-input" 
+              min="1" max="50" 
+              value={form.peopleCount}
+              onChange={e => setForm({ ...form, peopleCount: parseInt(e.target.value) || 1 })}
+              id="input-traveler-count"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Notes (optionnel)</label>
+            <input 
+              className="form-input" 
+              placeholder="Régimes alimentaires, accessibilité, etc."
+              value={form.notes} 
+              onChange={e => setForm({ ...form, notes: e.target.value })}
+              id="input-traveler-notes"
+            />
+          </div>
+          <div className="flex justify-between mt-4">
+            <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)}>
+              Annuler
             </button>
-          </form>
-        </div>
-      )}
+            <button type="submit" className="btn btn-primary" id="btn-save-traveler">
+              {editingId ? 'Enregistrer' : 'Ajouter le voyageur'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
+      {/* List */}
       {travelers.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">👥</div>
-          <h2 style={{ marginBottom: '8px', color: 'var(--text-primary)' }}>No Travelers Yet</h2>
-          <p>Add travelers to this trip to start managing check-ins.</p>
-        </div>
+        <EmptyState 
+          icon={Users}
+          title="Aucun voyageur"
+          description="Ajoutez des voyageurs à ce voyage pour commencer à gérer les embarquements."
+          action={
+            <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+              <Plus size={18} /> Ajouter un voyageur
+            </button>
+          }
+        />
       ) : filtered.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">🔍</div>
-          <h2 style={{ marginBottom: '8px', color: 'var(--text-primary)' }}>No travelers found</h2>
-          <p>No travelers found for this search.</p>
-        </div>
+        <EmptyState 
+          icon={Search}
+          title="Aucun résultat"
+          description="Aucun voyageur ne correspond à votre recherche."
+          action={
+            <button className="btn btn-outline" onClick={() => { setSearch(''); setFilter('all'); }}>
+              Effacer les filtres
+            </button>
+          }
+        />
       ) : (
-        <div className="card">
-          <table className="traveler-table">
-            <thead>
-              <tr>
-                <th>Name</th><th>Code</th><th>Type</th><th>People</th>
-                <th>Status</th><th>Checked In</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(t => (
-                <tr key={t.id}>
-                  <td>
-                    <div className="traveler-name">{t.displayName}</div>
-                    {t.notes && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t.notes}</div>}
-                  </td>
-                  <td><span className="traveler-ref">{t.referenceCode}</span></td>
-                  <td><span className="type-icon">{TYPE_ICONS[t.type]}</span> {t.type}</td>
-                  <td>{t.peopleCount}</td>
-                  <td><StatusBadge status={t.status} /></td>
-                  <td className="traveler-time">{t.checkedInAt ? new Date(t.checkedInAt).toLocaleTimeString() : '—'}</td>
-                  <td>
-                    <div className="action-buttons">
-                      {t.status === 'checked_in' ? (
-                        <button className="btn btn-sm btn-outline" onClick={() => handleUndo(t.referenceCode)}>↩ Undo</button>
-                      ) : (
-                        <button className="btn btn-sm btn-success" onClick={() => handleManualCheckIn(t.id)}>✓ Check In</button>
-                      )}
-                      <button className="btn btn-sm btn-outline" onClick={() => handleEdit(t)}>✏️</button>
-                      <button className="btn btn-sm btn-danger-outline" onClick={() => setDeleteConfirm(t)}>🗑️</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+          {filtered.map(t => {
+            const Icon = TYPE_ICONS[t.type] || User;
+            const isCheckedIn = t.status === 'checked_in';
+            return (
+              <div key={t.id} className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column' }}>
+                <div className="flex justify-between items-start mb-2">
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '1.05rem' }}>{t.displayName}</div>
+                  <StatusBadge status={t.status} />
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <span style={{ 
+                    fontFamily: 'var(--font-mono)', 
+                    fontSize: '0.8rem', 
+                    background: 'rgba(0,0,0,0.3)', 
+                    padding: '2px 8px', 
+                    borderRadius: '4px',
+                    color: 'var(--text-secondary)'
+                  }}>
+                    {t.referenceCode}
+                  </span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Icon size={14} /> {TYPE_LABELS[t.type]} • {t.peopleCount} p.
+                  </span>
+                </div>
+
+                {t.notes && (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', background: 'var(--glass)', padding: '8px', borderRadius: '4px' }}>
+                    {t.notes}
+                  </div>
+                )}
+                
+                <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="flex gap-2">
+                    {isCheckedIn ? (
+                      <button className="btn btn-sm btn-outline" onClick={() => handleUndo(t.referenceCode)} title="Annuler l'embarquement">
+                        <CornerUpLeft size={14} /> Annuler
+                      </button>
+                    ) : (
+                      <button className="btn btn-sm btn-success" onClick={() => handleManualCheckIn(t.id)} title="Embarquer manuellement">
+                        <Check size={14} /> Embarquer
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button className="btn-icon" onClick={() => handleEdit(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                      <Edit2 size={16} />
+                    </button>
+                    <button className="btn-icon" onClick={() => setDeleteConfirm(t)} style={{ background: 'transparent', border: 'none', color: 'var(--danger-light)', cursor: 'pointer' }}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-title">🗑️ Delete Traveler?</h3>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>
-              Are you sure you want to delete <strong>"{deleteConfirm.displayName}"</strong> ({deleteConfirm.referenceCode})?
+      <Modal
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title="Supprimer ce voyageur ?"
+      >
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>
+          Êtes-vous sûr de vouloir supprimer <strong>"{deleteConfirm?.displayName}"</strong> ({deleteConfirm?.referenceCode}) ?
+        </p>
+        {deleteConfirm?.status === 'checked_in' && (
+          <div style={{ 
+            background: 'var(--warning-bg)', 
+            border: '1px solid rgba(245, 158, 11, 0.3)', 
+            padding: '12px', 
+            borderRadius: '8px',
+            marginBottom: '16px' 
+          }}>
+            <p style={{ color: 'var(--warning-light)', fontSize: '0.85rem', margin: 0 }}>
+              ⚠️ Ce voyageur a déjà embarqué. Son historique de scan sera également supprimé.
             </p>
-            {deleteConfirm.status === 'checked_in' && (
-              <p style={{ color: 'var(--warning)', fontSize: '0.85rem', marginBottom: '12px' }}>
-                ⚠️ This traveler has been checked in. Their check-in history will also be deleted.
-              </p>
-            )}
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <button className="btn btn-outline" onClick={() => setDeleteConfirm(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={() => handleDelete(deleteConfirm)} id="btn-confirm-delete-traveler">
-                🗑️ Delete
-              </button>
-            </div>
           </div>
+        )}
+        <div className="flex justify-between mt-4">
+          <button className="btn btn-outline" onClick={() => setDeleteConfirm(null)}>Annuler</button>
+          <button className="btn btn-danger" onClick={() => handleDelete(deleteConfirm)} id="btn-confirm-delete-traveler">
+            <Trash2 size={18} /> Supprimer
+          </button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

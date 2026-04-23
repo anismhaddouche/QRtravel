@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Header from './components/Header';
+import Sidebar from './components/Sidebar';
+import BottomNav from './components/BottomNav';
+import { ToastProvider } from './components/Toast';
+import { LoadingState } from './components/Skeleton';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Scanner from './pages/Scanner';
@@ -51,11 +54,8 @@ export default function App() {
   if (authState === 'checking') {
     return (
       <div className="app">
-        <div className="page">
-          <div className="empty-state">
-            <div className="empty-state-icon">⏳</div>
-            <p>Loading...</p>
-          </div>
+        <div className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <LoadingState message="Vérification de l'authentification..." />
         </div>
       </div>
     );
@@ -67,22 +67,30 @@ export default function App() {
   }
 
   // Authenticated — render the full app
-  return <AuthenticatedApp username={username} onLogout={handleLogout} />;
+  return (
+    <ToastProvider>
+      <AuthenticatedApp username={username} onLogout={handleLogout} />
+    </ToastProvider>
+  );
 }
 
 function AuthenticatedApp({ username, onLogout }) {
   const { status: isOnline, lastMessage } = usePolling();
   const tripCtx = useTripContext();
   const offlineQueue = useOfflineQueue(isOnline, tripCtx.selectedTripId);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   if (tripCtx.loading) {
     return (
       <div className="app">
-        <div className="page">
-          <div className="empty-state">
-            <div className="empty-state-icon">⏳</div>
-            <p>Loading...</p>
-          </div>
+        <div className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <LoadingState message="Chargement des voyages..." />
         </div>
       </div>
     );
@@ -91,33 +99,43 @@ function AuthenticatedApp({ username, onLogout }) {
   return (
     <BrowserRouter>
       <div className="app">
-        <Header
-          isOnline={isOnline}
-          queueLength={offlineQueue.queueLength}
-          syncStatus={offlineQueue.syncStatus}
-          trips={tripCtx.trips}
-          selectedTrip={tripCtx.selectedTrip}
-          onSelectTrip={tripCtx.selectTrip}
-          username={username}
-          onLogout={onLogout}
-        />
-        <Routes>
-          <Route path="/" element={
-            <Dashboard tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />
-          } />
-          <Route path="/scanner" element={
-            <Scanner isOnline={isOnline} offlineQueue={offlineQueue} tripId={tripCtx.selectedTripId} trip={tripCtx.selectedTrip} />
-          } />
-          <Route path="/travelers" element={
-            <TravelerList tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />
-          } />
-          <Route path="/qrcodes" element={
-            <QRCodes tripId={tripCtx.selectedTripId} trip={tripCtx.selectedTrip} />
-          } />
-          <Route path="/trips" element={
-            <Trips onTripChange={tripCtx.refreshTrips} />
-          } />
-        </Routes>
+        {isDesktop ? (
+          <Sidebar
+            isOnline={isOnline === 'connected'}
+            queueLength={offlineQueue.queueLength}
+            syncStatus={offlineQueue.syncStatus}
+            trips={tripCtx.trips}
+            selectedTrip={tripCtx.selectedTrip}
+            onSelectTrip={tripCtx.selectTrip}
+            username={username}
+            onLogout={onLogout}
+          />
+        ) : (
+          <BottomNav />
+        )}
+        
+        {/* On mobile, we might need a small header just for trip selection if it's not in the bottom nav, 
+            but for now we'll put it inside the pages that need it, or they can use the "Plus/Trips" page */}
+            
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={
+              <Dashboard tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />
+            } />
+            <Route path="/scanner" element={
+              <Scanner isOnline={isOnline === 'connected'} offlineQueue={offlineQueue} tripId={tripCtx.selectedTripId} trip={tripCtx.selectedTrip} />
+            } />
+            <Route path="/travelers" element={
+              <TravelerList tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />
+            } />
+            <Route path="/qrcodes" element={
+              <QRCodes tripId={tripCtx.selectedTripId} trip={tripCtx.selectedTrip} />
+            } />
+            <Route path="/trips" element={
+              <Trips onTripChange={tripCtx.refreshTrips} selectedTripId={tripCtx.selectedTripId} onSelectTrip={tripCtx.selectTrip} onLogout={!isDesktop ? onLogout : null} />
+            } />
+          </Routes>
+        </main>
       </div>
     </BrowserRouter>
   );
