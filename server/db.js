@@ -2,33 +2,68 @@ const { Pool } = require('pg');
 
 // ─── Supabase / Vercel Serverless PostgreSQL Configuration ─────────────────
 //
-// Key settings for Vercel serverless + Supabase transaction pooler:
-//  - max: 1        → Don't keep idle connections across invocations
-//  - connectionTimeoutMillis: 10000 → Supabase pooler can take a few seconds
-//  - idleTimeoutMillis: 0  → Close connection immediately after use
-//  - ssl: required → Supabase always requires SSL
+// Optimized for Vercel serverless functions + Supabase Transaction Pooler (port 6543):
+//
+//  - Pool is created ONCE at module scope and reused across warm invocations
+//  - ssl: { rejectUnauthorized: false } — required for Supabase
+//  - max: 3        → small pool; each Vercel function instance is short-lived
+//  - connectionTimeoutMillis: 20000 → 20s to handle Supabase pooler cold starts
+//  - idleTimeoutMillis: 5000 → release idle connections quickly
+//  - allowExitOnIdle: true → let the serverless process exit cleanly
+//
+// NOTE: Do NOT set statement_timeout at Pool level — PgBouncer (transaction mode)
+//       does not support connection-level parameters.
+//
+// Fallback: If Transaction Pooler (port 6543) times out, switch DATABASE_URL
+//           to Session Pooler (port 5432) in Vercel env vars.
+//           Session Pooler: postgres://postgres.[REF]:[PWD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
+//
+
+// ─── Safe DB ENV logging (never exposes password) ──────────────────────────
+
+function logDbEnvOnce(dbUrl) {
+  try {
+    const parsed = new URL(dbUrl);
+    console.log(`[DB ENV] user=${parsed.username}`);
+    console.log(`[DB ENV] host=${parsed.hostname}`);
+    console.log(`[DB ENV] port=${parsed.port}`);
+    console.log(`[DB ENV] database=${parsed.pathname.replace('/', '')}`);
+    console.log(`[DB ENV] passwordLength=${parsed.password ? parsed.password.length : 0}`);
+    console.log(`[DB ENV] ssl=rejectUnauthorized:false`);
+  } catch (e) {
+    console.warn('[DB ENV] Could not parse DATABASE_URL:', e.message);
+  }
+}
+
+// ─── Pool — singleton at module scope ──────────────────────────────────────
+
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) {
+  console.error('[DB] FATAL: DATABASE_URL environment variable is not set!');
+}
 
 let pool = null;
 
 function getPool() {
   if (pool) return pool;
 
-  const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
+  logDbEnvOnce(dbUrl);
   console.log('[DB] Creating new PostgreSQL connection pool...');
 
   pool = new Pool({
     connectionString: dbUrl,
     ssl: { rejectUnauthorized: false },
+
     // Serverless-optimized settings
-    max: 2,                          // Minimal connections per function instance
-    min: 0,                          // Don't maintain idle connections
-    idleTimeoutMillis: 5000,         // Release idle connections quickly
-    connectionTimeoutMillis: 10000,  // 10s to connect — enough for Supabase cold start
-    allowExitOnIdle: true,           // Let the process exit cleanly
+    max: 3,                          // Small pool for serverless
+    min: 0,                          // Don't pre-allocate idle connections
+    idleTimeoutMillis: 5000,         // Release idle connections after 5s
+    connectionTimeoutMillis: 20000,  // 20s timeout — handles Supabase cold starts
+    allowExitOnIdle: true,           // Let serverless process exit cleanly
   });
 
   pool.on('connect', () => {
@@ -44,7 +79,16 @@ function getPool() {
   return pool;
 }
 
-// ─── Query helpers with timeout guard ──────────────────────────────────────
+// ─── Query helpers ─────────────────────────────────────────────────────────
+//
+// All helpers use pool.query() which automatically:
+//   1. Acquires a client from the pool
+//   2. Executes the query
+//   3. Releases the client back to the pool
+// This is safe and leak-free — no manual client.release() needed.
+//
+// For transactions or multi-statement work, use getPool().connect() with
+// a try/finally that calls client.release().
 
 async function query(sql, params = []) {
   const p = getPool();

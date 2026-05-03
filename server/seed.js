@@ -1,3 +1,4 @@
+// seed.js is always run locally via `npm run seed`
 require('dotenv').config();
 const { initDb, run, get, pool } = require('./db');
 const { v4: uuidv4 } = require('uuid');

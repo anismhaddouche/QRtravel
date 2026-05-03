@@ -1,4 +1,9 @@
-require('dotenv').config();
+// Only load .env file in non-production environments.
+// On Vercel, environment variables are injected by the platform —
+// dotenv must NOT run in production to avoid overriding them.
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -25,6 +30,41 @@ app.get('/api/health', async (req, res) => {
     timestamp: new Date().toISOString(),
     database: dbOk ? 'connected' : 'error'
   });
+});
+
+// ─── Temporary diagnostic endpoint (safe — never exposes password or full URL) ───
+app.get('/api/debug/db-env', (req, res) => {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    return res.json({
+      nodeEnv: process.env.NODE_ENV || 'undefined',
+      hasDatabaseUrl: false,
+      dbUser: null,
+      dbHost: null,
+      dbName: null,
+      dbPort: null,
+      passwordLength: 0,
+    });
+  }
+
+  try {
+    const parsed = new URL(dbUrl);
+    return res.json({
+      nodeEnv: process.env.NODE_ENV || 'undefined',
+      hasDatabaseUrl: true,
+      dbUser: parsed.username,
+      dbHost: parsed.hostname,
+      dbName: parsed.pathname.replace('/', ''),
+      dbPort: parsed.port,
+      passwordLength: parsed.password ? parsed.password.length : 0,
+    });
+  } catch (e) {
+    return res.json({
+      nodeEnv: process.env.NODE_ENV || 'undefined',
+      hasDatabaseUrl: true,
+      parseError: e.message,
+    });
+  }
 });
 app.use('/api/auth', require('./routes/auth'));
 
