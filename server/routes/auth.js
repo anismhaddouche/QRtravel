@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { get, run } = require('../db');
 const { createRateLimiter } = require('../middleware/rateLimit');
+const { maybePurgeExpiredSessions } = require('../lib/sessionCleanup');
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'ADMIN';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ADMIN123';
@@ -11,7 +12,6 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ADMIN123';
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
 const LOGIN_TIMEOUT_MS = 15000;
 
-// Brute-force protection on /login (per IP).
 const loginLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -19,7 +19,6 @@ const loginLimiter = createRateLimiter({
   message: 'Trop de tentatives de connexion. Réessayez plus tard.',
 });
 
-// Lighter cap on /me (polled on page load / app revival).
 const meLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   max: 120,
@@ -43,8 +42,6 @@ function cookieOptions() {
   return {
     httpOnly: true,
     secure: isProd,
-    // Frontend + API are same-origin on Vercel — SameSite=lax blocks
-    // cross-site requests and avoids the CSRF surface of `none`.
     sameSite: 'lax',
     maxAge: SESSION_DURATION_MS,
     path: '/',
@@ -102,6 +99,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     if (res.headersSent) return;
 
     res.cookie('qr_session', sessionId, cookieOptions());
+    maybePurgeExpiredSessions();
 
     console.log(`[AUTH] Login successful for user: ${ADMIN_USERNAME}`);
     res.json({ success: true, username: ADMIN_USERNAME });
@@ -126,6 +124,7 @@ router.post('/logout', async (req, res) => {
     console.error('[AUTH] Logout DB error (non-fatal):', err.message);
   }
   res.clearCookie('qr_session', { path: '/' });
+  maybePurgeExpiredSessions();
   res.json({ success: true });
 });
 

@@ -27,15 +27,20 @@ function normalizeDeviceId(raw, fallback = 'unknown') {
   return raw.slice(0, DEVICE_ID_MAX);
 }
 
-// POST /api/checkin — trip-scoped check-in.
+function badRequest(res, message, field) {
+  return res.status(400).json({ error: message, code: 'VALIDATION', field: field || null });
+}
+
+// POST /api/checkin — tripId REQUIRED.
 router.post('/', async (req, res) => {
   try {
     const body = req.body || {};
     const referenceCode = normalizeRefCode(body.referenceCode);
-    if (!referenceCode) {
-      return res.status(400).json({ error: 'referenceCode is required', code: 'MISSING_CODE' });
-    }
-    const tripId = body.tripId ? normalizeId(body.tripId) : null;
+    if (!referenceCode) return badRequest(res, 'referenceCode is required', 'referenceCode');
+
+    const tripId = normalizeId(body.tripId);
+    if (!tripId) return badRequest(res, 'tripId is required', 'tripId');
+
     const deviceId = normalizeDeviceId(body.deviceId);
 
     const traveler = await get('SELECT * FROM travelers WHERE "referenceCode" = $1', [referenceCode]);
@@ -47,9 +52,7 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // CRITICAL: scope to the active trip when the client supplies one.
-    // Prevents a scanner on Trip A from checking in Trip B travelers.
-    if (tripId && traveler.tripId !== tripId) {
+    if (traveler.tripId !== tripId) {
       return res.status(409).json({
         error: 'This code belongs to a different trip',
         code: 'WRONG_TRIP',
@@ -92,22 +95,22 @@ router.post('/', async (req, res) => {
   }
 });
 
-// POST /api/checkin/undo
 router.post('/undo', async (req, res) => {
   try {
     const body = req.body || {};
     const referenceCode = normalizeRefCode(body.referenceCode);
-    if (!referenceCode) {
-      return res.status(400).json({ error: 'referenceCode is required' });
-    }
-    const tripId = body.tripId ? normalizeId(body.tripId) : null;
+    if (!referenceCode) return badRequest(res, 'referenceCode is required', 'referenceCode');
+
+    const tripId = normalizeId(body.tripId);
+    if (!tripId) return badRequest(res, 'tripId is required', 'tripId');
+
     const deviceId = normalizeDeviceId(body.deviceId);
 
     const traveler = await get('SELECT * FROM travelers WHERE "referenceCode" = $1', [referenceCode]);
     if (!traveler) {
       return res.status(404).json({ error: `Unknown reference code: ${referenceCode}`, code: 'UNKNOWN_CODE' });
     }
-    if (tripId && traveler.tripId !== tripId) {
+    if (traveler.tripId !== tripId) {
       return res.status(409).json({ error: 'This code belongs to a different trip', code: 'WRONG_TRIP' });
     }
     if (traveler.status === 'not_checked_in') {
@@ -143,22 +146,22 @@ router.post('/undo', async (req, res) => {
   }
 });
 
-// POST /api/checkin/manual — manual check-in by travelerId, still trip-scoped
 router.post('/manual', async (req, res) => {
   try {
     const body = req.body || {};
     const travelerId = normalizeId(body.travelerId);
-    if (!travelerId) {
-      return res.status(400).json({ error: 'travelerId is required' });
-    }
-    const tripId = body.tripId ? normalizeId(body.tripId) : null;
+    if (!travelerId) return badRequest(res, 'travelerId is required', 'travelerId');
+
+    const tripId = normalizeId(body.tripId);
+    if (!tripId) return badRequest(res, 'tripId is required', 'tripId');
+
     const deviceId = normalizeDeviceId(body.deviceId, 'manual');
 
     const traveler = await get('SELECT * FROM travelers WHERE id = $1', [travelerId]);
     if (!traveler) {
       return res.status(404).json({ error: 'Traveler not found' });
     }
-    if (tripId && traveler.tripId !== tripId) {
+    if (traveler.tripId !== tripId) {
       return res.status(409).json({ error: 'Traveler belongs to a different trip', code: 'WRONG_TRIP' });
     }
     if (traveler.status === 'checked_in') {
@@ -193,7 +196,6 @@ router.post('/manual', async (req, res) => {
   }
 });
 
-// GET /api/checkin/events — recent scan events (capped)
 router.get('/events', async (req, res) => {
   try {
     const rawLimit = parseInt(req.query.limit, 10);
@@ -218,12 +220,12 @@ router.get('/events', async (req, res) => {
   }
 });
 
-// POST /api/checkin/sync — receive queued offline events (capped)
+// POST /api/checkin/sync — tripId REQUIRED at both batch and per-event level.
 router.post('/sync', async (req, res) => {
   try {
     const body = req.body || {};
     if (!Array.isArray(body.events) || body.events.length === 0) {
-      return res.status(400).json({ error: 'events array is required' });
+      return badRequest(res, 'events array is required', 'events');
     }
     if (body.events.length > MAX_SYNC_BATCH) {
       return res.status(413).json({
@@ -231,8 +233,9 @@ router.post('/sync', async (req, res) => {
         code: 'BATCH_TOO_LARGE',
       });
     }
+    const tripId = normalizeId(body.tripId);
+    if (!tripId) return badRequest(res, 'tripId is required', 'tripId');
 
-    const tripId = body.tripId ? normalizeId(body.tripId) : null;
     const results = [];
 
     for (const raw of body.events) {
@@ -241,9 +244,14 @@ router.post('/sync', async (req, res) => {
       const timestamp = typeof raw?.timestamp === 'string' ? raw.timestamp : null;
       const deviceId = normalizeDeviceId(raw?.deviceId, 'offline');
       const eventId = normalizeId(raw?.eventId);
+      const eventTripId = normalizeId(raw?.tripId);
 
-      if (!referenceCode || !eventId || !timestamp) {
+      if (!referenceCode || !eventId || !timestamp || !eventTripId) {
         results.push({ eventId: eventId || null, status: 'error', message: 'Invalid event payload' });
+        continue;
+      }
+      if (eventTripId !== tripId) {
+        results.push({ eventId, status: 'error', message: 'Event tripId mismatch' });
         continue;
       }
       if (action !== 'check_in' && action !== 'undo_check_in') {
@@ -262,7 +270,7 @@ router.post('/sync', async (req, res) => {
         results.push({ eventId, status: 'error', message: `Unknown code: ${referenceCode}` });
         continue;
       }
-      if (tripId && traveler.tripId !== tripId) {
+      if (traveler.tripId !== tripId) {
         results.push({ eventId, status: 'error', message: 'Wrong trip' });
         continue;
       }

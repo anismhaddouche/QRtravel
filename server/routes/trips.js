@@ -19,13 +19,11 @@ function validateStatus(s) {
   if (s === undefined || s === null || s === '') return null;
   if (typeof s !== 'string' || !TRIP_STATUSES.includes(s)) {
     const err = new Error(`status must be one of: ${TRIP_STATUSES.join(', ')}`);
-    err.statusCode = 400;
-    throw err;
+    err.statusCode = 400; throw err;
   }
   return s;
 }
 
-// GET /api/trips — list all trips
 router.get('/', async (req, res) => {
   try {
     const { status } = req.query;
@@ -35,8 +33,6 @@ router.get('/', async (req, res) => {
     } else {
       trips = await all('SELECT * FROM trips ORDER BY date DESC');
     }
-
-    // Attach stats to each trip
     const enriched = await Promise.all(trips.map(async (trip) => {
       const total = await get('SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1', [trip.id]);
       const checkedIn = await get(`SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1 AND status = 'checked_in'`, [trip.id]);
@@ -48,15 +44,13 @@ router.get('/', async (req, res) => {
         totalPeople: parseInt(totalPeople.count),
       };
     }));
-
     res.json(enriched);
   } catch (err) {
-    console.error('Error fetching trips:', err);
+    console.error('Error fetching trips:', err.message);
     res.status(500).json({ error: 'Failed to fetch trips' });
   }
 });
 
-// GET /api/trips/:id
 router.get('/:id', async (req, res) => {
   try {
     const trip = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
@@ -67,12 +61,11 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/trips — create a new trip
 router.post('/', async (req, res) => {
   try {
     const body = req.body || {};
     const name = cleanStr(body.name, MAX_NAME);
-    if (!name) return res.status(400).json({ error: 'name is required' });
+    if (!name) return res.status(400).json({ error: 'name is required', code: 'VALIDATION' });
     const date = cleanStr(body.date, MAX_DATE);
     const notes = body.notes === undefined ? '' : (cleanStr(body.notes, MAX_NOTES) || '');
 
@@ -87,12 +80,12 @@ router.post('/', async (req, res) => {
     const trip = await get('SELECT * FROM trips WHERE id = $1', [id]);
     res.status(201).json(trip);
   } catch (err) {
+    if (err && err.statusCode === 400) return res.status(400).json({ error: err.message, code: 'VALIDATION' });
     console.error('Error creating trip:', err.message);
     res.status(500).json({ error: 'Failed to create trip' });
   }
 });
 
-// PUT /api/trips/:id
 router.put('/:id', async (req, res) => {
   try {
     const trip = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
@@ -102,9 +95,7 @@ router.put('/:id', async (req, res) => {
     const name = body.name === undefined ? null : cleanStr(body.name, MAX_NAME);
     const date = body.date === undefined ? null : cleanStr(body.date, MAX_DATE);
     const status = validateStatus(body.status);
-    const notes = body.notes === undefined
-      ? null
-      : (cleanStr(body.notes, MAX_NOTES) || '');
+    const notes = body.notes === undefined ? null : (cleanStr(body.notes, MAX_NOTES) || '');
     const now = new Date().toISOString();
 
     await run(
@@ -121,26 +112,20 @@ router.put('/:id', async (req, res) => {
     const updated = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
     res.json(updated);
   } catch (err) {
-    if (err && err.statusCode === 400) {
-      return res.status(400).json({ error: err.message });
-    }
+    if (err && err.statusCode === 400) return res.status(400).json({ error: err.message, code: 'VALIDATION' });
     console.error('Error updating trip:', err.message);
     res.status(500).json({ error: 'Failed to update trip' });
   }
 });
 
-// DELETE /api/trips/:id — cascade deletes travelers + scan events
 router.delete('/:id', async (req, res) => {
   try {
     const trip = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
-
-    // CASCADE handles travelers and scan_events deletion via FK
     await run('DELETE FROM trips WHERE id = $1', [req.params.id]);
-
     res.json({ success: true, message: `Trip "${trip.name}" and all associated data deleted` });
   } catch (err) {
-    console.error('Error deleting trip:', err);
+    console.error('Error deleting trip:', err.message);
     res.status(500).json({ error: 'Failed to delete trip' });
   }
 });

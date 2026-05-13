@@ -45,6 +45,65 @@ postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-1-eu-central-1.pooler.supabas
 - `GET /api/debug/db-env` → renvoie `nodeEnv`, `hasDatabaseUrl`, `dbUser`, `dbHost`, `dbPort`, `dbName`, `passwordLength`, `sslRejectUnauthorized` (jamais le mot de passe ni l'URL complète).
 - `GET /api/debug/db-test` → exécute `SELECT NOW()` et renvoie `{ ok: true, now, host, port, user }` en cas de succès, sinon `{ ok: false, error, code }`.
 
+## Variables d'environnement requises (Vercel — production)
+
+| Variable | Rôle | Exemple |
+|---|---|---|
+| `NODE_ENV` | Doit être `production` | `production` |
+| `DATABASE_URL` | URL Supabase (sans `?sslmode=require`) | `postgresql://postgres.<REF>:<PWD>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres` |
+| `ADMIN_USERNAME` | **Doit être différent de `ADMIN`** | `voyage-admin` |
+| `ADMIN_PASSWORD_HASH` | Hash bcrypt du mot de passe (préféré) | `$2a$10$...` |
+| `ADMIN_PASSWORD` | Mot de passe en clair (si pas de hash) — **doit être différent de `ADMIN123`** | mot de passe fort |
+| `SESSION_SECRET` | Chaîne aléatoire 32+ caractères | générer avec `openssl rand -hex 32` |
+| `ALLOWED_ORIGIN` | Origines CORS autorisées avec credentials | `https://voyagecheck.vercel.app` |
+| `ENABLE_DEBUG_ENDPOINTS` | `true` pour exposer `/api/debug/*` (toujours admin-only) | `false` (défaut) |
+| `UPSTASH_REDIS_REST_URL` *(optionnel)* | Upstash REST URL pour rate-limit partagé | `https://...upstash.io` |
+| `UPSTASH_REDIS_REST_TOKEN` *(optionnel)* | Token Upstash | `AX...` |
+
+> En production, si `ADMIN_USERNAME=ADMIN`, `ADMIN_PASSWORD=ADMIN123` ou `SESSION_SECRET` est manquant/par défaut, l'application **log un avertissement de sécurité au démarrage** sans crasher.
+
+### Rotation des credentials
+
+**1. Générer un hash bcrypt du nouveau mot de passe :**
+```bash
+node -e "console.log(require('bcryptjs').hashSync(process.argv[1], 10))" "mon-nouveau-mot-de-passe"
+```
+
+**2. Générer un `SESSION_SECRET` aléatoire :**
+```bash
+openssl rand -hex 32
+# ou : node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+**3. Dans Vercel → Project → Settings → Environment Variables** (environnement *Production*) :
+- `ADMIN_USERNAME` (≠ `ADMIN`)
+- `ADMIN_PASSWORD_HASH` (le hash obtenu ci-dessus) **et supprimer `ADMIN_PASSWORD`**
+- `SESSION_SECRET` (la valeur aléatoire ci-dessus)
+
+**4. Redéployer.** Toutes les sessions existantes sont invalidées par le changement de hash.
+
+## CSRF — modèle de sécurité
+
+Le frontend et l'API sont **déployés sur le même domaine Vercel** (same-origin). Les cookies de session sont :
+- `HttpOnly` (inaccessibles à JS)
+- `Secure` en production
+- `SameSite=Lax` (bloque les requêtes cross-site qui modifient l'état)
+
+Combinés à l'allowlist CORS (`ALLOWED_ORIGIN`), ces trois mesures couvrent le CSRF pour notre topologie. **Aucun jeton CSRF additionnel n'est nécessaire tant que le frontend reste same-origin.**
+
+**Si vous séparez frontend et API sur des domaines différents** :
+1. Ajouter le domaine du frontend dans `ALLOWED_ORIGIN`.
+2. Passer le cookie en `SameSite=None; Secure` (côté serveur, `cookieOptions()` dans `server/routes/auth.js`).
+3. **Implémenter un double-submit CSRF token** (cookie `XSRF-TOKEN` + header `X-XSRF-TOKEN` exigé sur POST/PUT/DELETE) avant la mise en production.
+
+## Tests
+
+```bash
+npm test
+```
+
+Couvre : validation d'inputs (regex `referenceCode` / `tripId`), contrat trip-scoped check-in (`WRONG_TRIP`, `ALREADY_CHECKED_IN`, `VALIDATION`), rate-limiter (allow/block/per-IP), avertissement de credentials. Utilise le test runner intégré de Node 20 (aucune dépendance supplémentaire).
+
 ## Licence
 
 Distribué sous la licence MIT.

@@ -79,7 +79,7 @@ export const api = {
   deleteTraveler: (id) => request(`/travelers/${id}`, { method: 'DELETE' }),
   getStats: (tripId) => request(`/travelers/stats/summary?tripId=${tripId}`),
 
-  // Check-in (tripId scopes the operation to the active trip)
+  // Check-in (tripId is REQUIRED — backend rejects without it)
   checkIn: (referenceCode, tripId, deviceId) =>
     request('/checkin', { method: 'POST', body: { referenceCode, tripId, deviceId } }),
   undoCheckIn: (referenceCode, tripId) =>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
 import { api } from '../utils/api';
+// html5-qrcode is dynamically imported inside startScanner — keeps it
+// out of the main bundle so Dashboard / Trips / Travelers / QR Codes
+// don't pay the cost.
 import ScanFeedback from '../components/ScanFeedback';
 import EmptyState from '../components/EmptyState';
 import { ScanLine, Camera, CameraOff, AlertTriangle, ShieldAlert, Check } from 'lucide-react';
@@ -133,7 +135,12 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
 
   const startScanner = useCallback(async () => {
     if (scannerRef.current) return;
+    if (!tripId) {
+      setFeedback({ type: 'error', title: 'Aucun voyage', message: 'Sélectionnez un voyage avant de scanner.' });
+      return;
+    }
     try {
+      const { Html5Qrcode } = await import('html5-qrcode');
       const html5QrCode = new Html5Qrcode('qr-reader');
       scannerRef.current = html5QrCode;
 
@@ -160,7 +167,7 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
         setFeedback({ type: 'error', title: 'Erreur Caméra', message: errStr || 'Impossible de démarrer la caméra.' });
       }
     }
-  }, [handleScan]);
+  }, [handleScan, tripId]);
 
   const stopScanner = useCallback(async () => {
     if (scannerRef.current) {
@@ -181,6 +188,10 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
+    if (!tripId) {
+      setFeedback({ type: 'error', title: 'Aucun voyage', message: 'Sélectionnez un voyage avant de scanner.' });
+      return;
+    }
     if (manualCode.trim()) {
       handleScan(manualCode.trim().toUpperCase());
       setManualCode('');

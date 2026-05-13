@@ -55,11 +55,10 @@ function validatePeopleCount(v) {
   return n;
 }
 
-// GET /api/travelers/stats/summary — dashboard stats (MUST come before /:id)
 router.get('/stats/summary', async (req, res) => {
   try {
     const tripId = req.query.tripId;
-    if (!tripId) return res.status(400).json({ error: 'tripId query param is required' });
+    if (!tripId) return res.status(400).json({ error: 'tripId query param is required', code: 'VALIDATION' });
 
     const total = await get('SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1', [tripId]);
     const checkedIn = await get(`SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1 AND status = 'checked_in'`, [tripId]);
@@ -75,12 +74,11 @@ router.get('/stats/summary', async (req, res) => {
       missingPeople: parseInt(totalPeople.count) - parseInt(checkedInPeople.count),
     });
   } catch (err) {
-    console.error('Error fetching stats:', err);
+    console.error('Error fetching stats:', err.message);
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 
-// GET /api/travelers — list all travelers (requires tripId)
 router.get('/', async (req, res) => {
   try {
     const { tripId } = req.query;
@@ -92,12 +90,11 @@ router.get('/', async (req, res) => {
     }
     res.json(travelers);
   } catch (err) {
-    console.error('Error fetching travelers:', err);
+    console.error('Error fetching travelers:', err.message);
     res.status(500).json({ error: 'Failed to fetch travelers' });
   }
 });
 
-// GET /api/travelers/:id
 router.get('/:id', async (req, res) => {
   try {
     const traveler = await get('SELECT * FROM travelers WHERE id = $1', [req.params.id]);
@@ -108,7 +105,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/travelers — create a new traveler unit
 router.post('/', async (req, res) => {
   try {
     const body = req.body || {};
@@ -117,7 +113,10 @@ router.post('/', async (req, res) => {
     const tripId = typeof body.tripId === 'string' ? body.tripId.trim() : '';
 
     if (!referenceCode || !displayName || !tripId) {
-      return res.status(400).json({ error: 'referenceCode, displayName, type, and tripId are required' });
+      return res.status(400).json({
+        error: 'referenceCode, displayName, type, and tripId are required',
+        code: 'VALIDATION',
+      });
     }
 
     const type = validateType(body.type, { required: true });
@@ -145,15 +144,12 @@ router.post('/', async (req, res) => {
     const traveler = await get('SELECT * FROM travelers WHERE id = $1', [id]);
     res.status(201).json(traveler);
   } catch (err) {
-    if (err && err.statusCode === 400) {
-      return res.status(400).json({ error: err.message });
-    }
+    if (err && err.statusCode === 400) return res.status(400).json({ error: err.message, code: 'VALIDATION' });
     console.error('Error creating traveler:', err.message);
     res.status(500).json({ error: 'Failed to create traveler' });
   }
 });
 
-// PUT /api/travelers/:id — update a traveler unit
 router.put('/:id', async (req, res) => {
   try {
     const traveler = await get('SELECT * FROM travelers WHERE id = $1', [req.params.id]);
@@ -182,27 +178,21 @@ router.put('/:id', async (req, res) => {
     const updated = await get('SELECT * FROM travelers WHERE id = $1', [req.params.id]);
     res.json(updated);
   } catch (err) {
-    if (err && err.statusCode === 400) {
-      return res.status(400).json({ error: err.message });
-    }
+    if (err && err.statusCode === 400) return res.status(400).json({ error: err.message, code: 'VALIDATION' });
     console.error('Error updating traveler:', err.message);
     res.status(500).json({ error: 'Failed to update traveler' });
   }
 });
 
-// DELETE /api/travelers/:id
 router.delete('/:id', async (req, res) => {
   try {
     const traveler = await get('SELECT * FROM travelers WHERE id = $1', [req.params.id]);
     if (!traveler) return res.status(404).json({ error: 'Traveler not found' });
-
-    // Delete related scan events first
     await run('DELETE FROM scan_events WHERE "referenceCode" = $1', [traveler.referenceCode]);
     await run('DELETE FROM travelers WHERE id = $1', [req.params.id]);
-    
     res.json({ success: true, message: `${traveler.displayName} deleted` });
   } catch (err) {
-    console.error('Error deleting traveler:', err);
+    console.error('Error deleting traveler:', err.message);
     res.status(500).json({ error: 'Failed to delete traveler' });
   }
 });

@@ -11,6 +11,9 @@ const cookieParser = require('cookie-parser');
 const { initDb, checkConnection, query, sanitizeDatabaseUrl } = require('./db');
 const { requireAuth } = require('./middleware/auth');
 const { createRateLimiter } = require('./middleware/rateLimit');
+const { warnIfDefaultCredentials } = require('./lib/credentialsWarning');
+
+warnIfDefaultCredentials();
 
 const app = express();
 
@@ -21,8 +24,8 @@ app.set('trust proxy', 1);
 // ─── CORS ──────────────────────────────────────────────────────────
 // Same-origin requests (no Origin header) are always allowed. Cross-
 // origin requests must match ALLOWED_ORIGIN (comma-separated list).
-// In dev we additionally allow localhost. `origin: true` (reflect any)
-// is forbidden because we send credentials.
+// In dev we additionally allow localhost. `origin: true` is forbidden
+// because we send credentials.
 const allowedOrigins = (process.env.ALLOWED_ORIGIN || '')
   .split(',')
   .map(s => s.trim())
@@ -70,9 +73,13 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ─── Diagnostic endpoints ───
-// In production they require an authenticated admin session. In dev
-// they are open for convenience.
+// Disabled entirely in production unless ENABLE_DEBUG_ENDPOINTS=true.
+// When enabled in production, also require an authenticated admin session.
+const debugEnabled = process.env.NODE_ENV !== 'production'
+  || process.env.ENABLE_DEBUG_ENDPOINTS === 'true';
+
 const debugGuard = (req, res, next) => {
+  if (!debugEnabled) return res.status(404).json({ error: 'Not found' });
   if (process.env.NODE_ENV !== 'production') return next();
   return requireAuth(req, res, next);
 };
@@ -148,7 +155,7 @@ app.use('/api/checkin',   requireAuth, require('./routes/checkin'));
 app.use('/api/qrcodes',   requireAuth, require('./routes/qrcodes'));
 app.use('/api/travelers', requireAuth, require('./routes/travelers'));
 
-// JSON error handler — never leak HTML 500 pages from /api.
+// JSON error handler — never leak HTML 500s from /api.
 app.use('/api', (err, req, res, next) => {
   console.error('[API] Unhandled error:', err.message);
   if (res.headersSent) return next(err);
