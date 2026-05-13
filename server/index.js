@@ -1,6 +1,5 @@
-// Only load .env file in non-production environments.
-// On Vercel, environment variables are injected by the platform —
-// dotenv must NOT run in production to avoid overriding them.
+// Only load .env in non-production. On Vercel the platform injects env
+// vars; dotenv would otherwise overwrite them at boot.
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
@@ -11,29 +10,81 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { initDb, checkConnection, query, sanitizeDatabaseUrl } = require('./db');
 const { requireAuth } = require('./middleware/auth');
+const { createRateLimiter } = require('./middleware/rateLimit');
+const { warnIfDefaultCredentials } = require('./lib/credentialsWarning');
+
+warnIfDefaultCredentials();
 
 const app = express();
 
-// Trust proxy (Vercel / reverse proxies)
+// Vercel / proxies — required for req.ip and cookie 'secure' to honor
+// the X-Forwarded-* headers.
 app.set('trust proxy', 1);
 
-// Middleware
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+// ─── CORS ──────────────────────────────────────────────────────────
+// Same-origin requests (no Origin header) are always allowed. Cross-
+// origin requests must match ALLOWED_ORIGIN (comma-separated list).
+// In dev we additionally allow localhost. `origin: true` is forbidden
+// because we send credentials.
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin) return cb(null, true);
+    if (process.env.NODE_ENV !== 'production') {
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return cb(null, true);
+      }
+    }
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error('CORS: origin not allowed'), false);
+  },
+  credentials: true,
+}));
+
+// Bounded body size — prevents memory-exhaustion DoS via oversized JSON.
+app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
+
+// Global write-path rate limiter. Read paths excluded so dashboard
+// polling is unaffected.
+const writeLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 120,
+  keyPrefix: 'write',
+  message: 'Too many requests, please slow down.',
+});
+app.use('/api', (req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  return writeLimiter(req, res, next);
+});
 
 // ─── Public routes ───
 app.get('/api/health', async (req, res) => {
   const dbOk = await checkConnection();
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
-    database: dbOk ? 'connected' : 'error'
+    database: dbOk ? 'connected' : 'error',
   });
 });
 
-// ─── Temporary diagnostic endpoint (safe — never exposes password or full URL) ───
-app.get('/api/debug/db-env', (req, res) => {
+// ─── Diagnostic endpoints ───
+// Disabled entirely in production unless ENABLE_DEBUG_ENDPOINTS=true.
+// When enabled in production, also require an authenticated admin session.
+const debugEnabled = process.env.NODE_ENV !== 'production'
+  || process.env.ENABLE_DEBUG_ENDPOINTS === 'true';
+
+const debugGuard = (req, res, next) => {
+  if (!debugEnabled) return res.status(404).json({ error: 'Not found' });
+  if (process.env.NODE_ENV !== 'production') return next();
+  return requireAuth(req, res, next);
+};
+
+app.get('/api/debug/db-env', debugGuard, (req, res) => {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     return res.json({
@@ -47,7 +98,6 @@ app.get('/api/debug/db-env', (req, res) => {
       sslRejectUnauthorized: false,
     });
   }
-
   try {
     const sanitized = sanitizeDatabaseUrl(dbUrl);
     const parsed = new URL(sanitized);
@@ -71,9 +121,7 @@ app.get('/api/debug/db-env', (req, res) => {
   }
 });
 
-// GET /api/debug/db-test — runs SELECT NOW() to verify live DB connectivity.
-// Never exposes the password or the full DATABASE_URL.
-app.get('/api/debug/db-test', async (req, res) => {
+app.get('/api/debug/db-test', debugGuard, async (req, res) => {
   let host = null, port = null, user = null;
   try {
     if (process.env.DATABASE_URL) {
@@ -82,17 +130,11 @@ app.get('/api/debug/db-test', async (req, res) => {
       port = parsed.port;
       user = parsed.username;
     }
-  } catch { /* ignore — fall through to query */ }
+  } catch { /* ignore */ }
 
   try {
     const result = await query('SELECT NOW() as now');
-    return res.json({
-      ok: true,
-      now: result.rows[0]?.now,
-      host,
-      port,
-      user,
-    });
+    return res.json({ ok: true, now: result.rows[0]?.now, host, port, user });
   } catch (err) {
     return res.status(500).json({
       ok: false,
@@ -104,6 +146,7 @@ app.get('/api/debug/db-test', async (req, res) => {
     });
   }
 });
+
 app.use('/api/auth', require('./routes/auth'));
 
 // ─── Protected routes ───
@@ -111,6 +154,19 @@ app.use('/api/trips',     requireAuth, require('./routes/trips'));
 app.use('/api/checkin',   requireAuth, require('./routes/checkin'));
 app.use('/api/qrcodes',   requireAuth, require('./routes/qrcodes'));
 app.use('/api/travelers', requireAuth, require('./routes/travelers'));
+
+// JSON error handler — never leak HTML 500s from /api.
+app.use('/api', (err, req, res, next) => {
+  console.error('[API] Unhandled error:', err.message);
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Payload too large', code: 'PAYLOAD_TOO_LARGE' });
+  }
+  if (err.message && err.message.startsWith('CORS:')) {
+    return res.status(403).json({ error: 'CORS: origin not allowed' });
+  }
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 // ─── Serve built React frontend (local dev / traditional hosting) ───
 const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');
@@ -123,46 +179,43 @@ if (fs.existsSync(clientBuildPath)) {
   });
 }
 
-// ─── Vercel / Serverless Initialization ───
+// ─── Lazy DB schema init on first /api request ───
 let dbInitialized = false;
 let dbInitPromise = null;
 
-// Middleware to lazily initialize the database schema on the first API request
 app.use('/api', async (req, res, next) => {
   if (dbInitialized) return next();
-  
   if (!dbInitPromise) {
     dbInitPromise = initDb()
-      .then(() => {
-        dbInitialized = true;
-      })
+      .then(() => { dbInitialized = true; })
       .catch((err) => {
         console.error('[SERVER] Database initialization failed:', err.message);
-        dbInitPromise = null; // allow retrying
+        dbInitPromise = null;
         throw err;
       });
   }
-
   try {
     await dbInitPromise;
     next();
   } catch (err) {
-    res.status(500).json({ error: 'Database is starting up or temporarily unavailable', details: err.message });
+    res.status(500).json({
+      error: 'Database is starting up or temporarily unavailable',
+      details: err.message,
+    });
   }
 });
 
 // ─── Local dev: start HTTP server ───
 if (process.env.NODE_ENV !== 'production' || process.env.LOCAL_SERVER === 'true') {
   const PORT = process.env.PORT || 3000;
-  
-  // We trigger initialization explicitly for local dev
+
   initDb()
     .then(() => {
       dbInitialized = true;
       app.listen(PORT, '0.0.0.0', () => {
-        console.log(`\n🚌 QR Check-In running at http://localhost:${PORT}`);
-        console.log(`🔐 Login: ${process.env.ADMIN_USERNAME || 'ADMIN'} / ${process.env.ADMIN_PASSWORD || 'ADMIN123'}`);
-        console.log(`📊 Database: PostgreSQL\n`);
+        console.log(`\nQR Check-In running at http://localhost:${PORT}`);
+        console.log(`Login: ${process.env.ADMIN_USERNAME || 'ADMIN'} / ${process.env.ADMIN_PASSWORD || 'ADMIN123'}`);
+        console.log(`Database: PostgreSQL\n`);
       });
     })
     .catch(err => {

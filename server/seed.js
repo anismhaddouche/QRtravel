@@ -1,6 +1,6 @@
 // seed.js is always run locally via `npm run seed`
 require('dotenv').config();
-const { initDb, run, get, pool } = require('./db');
+const { initDb, run, getPool } = require('./db');
 const { v4: uuidv4 } = require('uuid');
 
 const TRIP_ID_1 = 'trip-demo-001';
@@ -66,7 +66,7 @@ async function seed() {
   console.log(`      Password: ${process.env.ADMIN_PASSWORD || 'ADMIN123'}`);
   console.log('');
 
-  await pool.end();
+  await getPool().end();
   process.exit(0);
 }
 

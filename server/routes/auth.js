@@ -3,18 +3,29 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { get, run } = require('../db');
+const { createRateLimiter } = require('../middleware/rateLimit');
+const { maybePurgeExpiredSessions } = require('../lib/sessionCleanup');
 
-// Admin credentials from environment
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'ADMIN';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ADMIN123';
 
-// Session duration: 24 hours
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
-
-// Login request timeout — fail fast instead of hanging
 const LOGIN_TIMEOUT_MS = 15000;
 
-// Lazily hash the password once and cache it per instance
+const loginLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyPrefix: 'login',
+  message: 'Trop de tentatives de connexion. Réessayez plus tard.',
+});
+
+const meLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 120,
+  keyPrefix: 'me',
+  message: 'Too many requests',
+});
+
 let cachedPasswordHash = null;
 async function getPasswordHash() {
   if (cachedPasswordHash) return cachedPasswordHash;
@@ -26,12 +37,21 @@ async function getPasswordHash() {
   return cachedPasswordHash;
 }
 
-// POST /api/auth/login
-router.post('/login', async (req, res) => {
-  // Fail-fast timeout — return JSON error instead of hanging
+function cookieOptions() {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax',
+    maxAge: SESSION_DURATION_MS,
+    path: '/',
+  };
+}
+
+router.post('/login', loginLimiter, async (req, res) => {
   const timeout = setTimeout(() => {
     if (!res.headersSent) {
-      console.error('[AUTH] ❌ Login timed out after', LOGIN_TIMEOUT_MS, 'ms');
+      console.error('[AUTH] Login timed out after', LOGIN_TIMEOUT_MS, 'ms');
       res.status(504).json({
         error: 'Login request timed out. The database may be temporarily unavailable.',
         code: 'LOGIN_TIMEOUT',
@@ -40,14 +60,19 @@ router.post('/login', async (req, res) => {
   }, LOGIN_TIMEOUT_MS);
 
   try {
-    const { username, password } = req.body;
+    const body = req.body || {};
+    const username = typeof body.username === 'string' ? body.username.trim() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
 
     if (!username || !password) {
       clearTimeout(timeout);
       return res.status(400).json({ error: 'Username and password are required' });
     }
+    if (username.length > 100 || password.length > 200) {
+      clearTimeout(timeout);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
-    // Validate username first (no DB needed)
     if (username.toUpperCase() !== ADMIN_USERNAME.toUpperCase()) {
       clearTimeout(timeout);
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -61,7 +86,6 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Create session in DB
     const sessionId = uuidv4();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + SESSION_DURATION_MS);
@@ -72,27 +96,17 @@ router.post('/login', async (req, res) => {
     );
 
     clearTimeout(timeout);
-
-    // Don't send if timeout already fired
     if (res.headersSent) return;
 
-    // Set HttpOnly cookie
-    res.cookie('qr_session', sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: SESSION_DURATION_MS,
-      path: '/',
-    });
+    res.cookie('qr_session', sessionId, cookieOptions());
+    maybePurgeExpiredSessions();
 
-    console.log(`[AUTH] ✅ Login successful for user: ${ADMIN_USERNAME}`);
+    console.log(`[AUTH] Login successful for user: ${ADMIN_USERNAME}`);
     res.json({ success: true, username: ADMIN_USERNAME });
-
   } catch (err) {
     clearTimeout(timeout);
     if (res.headersSent) return;
-
-    console.error('[AUTH] ❌ Login error:', err.message);
+    console.error('[AUTH] Login error:', err.message);
     res.status(500).json({
       error: 'Database error during login. Please try again.',
       code: 'LOGIN_DB_ERROR',
@@ -100,7 +114,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/logout
 router.post('/logout', async (req, res) => {
   try {
     const sessionId = req.cookies?.qr_session;
@@ -111,11 +124,11 @@ router.post('/logout', async (req, res) => {
     console.error('[AUTH] Logout DB error (non-fatal):', err.message);
   }
   res.clearCookie('qr_session', { path: '/' });
+  maybePurgeExpiredSessions();
   res.json({ success: true });
 });
 
-// GET /api/auth/me — check current session
-router.get('/me', async (req, res) => {
+router.get('/me', meLimiter, async (req, res) => {
   try {
     const sessionId = req.cookies?.qr_session;
     if (!sessionId) {
@@ -133,25 +146,11 @@ router.get('/me', async (req, res) => {
     }
 
     res.json({ username: session.username });
-
   } catch (err) {
     console.error('[AUTH] /me error:', err.message);
-    // Return 401 rather than 500 — the frontend should show login
     res.clearCookie('qr_session', { path: '/' });
     res.status(401).json({ error: 'Authentication check failed. Please log in again.' });
   }
 });
-
-// Clean up expired sessions — only in long-running server mode (not serverless)
-if (process.env.NODE_ENV !== 'production') {
-  async function cleanExpiredSessions() {
-    try {
-      await run(`DELETE FROM sessions WHERE "expiresAt" < $1`, [new Date().toISOString()]);
-    } catch (e) {
-      // Ignore cleanup errors
-    }
-  }
-  setInterval(cleanExpiredSessions, 30 * 60 * 1000);
-}
 
 module.exports = router;

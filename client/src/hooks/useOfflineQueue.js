@@ -66,7 +66,7 @@ export function useOfflineQueue(isOnline, tripId) {
     return { valid: true, traveler: match };
   }, [cachedTravelers, queue]);
 
-  // Add event to queue
+  // Add event to queue (always stamped with the active tripId)
   const addToQueue = useCallback((referenceCode, action = 'check_in') => {
     const event = {
       eventId: uuidv4(),
@@ -74,6 +74,7 @@ export function useOfflineQueue(isOnline, tripId) {
       action,
       timestamp: new Date().toISOString(),
       deviceId: getDeviceId(),
+      tripId, // backend rejects events without a tripId
     };
     setQueue(prev => [...prev, event]);
 
@@ -91,18 +92,23 @@ export function useOfflineQueue(isOnline, tripId) {
     }
 
     return event;
-  }, []);
+  }, [tripId]);
 
-  // Sync queued events to server
+  // Sync queued events to server. We only sync events that belong to
+  // the active trip — mixing trips in one sync call would be rejected
+  // by the backend anyway.
   const syncQueue = useCallback(async () => {
-    if (queue.length === 0 || syncingRef.current) return { synced: 0 };
+    if (!tripId) return { synced: 0 };
+    const scoped = queue.filter(e => e.tripId === tripId);
+    if (scoped.length === 0 || syncingRef.current) return { synced: 0 };
     syncingRef.current = true;
     setSyncStatus('syncing');
 
     try {
-      const result = await api.syncEvents(queue);
+      const result = await api.syncEvents(scoped, tripId);
       const conflicts = result.results?.filter(r => r.status === 'skipped' || r.status === 'duplicate') || [];
-      setQueue([]);
+      // Drop the events we just synced; keep any belonging to other trips.
+      setQueue(prev => prev.filter(e => e.tripId !== tripId));
       setSyncStatus('idle');
       syncingRef.current = false;
       return { ...result, conflicts };
@@ -111,7 +117,7 @@ export function useOfflineQueue(isOnline, tripId) {
       syncingRef.current = false;
       return { synced: 0, error: e.message };
     }
-  }, [queue]);
+  }, [queue, tripId]);
 
   // Auto-sync when connection is restored
   useEffect(() => {

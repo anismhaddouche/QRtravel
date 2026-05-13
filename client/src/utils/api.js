@@ -79,12 +79,17 @@ export const api = {
   deleteTraveler: (id) => request(`/travelers/${id}`, { method: 'DELETE' }),
   getStats: (tripId) => request(`/travelers/stats/summary?tripId=${tripId}`),
 
-  // Check-in
-  checkIn: (referenceCode, deviceId) => request('/checkin', { method: 'POST', body: { referenceCode, deviceId } }),
-  undoCheckIn: (referenceCode) => request('/checkin/undo', { method: 'POST', body: { referenceCode } }),
-  manualCheckIn: (travelerId) => request('/checkin/manual', { method: 'POST', body: { travelerId } }),
-  getEvents: (limit = 20, tripId) => request(`/checkin/events?limit=${limit}${tripId ? `&tripId=${tripId}` : ''}`),
-  syncEvents: (events) => request('/checkin/sync', { method: 'POST', body: { events } }),
+  // Check-in (tripId is REQUIRED — backend rejects without it)
+  checkIn: (referenceCode, tripId, deviceId) =>
+    request('/checkin', { method: 'POST', body: { referenceCode, tripId, deviceId } }),
+  undoCheckIn: (referenceCode, tripId) =>
+    request('/checkin/undo', { method: 'POST', body: { referenceCode, tripId } }),
+  manualCheckIn: (travelerId, tripId) =>
+    request('/checkin/manual', { method: 'POST', body: { travelerId, tripId } }),
+  getEvents: (limit = 20, tripId) =>
+    request(`/checkin/events?limit=${limit}${tripId ? `&tripId=${encodeURIComponent(tripId)}` : ''}`),
+  syncEvents: (events, tripId) =>
+    request('/checkin/sync', { method: 'POST', body: { events, tripId } }),
 
   // QR Codes
   getQRCodes: (tripId) => request(`/qrcodes?tripId=${tripId}`),
