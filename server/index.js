@@ -9,7 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const { initDb, checkConnection } = require('./db');
+const { initDb, checkConnection, query, sanitizeDatabaseUrl } = require('./db');
 const { requireAuth } = require('./middleware/auth');
 
 const app = express();
@@ -44,11 +44,13 @@ app.get('/api/debug/db-env', (req, res) => {
       dbName: null,
       dbPort: null,
       passwordLength: 0,
+      sslRejectUnauthorized: false,
     });
   }
 
   try {
-    const parsed = new URL(dbUrl);
+    const sanitized = sanitizeDatabaseUrl(dbUrl);
+    const parsed = new URL(sanitized);
     return res.json({
       nodeEnv: process.env.NODE_ENV || 'undefined',
       hasDatabaseUrl: true,
@@ -57,12 +59,48 @@ app.get('/api/debug/db-env', (req, res) => {
       dbName: parsed.pathname.replace('/', ''),
       dbPort: parsed.port,
       passwordLength: parsed.password ? parsed.password.length : 0,
+      sslRejectUnauthorized: false,
     });
   } catch (e) {
     return res.json({
       nodeEnv: process.env.NODE_ENV || 'undefined',
       hasDatabaseUrl: true,
       parseError: e.message,
+      sslRejectUnauthorized: false,
+    });
+  }
+});
+
+// GET /api/debug/db-test — runs SELECT NOW() to verify live DB connectivity.
+// Never exposes the password or the full DATABASE_URL.
+app.get('/api/debug/db-test', async (req, res) => {
+  let host = null, port = null, user = null;
+  try {
+    if (process.env.DATABASE_URL) {
+      const parsed = new URL(sanitizeDatabaseUrl(process.env.DATABASE_URL));
+      host = parsed.hostname;
+      port = parsed.port;
+      user = parsed.username;
+    }
+  } catch { /* ignore — fall through to query */ }
+
+  try {
+    const result = await query('SELECT NOW() as now');
+    return res.json({
+      ok: true,
+      now: result.rows[0]?.now,
+      host,
+      port,
+      user,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+      code: err.code || 'DB_TEST_FAILED',
+      host,
+      port,
+      user,
     });
   }
 });

@@ -27,6 +27,24 @@ Ce projet fournit une interface permettant au personnel d'une agence de voyages 
 - **Base de données** : PostgreSQL
 - **Déploiement** : Vercel
 
+## Déploiement Vercel + Supabase
+
+**`DATABASE_URL` recommandé (Vercel) :**
+
+```
+postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
+```
+
+- Le **SSL est configuré dans le code** (`ssl: { rejectUnauthorized: false }`).
+- **Ne pas** ajouter `?sslmode=require` à l'URL : cela entre en conflit avec la config SSL en code et provoque l'erreur `self-signed certificate in certificate chain`.
+- Port **5432 (Session Pooler) recommandé** ; port **6543 (Transaction Pooler) en fallback** si le Session Pooler est saturé.
+- `vercel.json` contient `"regions": ["fra1"]` pour rapprocher les Functions de Supabase Frankfurt.
+
+**Vérification après déploiement :**
+
+- `GET /api/debug/db-env` → renvoie `nodeEnv`, `hasDatabaseUrl`, `dbUser`, `dbHost`, `dbPort`, `dbName`, `passwordLength`, `sslRejectUnauthorized` (jamais le mot de passe ni l'URL complète).
+- `GET /api/debug/db-test` → exécute `SELECT NOW()` et renvoie `{ ok: true, now, host, port, user }` en cas de succès, sinon `{ ok: false, error, code }`.
+
 ## Licence
 
 Distribué sous la licence MIT.

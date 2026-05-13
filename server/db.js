@@ -2,24 +2,32 @@ const { Pool } = require('pg');
 
 // ─── Supabase / Vercel Serverless PostgreSQL Configuration ─────────────────
 //
-// Optimized for Vercel serverless functions + Supabase Transaction Pooler (port 6543):
+// SSL is configured *in code* via { rejectUnauthorized: false } — required
+// because Supabase's pooler presents a self-signed cert chain, which pg
+// would otherwise reject with "self-signed certificate in certificate chain".
 //
-//  - Pool is created ONCE at module scope and reused across warm invocations
-//  - ssl: { rejectUnauthorized: false } — required for Supabase
-//  - max: 3        → small pool; each Vercel function instance is short-lived
-//  - connectionTimeoutMillis: 20000 → 20s to handle Supabase pooler cold starts
-//  - idleTimeoutMillis: 5000 → release idle connections quickly
-//  - allowExitOnIdle: true → let the serverless process exit cleanly
+// DATABASE_URL is sanitized to strip any sslmode / ssl* query params, because
+// pg's connection-string parser will otherwise interpret them and fight our
+// explicit ssl config, re-introducing the cert error.
 //
-// NOTE: Do NOT set statement_timeout at Pool level — PgBouncer (transaction mode)
-//       does not support connection-level parameters.
+// Recommended Vercel DATABASE_URL (NO ?sslmode=require):
+//   postgresql://postgres.[REF]:[PWD]@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
 //
-// Fallback: If Transaction Pooler (port 6543) times out, switch DATABASE_URL
-//           to Session Pooler (port 5432) in Vercel env vars.
-//           Session Pooler: postgres://postgres.[REF]:[PWD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
-//
+// Port 5432 = Session Pooler (recommended). Port 6543 = Transaction Pooler (fallback).
 
-// ─── Safe DB ENV logging (never exposes password) ──────────────────────────
+function sanitizeDatabaseUrl(rawUrl) {
+  if (!rawUrl) return rawUrl;
+  try {
+    const u = new URL(rawUrl);
+    const sslParams = ['sslmode', 'ssl', 'sslcert', 'sslkey', 'sslrootcert'];
+    for (const p of sslParams) u.searchParams.delete(p);
+    return u.toString();
+  } catch {
+    return rawUrl
+      .replace(/([?&])(sslmode|ssl|sslcert|sslkey|sslrootcert)=[^&]*/gi, '$1')
+      .replace(/[?&]$/, '');
+  }
+}
 
 function logDbEnvOnce(dbUrl) {
   try {
@@ -29,16 +37,14 @@ function logDbEnvOnce(dbUrl) {
     console.log(`[DB ENV] port=${parsed.port}`);
     console.log(`[DB ENV] database=${parsed.pathname.replace('/', '')}`);
     console.log(`[DB ENV] passwordLength=${parsed.password ? parsed.password.length : 0}`);
-    console.log(`[DB ENV] ssl=rejectUnauthorized:false`);
+    console.log(`[DB ENV] ssl=rejectUnauthorized:false (configured in code)`);
   } catch (e) {
     console.warn('[DB ENV] Could not parse DATABASE_URL:', e.message);
   }
 }
 
-// ─── Pool — singleton at module scope ──────────────────────────────────────
-
-const dbUrl = process.env.DATABASE_URL;
-if (!dbUrl) {
+const rawDbUrl = process.env.DATABASE_URL;
+if (!rawDbUrl) {
   console.error('[DB] FATAL: DATABASE_URL environment variable is not set!');
 }
 
@@ -47,48 +53,36 @@ let pool = null;
 function getPool() {
   if (pool) return pool;
 
-  if (!dbUrl) {
+  if (!rawDbUrl) {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  logDbEnvOnce(dbUrl);
+  const sanitizedDatabaseUrl = sanitizeDatabaseUrl(rawDbUrl);
+
+  logDbEnvOnce(sanitizedDatabaseUrl);
   console.log('[DB] Creating new PostgreSQL connection pool...');
 
   pool = new Pool({
-    connectionString: dbUrl,
+    connectionString: sanitizedDatabaseUrl,
     ssl: { rejectUnauthorized: false },
-
-    // Serverless-optimized settings
-    max: 3,                          // Small pool for serverless
-    min: 0,                          // Don't pre-allocate idle connections
-    idleTimeoutMillis: 5000,         // Release idle connections after 5s
-    connectionTimeoutMillis: 20000,  // 20s timeout — handles Supabase cold starts
-    allowExitOnIdle: true,           // Let serverless process exit cleanly
+    max: 3,
+    min: 0,
+    idleTimeoutMillis: 5000,
+    connectionTimeoutMillis: 20000,
+    allowExitOnIdle: true,
   });
 
   pool.on('connect', () => {
-    console.log('[DB] ✅ PostgreSQL connection established');
+    console.log('[DB] PostgreSQL connection established');
   });
 
   pool.on('error', (err) => {
-    console.error('[DB] ❌ Unexpected PostgreSQL pool error:', err.message);
-    // Reset pool so it's recreated on the next request
+    console.error('[DB] Unexpected PostgreSQL pool error:', err.message);
     pool = null;
   });
 
   return pool;
 }
-
-// ─── Query helpers ─────────────────────────────────────────────────────────
-//
-// All helpers use pool.query() which automatically:
-//   1. Acquires a client from the pool
-//   2. Executes the query
-//   3. Releases the client back to the pool
-// This is safe and leak-free — no manual client.release() needed.
-//
-// For transactions or multi-statement work, use getPool().connect() with
-// a try/finally that calls client.release().
 
 async function query(sql, params = []) {
   const p = getPool();
@@ -114,10 +108,6 @@ async function all(sql, params = []) {
   const result = await query(sql, params);
   return result.rows;
 }
-
-// ─── Schema initialization ──────────────────────────────────────────────────
-// Run once via `npm run seed` or when server starts in local dev.
-// On Vercel serverless this is called lazily only once per cold start.
 
 async function initDb() {
   console.log('[DB] Initializing schema...');
@@ -175,7 +165,6 @@ async function initDb() {
       )
     `);
 
-    // Indexes
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_travelers_reference ON travelers("referenceCode")`,
       `CREATE INDEX IF NOT EXISTS idx_travelers_trip ON travelers("tripId")`,
@@ -188,7 +177,6 @@ async function initDb() {
       await client.query(sql);
     }
 
-    // Safe migrations
     const migrations = [
       `ALTER TABLE trips ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''`,
       `ALTER TABLE scan_events ADD COLUMN IF NOT EXISTS "tripId" TEXT REFERENCES trips(id) ON DELETE CASCADE`,
@@ -197,16 +185,14 @@ async function initDb() {
       try { await client.query(sql); } catch { /* column already exists */ }
     }
 
-    console.log('[DB] ✅ Schema initialized successfully');
+    console.log('[DB] Schema initialized successfully');
   } catch (err) {
-    console.error('[DB] ❌ Schema initialization failed:', err.message);
+    console.error('[DB] Schema initialization failed:', err.message);
     throw err;
   } finally {
     client.release();
   }
 }
-
-// ─── Health check ──────────────────────────────────────────────────────────
 
 async function checkConnection() {
   try {
@@ -217,4 +203,13 @@ async function checkConnection() {
   }
 }
 
-module.exports = { initDb, query, run, get, all, getPool, checkConnection };
+module.exports = {
+  initDb,
+  query,
+  run,
+  get,
+  all,
+  getPool,
+  checkConnection,
+  sanitizeDatabaseUrl,
+};

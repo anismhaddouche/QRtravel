@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -NoProfile -Command \"\\(Get-Content 'c:\\\\Users\\\\user\\\\Desktop\\\\qrcode\\\\README.md'\\).Length\")"
+    ]
+  }
+}
