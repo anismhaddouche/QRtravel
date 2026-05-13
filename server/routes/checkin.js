@@ -3,25 +3,56 @@ const router = express.Router();
 const { run, get, all } = require('../db');
 const { v4: uuidv4 } = require('uuid');
 
-// No-op broadcast — polling replaces WebSocket
-function broadcast() {}
+const REF_CODE_RE = /^[A-Za-z0-9_\-]{1,64}$/;
+const ID_RE = /^[A-Za-z0-9_\-]{1,64}$/;
+const DEVICE_ID_MAX = 128;
 
-// POST /api/checkin — check in a traveler by referenceCode
+const MAX_EVENTS_LIMIT = 200;
+const MAX_SYNC_BATCH = 200;
+
+function normalizeRefCode(raw) {
+  if (typeof raw !== 'string') return null;
+  const s = raw.trim().toUpperCase();
+  return REF_CODE_RE.test(s) ? s : null;
+}
+
+function normalizeId(raw) {
+  if (typeof raw !== 'string') return null;
+  const s = raw.trim();
+  return ID_RE.test(s) ? s : null;
+}
+
+function normalizeDeviceId(raw, fallback = 'unknown') {
+  if (typeof raw !== 'string' || raw.length === 0) return fallback;
+  return raw.slice(0, DEVICE_ID_MAX);
+}
+
+// POST /api/checkin — trip-scoped check-in.
 router.post('/', async (req, res) => {
   try {
-    const { referenceCode, deviceId } = req.body;
-
+    const body = req.body || {};
+    const referenceCode = normalizeRefCode(body.referenceCode);
     if (!referenceCode) {
       return res.status(400).json({ error: 'referenceCode is required', code: 'MISSING_CODE' });
     }
+    const tripId = body.tripId ? normalizeId(body.tripId) : null;
+    const deviceId = normalizeDeviceId(body.deviceId);
 
     const traveler = await get('SELECT * FROM travelers WHERE "referenceCode" = $1', [referenceCode]);
-
     if (!traveler) {
       return res.status(404).json({
         error: `Unknown QR code: ${referenceCode}`,
         code: 'UNKNOWN_CODE',
-        referenceCode
+        referenceCode,
+      });
+    }
+
+    // CRITICAL: scope to the active trip when the client supplies one.
+    // Prevents a scanner on Trip A from checking in Trip B travelers.
+    if (tripId && traveler.tripId !== tripId) {
+      return res.status(409).json({
+        error: 'This code belongs to a different trip',
+        code: 'WRONG_TRIP',
       });
     }
 
@@ -29,19 +60,22 @@ router.post('/', async (req, res) => {
       return res.status(409).json({
         error: `${traveler.displayName} is already checked in`,
         code: 'ALREADY_CHECKED_IN',
-        traveler
+        traveler,
       });
     }
 
     const now = new Date().toISOString();
 
-    await run(`UPDATE travelers SET status = 'checked_in', "checkedInAt" = $1 WHERE id = $2`, [now, traveler.id]);
+    await run(
+      `UPDATE travelers SET status = 'checked_in', "checkedInAt" = $1 WHERE id = $2`,
+      [now, traveler.id]
+    );
 
     const eventId = uuidv4();
     await run(
       `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId")
        VALUES ($1, $2, 'check_in', $3, $4, 1, $5)`,
-      [eventId, referenceCode, now, deviceId || 'unknown', traveler.tripId]
+      [eventId, referenceCode, now, deviceId, traveler.tripId]
     );
 
     const updatedTraveler = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
@@ -50,34 +84,37 @@ router.post('/', async (req, res) => {
       success: true,
       message: `${updatedTraveler.displayName} checked in successfully`,
       traveler: updatedTraveler,
-      eventId
+      eventId,
     });
   } catch (err) {
-    console.error('Check-in error:', err);
+    console.error('[CHECKIN] error:', err.message);
     res.status(500).json({ error: 'Check-in failed' });
   }
 });
 
-// POST /api/checkin/undo — undo a check-in
+// POST /api/checkin/undo
 router.post('/undo', async (req, res) => {
   try {
-    const { referenceCode, deviceId } = req.body;
-
+    const body = req.body || {};
+    const referenceCode = normalizeRefCode(body.referenceCode);
     if (!referenceCode) {
       return res.status(400).json({ error: 'referenceCode is required' });
     }
+    const tripId = body.tripId ? normalizeId(body.tripId) : null;
+    const deviceId = normalizeDeviceId(body.deviceId);
 
     const traveler = await get('SELECT * FROM travelers WHERE "referenceCode" = $1', [referenceCode]);
-
     if (!traveler) {
       return res.status(404).json({ error: `Unknown reference code: ${referenceCode}`, code: 'UNKNOWN_CODE' });
     }
-
+    if (tripId && traveler.tripId !== tripId) {
+      return res.status(409).json({ error: 'This code belongs to a different trip', code: 'WRONG_TRIP' });
+    }
     if (traveler.status === 'not_checked_in') {
       return res.status(409).json({
         error: `${traveler.displayName} is not checked in`,
         code: 'NOT_CHECKED_IN',
-        traveler
+        traveler,
       });
     }
 
@@ -89,7 +126,7 @@ router.post('/undo', async (req, res) => {
     await run(
       `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId")
        VALUES ($1, $2, 'undo_check_in', $3, $4, 1, $5)`,
-      [eventId, referenceCode, now, deviceId || 'unknown', traveler.tripId]
+      [eventId, referenceCode, now, deviceId, traveler.tripId]
     );
 
     const updatedTraveler = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
@@ -98,34 +135,37 @@ router.post('/undo', async (req, res) => {
       success: true,
       message: `${updatedTraveler.displayName} check-in undone`,
       traveler: updatedTraveler,
-      eventId
+      eventId,
     });
   } catch (err) {
-    console.error('Undo check-in error:', err);
+    console.error('[CHECKIN] undo error:', err.message);
     res.status(500).json({ error: 'Undo check-in failed' });
   }
 });
 
-// POST /api/checkin/manual — manual check-in without scanning
+// POST /api/checkin/manual — manual check-in by travelerId, still trip-scoped
 router.post('/manual', async (req, res) => {
   try {
-    const { travelerId, deviceId } = req.body;
-
+    const body = req.body || {};
+    const travelerId = normalizeId(body.travelerId);
     if (!travelerId) {
       return res.status(400).json({ error: 'travelerId is required' });
     }
+    const tripId = body.tripId ? normalizeId(body.tripId) : null;
+    const deviceId = normalizeDeviceId(body.deviceId, 'manual');
 
     const traveler = await get('SELECT * FROM travelers WHERE id = $1', [travelerId]);
-
     if (!traveler) {
       return res.status(404).json({ error: 'Traveler not found' });
     }
-
+    if (tripId && traveler.tripId !== tripId) {
+      return res.status(409).json({ error: 'Traveler belongs to a different trip', code: 'WRONG_TRIP' });
+    }
     if (traveler.status === 'checked_in') {
       return res.status(409).json({
         error: `${traveler.displayName} is already checked in`,
         code: 'ALREADY_CHECKED_IN',
-        traveler
+        traveler,
       });
     }
 
@@ -137,7 +177,7 @@ router.post('/manual', async (req, res) => {
     await run(
       `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId")
        VALUES ($1, $2, 'check_in', $3, $4, 1, $5)`,
-      [eventId, traveler.referenceCode, now, deviceId || 'manual', traveler.tripId]
+      [eventId, traveler.referenceCode, now, deviceId, traveler.tripId]
     );
 
     const updatedTraveler = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
@@ -145,47 +185,72 @@ router.post('/manual', async (req, res) => {
     res.json({
       success: true,
       message: `${updatedTraveler.displayName} manually checked in`,
-      traveler: updatedTraveler
+      traveler: updatedTraveler,
     });
   } catch (err) {
-    console.error('Manual check-in error:', err);
+    console.error('[CHECKIN] manual error:', err.message);
     res.status(500).json({ error: 'Manual check-in failed' });
   }
 });
 
-// GET /api/checkin/events — recent scan events
+// GET /api/checkin/events — recent scan events (capped)
 router.get('/events', async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 20;
-    const tripId = req.query.tripId;
+    const rawLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.min(rawLimit, MAX_EVENTS_LIMIT)
+      : 20;
+    const tripId = req.query.tripId ? normalizeId(req.query.tripId) : null;
+
     let events;
     if (tripId) {
-      events = await all('SELECT * FROM scan_events WHERE "tripId" = $1 ORDER BY timestamp DESC LIMIT $2', [tripId, limit]);
+      events = await all(
+        'SELECT * FROM scan_events WHERE "tripId" = $1 ORDER BY timestamp DESC LIMIT $2',
+        [tripId, limit]
+      );
     } else {
       events = await all('SELECT * FROM scan_events ORDER BY timestamp DESC LIMIT $1', [limit]);
     }
     res.json(events);
   } catch (err) {
-    console.error('Error fetching events:', err);
+    console.error('[CHECKIN] events error:', err.message);
     res.status(500).json({ error: 'Failed to fetch events' });
   }
 });
 
-// POST /api/checkin/sync — receive queued offline events
+// POST /api/checkin/sync — receive queued offline events (capped)
 router.post('/sync', async (req, res) => {
   try {
-    const { events } = req.body;
-
-    if (!Array.isArray(events) || events.length === 0) {
+    const body = req.body || {};
+    if (!Array.isArray(body.events) || body.events.length === 0) {
       return res.status(400).json({ error: 'events array is required' });
     }
+    if (body.events.length > MAX_SYNC_BATCH) {
+      return res.status(413).json({
+        error: `Sync batch too large (max ${MAX_SYNC_BATCH})`,
+        code: 'BATCH_TOO_LARGE',
+      });
+    }
 
+    const tripId = body.tripId ? normalizeId(body.tripId) : null;
     const results = [];
 
-    for (const event of events) {
-      const { referenceCode, action, timestamp, deviceId, eventId } = event;
+    for (const raw of body.events) {
+      const referenceCode = normalizeRefCode(raw?.referenceCode);
+      const action = raw?.action;
+      const timestamp = typeof raw?.timestamp === 'string' ? raw.timestamp : null;
+      const deviceId = normalizeDeviceId(raw?.deviceId, 'offline');
+      const eventId = normalizeId(raw?.eventId);
 
-      // Deduplicate by eventId
+      if (!referenceCode || !eventId || !timestamp) {
+        results.push({ eventId: eventId || null, status: 'error', message: 'Invalid event payload' });
+        continue;
+      }
+      if (action !== 'check_in' && action !== 'undo_check_in') {
+        results.push({ eventId, status: 'error', message: 'Invalid action' });
+        continue;
+      }
+
       const existing = await get('SELECT id FROM scan_events WHERE id = $1', [eventId]);
       if (existing) {
         results.push({ eventId, status: 'duplicate', message: 'Event already processed' });
@@ -197,23 +262,35 @@ router.post('/sync', async (req, res) => {
         results.push({ eventId, status: 'error', message: `Unknown code: ${referenceCode}` });
         continue;
       }
+      if (tripId && traveler.tripId !== tripId) {
+        results.push({ eventId, status: 'error', message: 'Wrong trip' });
+        continue;
+      }
 
       if (action === 'check_in') {
         if (traveler.status === 'checked_in') {
           results.push({ eventId, status: 'skipped', message: 'Already checked in' });
         } else {
-          await run(`UPDATE travelers SET status = 'checked_in', "checkedInAt" = $1 WHERE id = $2`, [timestamp, traveler.id]);
           await run(
-            `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId") VALUES ($1, $2, $3, $4, $5, 1, $6)`,
-            [eventId, referenceCode, action, timestamp, deviceId || 'offline', traveler.tripId]
+            `UPDATE travelers SET status = 'checked_in', "checkedInAt" = $1 WHERE id = $2`,
+            [timestamp, traveler.id]
+          );
+          await run(
+            `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId")
+             VALUES ($1, $2, $3, $4, $5, 1, $6)`,
+            [eventId, referenceCode, action, timestamp, deviceId, traveler.tripId]
           );
           results.push({ eventId, status: 'success', message: `${traveler.displayName} checked in` });
         }
-      } else if (action === 'undo_check_in') {
-        await run(`UPDATE travelers SET status = 'not_checked_in', "checkedInAt" = NULL WHERE id = $1`, [traveler.id]);
+      } else {
         await run(
-          `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId") VALUES ($1, $2, $3, $4, $5, 1, $6)`,
-          [eventId, referenceCode, action, timestamp, deviceId || 'offline', traveler.tripId]
+          `UPDATE travelers SET status = 'not_checked_in', "checkedInAt" = NULL WHERE id = $1`,
+          [traveler.id]
+        );
+        await run(
+          `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId")
+           VALUES ($1, $2, $3, $4, $5, 1, $6)`,
+          [eventId, referenceCode, action, timestamp, deviceId, traveler.tripId]
         );
         results.push({ eventId, status: 'success', message: `${traveler.displayName} check-in undone` });
       }
@@ -221,7 +298,7 @@ router.post('/sync', async (req, res) => {
 
     res.json({ synced: results.length, results });
   } catch (err) {
-    console.error('Sync error:', err);
+    console.error('[CHECKIN] sync error:', err.message);
     res.status(500).json({ error: 'Sync failed' });
   }
 });

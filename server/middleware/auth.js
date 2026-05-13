@@ -1,6 +1,10 @@
-const { get, run } = require('../db');
+const { get } = require('../db');
 
-// Check if session is valid
+// Validate session cookie. On Vercel serverless we do NOT register a
+// module-level setInterval cleanup — long-running timers leak across
+// invocations and are unsupported. Expired sessions are filtered by
+// the SQL "expiresAt" predicate below and can be purged separately
+// via a scheduled DB job if/when accumulation becomes a concern.
 async function requireAuth(req, res, next) {
   const sessionId = req.cookies?.qr_session;
 
@@ -15,28 +19,16 @@ async function requireAuth(req, res, next) {
     );
 
     if (!session) {
-      res.clearCookie('qr_session');
+      res.clearCookie('qr_session', { path: '/' });
       return res.status(401).json({ error: 'Session expired', code: 'SESSION_EXPIRED' });
     }
 
     req.user = { username: session.username };
     next();
   } catch (err) {
-    console.error('Auth middleware error:', err);
+    console.error('[AUTH] middleware error:', err.message);
     return res.status(500).json({ error: 'Authentication check failed' });
   }
 }
-
-// Clean up expired sessions periodically
-async function cleanExpiredSessions() {
-  try {
-    await run(`DELETE FROM sessions WHERE "expiresAt" < $1`, [new Date().toISOString()]);
-  } catch (e) {
-    // Ignore cleanup errors
-  }
-}
-
-// Run cleanup every 30 minutes
-setInterval(cleanExpiredSessions, 30 * 60 * 1000);
 
 module.exports = { requireAuth };

@@ -102,7 +102,7 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
 
     // ONLINE-FIRST: try API directly
     try {
-      const result = await api.checkIn(referenceCode, offlineQueue.deviceId);
+      const result = await api.checkIn(referenceCode, tripId, offlineQueue.deviceId);
       setFeedback({ type: 'success', title: 'Embarqué avec succès', message: result.traveler.displayName });
     } catch (err) {
       if (err.code === 'ALREADY_CHECKED_IN') {
@@ -129,7 +129,7 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
     } finally {
       processingRef.current = false;
     }
-  }, [offlineQueue, lastScanned]);
+  }, [offlineQueue, lastScanned, tripId]);
 
   const startScanner = useCallback(async () => {
     if (scannerRef.current) return;

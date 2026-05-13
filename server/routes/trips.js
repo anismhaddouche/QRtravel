@@ -3,6 +3,28 @@ const router = express.Router();
 const { run, get, all } = require('../db');
 const { v4: uuidv4 } = require('uuid');
 
+const TRIP_STATUSES = ['active', 'archived', 'completed', 'cancelled'];
+const MAX_NAME = 200;
+const MAX_NOTES = 2000;
+const MAX_DATE = 40;
+
+function cleanStr(v, max) {
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  if (s.length === 0) return null;
+  return s.slice(0, max);
+}
+
+function validateStatus(s) {
+  if (s === undefined || s === null || s === '') return null;
+  if (typeof s !== 'string' || !TRIP_STATUSES.includes(s)) {
+    const err = new Error(`status must be one of: ${TRIP_STATUSES.join(', ')}`);
+    err.statusCode = 400;
+    throw err;
+  }
+  return s;
+}
+
 // GET /api/trips — list all trips
 router.get('/', async (req, res) => {
   try {
@@ -48,21 +70,24 @@ router.get('/:id', async (req, res) => {
 // POST /api/trips — create a new trip
 router.post('/', async (req, res) => {
   try {
-    const { name, date, notes } = req.body;
+    const body = req.body || {};
+    const name = cleanStr(body.name, MAX_NAME);
     if (!name) return res.status(400).json({ error: 'name is required' });
+    const date = cleanStr(body.date, MAX_DATE);
+    const notes = body.notes === undefined ? '' : (cleanStr(body.notes, MAX_NOTES) || '');
 
     const id = uuidv4();
     const now = new Date().toISOString();
 
     await run(
       `INSERT INTO trips (id, name, date, notes, status, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [id, name, date || now.split('T')[0], notes || '', 'active', now, now]
+      [id, name, date || now.split('T')[0], notes, 'active', now, now]
     );
 
     const trip = await get('SELECT * FROM trips WHERE id = $1', [id]);
     res.status(201).json(trip);
   } catch (err) {
-    console.error('Error creating trip:', err);
+    console.error('Error creating trip:', err.message);
     res.status(500).json({ error: 'Failed to create trip' });
   }
 });
@@ -73,24 +98,33 @@ router.put('/:id', async (req, res) => {
     const trip = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
 
-    const { name, date, status, notes } = req.body;
+    const body = req.body || {};
+    const name = body.name === undefined ? null : cleanStr(body.name, MAX_NAME);
+    const date = body.date === undefined ? null : cleanStr(body.date, MAX_DATE);
+    const status = validateStatus(body.status);
+    const notes = body.notes === undefined
+      ? null
+      : (cleanStr(body.notes, MAX_NOTES) || '');
     const now = new Date().toISOString();
 
     await run(
-      `UPDATE trips SET 
-        name = COALESCE($1, name), 
+      `UPDATE trips SET
+        name = COALESCE($1, name),
         date = COALESCE($2, date),
-        status = COALESCE($3, status), 
+        status = COALESCE($3, status),
         notes = COALESCE($4, notes),
-        "updatedAt" = $5 
+        "updatedAt" = $5
       WHERE id = $6`,
-      [name || null, date || null, status || null, notes !== undefined ? notes : null, now, req.params.id]
+      [name, date, status, notes, now, req.params.id]
     );
 
     const updated = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
     res.json(updated);
   } catch (err) {
-    console.error('Error updating trip:', err);
+    if (err && err.statusCode === 400) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Error updating trip:', err.message);
     res.status(500).json({ error: 'Failed to update trip' });
   }
 });

@@ -89,11 +89,11 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
   };
 
   const handleUndo = async (referenceCode) => {
-    try { await api.undoCheckIn(referenceCode); fetchTravelers(); } catch (err) { alert(err.message); }
+    try { await api.undoCheckIn(referenceCode, tripId); fetchTravelers(); } catch (err) { alert(err.message); }
   };
 
   const handleManualCheckIn = async (travelerId) => {
-    try { await api.manualCheckIn(travelerId); fetchTravelers(); } catch (err) { alert(err.message); }
+    try { await api.manualCheckIn(travelerId, tripId); fetchTravelers(); } catch (err) { alert(err.message); }
   };
 
   if (!tripId) {
