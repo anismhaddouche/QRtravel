@@ -5,9 +5,12 @@ import { api } from '../utils/api';
 // don't pay the cost.
 import ScanFeedback from '../components/ScanFeedback';
 import EmptyState from '../components/EmptyState';
-import { ScanLine, Camera, CameraOff, AlertTriangle, ShieldAlert, Check } from 'lucide-react';
+import { ScanLine, Camera, CameraOff, AlertTriangle, ShieldAlert, Check, Loader2 } from 'lucide-react';
 
-// Detect if we're in a secure context (HTTPS or localhost)
+// Minimum time between two scan submissions. The camera stays running
+// the whole time; only QR processing pauses. Tune here.
+const SCAN_COOLDOWN_MS = 2000;
+
 function isSecureContext() {
   if (window.isSecureContext !== undefined) return window.isSecureContext;
   const hostname = window.location.hostname;
@@ -17,7 +20,6 @@ function isSecureContext() {
     || hostname === '[::1]';
 }
 
-// Detect camera availability
 async function detectCameraCapability() {
   if (!isSecureContext()) {
     return { available: false, reason: 'insecure-context' };
@@ -40,20 +42,34 @@ async function detectCameraCapability() {
 export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
   const [scanning, setScanning] = useState(false);
   const [feedback, setFeedback] = useState(null);
-  const [lastScanned, setLastScanned] = useState(null);
   const [manualCode, setManualCode] = useState('');
   const [cameraStatus, setCameraStatus] = useState({ checking: true, available: false, reason: null });
+
+  // Processing lock — covers both the in-flight API call AND the
+  // cooldown that follows. While true, all scan/manual submissions
+  // are ignored.
+  const [isProcessingScan, setIsProcessingScan] = useState(false);
+  const [cooldownRemainingSec, setCooldownRemainingSec] = useState(0);
+  const [processingPhase, setProcessingPhase] = useState('idle'); // 'idle' | 'api' | 'cooldown'
+
   const scannerRef = useRef(null);
   const processingRef = useRef(false);
+  const cooldownTimerRef = useRef(null);
 
-  // Check camera capability on mount
   useEffect(() => {
     detectCameraCapability().then(result => {
       setCameraStatus({ checking: false, ...result });
     });
   }, []);
 
-  // Human-readable camera error messages
+  // Cleanup any pending cooldown timer on unmount.
+  useEffect(() => () => {
+    if (cooldownTimerRef.current) {
+      clearTimeout(cooldownTimerRef.current);
+      cooldownTimerRef.current = null;
+    }
+  }, []);
+
   const cameraMessage = useMemo(() => {
     if (cameraStatus.checking || cameraStatus.available) return null;
     switch (cameraStatus.reason) {
@@ -95,14 +111,37 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
     }
   }, [cameraStatus]);
 
+  // Begin cooldown after the API call resolves. Camera keeps decoding
+  // QR codes; we just drop them while the lock is held.
+  const startCooldown = useCallback(() => {
+    setProcessingPhase('cooldown');
+    const start = Date.now();
+    setCooldownRemainingSec(Math.ceil(SCAN_COOLDOWN_MS / 1000));
+
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const remaining = Math.max(0, SCAN_COOLDOWN_MS - elapsed);
+      if (remaining <= 0) {
+        setCooldownRemainingSec(0);
+        processingRef.current = false;
+        setIsProcessingScan(false);
+        setProcessingPhase('idle');
+        cooldownTimerRef.current = null;
+        return;
+      }
+      setCooldownRemainingSec(Math.ceil(remaining / 1000));
+      cooldownTimerRef.current = setTimeout(tick, 250);
+    };
+    cooldownTimerRef.current = setTimeout(tick, 250);
+  }, []);
+
   const handleScan = useCallback(async (referenceCode) => {
+    // Single source of truth: the ref. Synchronous and never stale.
     if (processingRef.current) return;
-    if (lastScanned && lastScanned.code === referenceCode && Date.now() - lastScanned.time < 4000) return;
-
     processingRef.current = true;
-    setLastScanned({ code: referenceCode, time: Date.now() });
+    setIsProcessingScan(true);
+    setProcessingPhase('api');
 
-    // ONLINE-FIRST: try API directly
     try {
       const result = await api.checkIn(referenceCode, tripId, offlineQueue.deviceId);
       setFeedback({ type: 'success', title: 'Embarqué avec succès', message: result.traveler.displayName });
@@ -111,6 +150,8 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
         setFeedback({ type: 'duplicate', title: 'Déjà embarqué', message: err.data?.traveler?.displayName || referenceCode });
       } else if (err.code === 'UNKNOWN_CODE') {
         setFeedback({ type: 'error', title: 'Code invalide', message: `"${referenceCode}" non trouvé dans ce voyage` });
+      } else if (err.code === 'WRONG_TRIP') {
+        setFeedback({ type: 'error', title: 'Mauvais voyage', message: `Ce code n'appartient pas au voyage sélectionné.` });
       } else {
         // OFFLINE FALLBACK
         const validation = offlineQueue.validateOffline(referenceCode);
@@ -129,9 +170,11 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
         }
       }
     } finally {
-      processingRef.current = false;
+      // Hold the lock through the cooldown window. The camera keeps
+      // running; further detections are dropped by the guard above.
+      startCooldown();
     }
-  }, [offlineQueue, lastScanned, tripId]);
+  }, [offlineQueue, tripId, startCooldown]);
 
   const startScanner = useCallback(async () => {
     if (scannerRef.current) return;
@@ -155,7 +198,6 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
       console.error('Scanner start error:', err);
       scannerRef.current = null;
 
-      // Provide specific error messages
       const errStr = typeof err === 'string' ? err : String(err?.message || err);
       if (errStr.includes('NotAllowedError') || errStr.includes('Permission')) {
         setCameraStatus({ checking: false, available: false, reason: 'permission-error' });
@@ -171,7 +213,7 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
 
   const stopScanner = useCallback(async () => {
     if (scannerRef.current) {
-      try { await scannerRef.current.stop(); scannerRef.current.clear(); } catch (e) {}
+      try { await scannerRef.current.stop(); scannerRef.current.clear(); } catch (e) { /* ignore */ }
       scannerRef.current = null;
       setScanning(false);
     }
@@ -192,8 +234,10 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
       setFeedback({ type: 'error', title: 'Aucun voyage', message: 'Sélectionnez un voyage avant de scanner.' });
       return;
     }
-    if (manualCode.trim()) {
-      handleScan(manualCode.trim().toUpperCase());
+    if (processingRef.current) return; // honor the same lock
+    const code = manualCode.trim();
+    if (code) {
+      handleScan(code.toUpperCase());
       setManualCode('');
     }
   };
@@ -202,7 +246,7 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
   if (!tripId) {
     return (
       <div style={{ marginTop: '48px' }}>
-        <EmptyState 
+        <EmptyState
           icon={ScanLine}
           title="Aucun voyage sélectionné"
           description="Sélectionnez un voyage dans le menu pour commencer à scanner les codes QR."
@@ -210,6 +254,15 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
       </div>
     );
   }
+
+  // Calm status line shown inside the viewport.
+  const statusText = !scanning
+    ? null
+    : processingPhase === 'api'
+      ? 'Traitement du scan…'
+      : processingPhase === 'cooldown'
+        ? `Prêt pour le prochain scan dans ${cooldownRemainingSec}s…`
+        : 'Pointez la caméra vers un code QR';
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
@@ -223,7 +276,7 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
 
       {/* Offline queue banner */}
       {offlineQueue.queueLength > 0 && (
-        <div style={{ 
+        <div style={{
           background: offlineQueue.syncStatus === 'syncing' ? 'var(--accent-glowStrong)' : 'var(--warning-bg)',
           border: `1px solid ${offlineQueue.syncStatus === 'syncing' ? 'var(--accent)' : 'rgba(245, 158, 11, 0.3)'}`,
           borderRadius: 'var(--radius-sm)',
@@ -238,8 +291,8 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
         }}>
           <span style={{ flex: 1 }}>
             {offlineQueue.syncStatus === 'syncing'
-              ? `⟳ Synchronisation de ${offlineQueue.queueLength} scan(s)...`
-              : `⏳ ${offlineQueue.queueLength} scan(s) en attente`}
+              ? `Synchronisation de ${offlineQueue.queueLength} scan(s)...`
+              : `${offlineQueue.queueLength} scan(s) en attente`}
           </span>
           {isOnline && offlineQueue.syncStatus !== 'syncing' && (
             <button className="btn btn-sm btn-primary" onClick={offlineQueue.syncQueue}>Synchroniser</button>
@@ -253,50 +306,89 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
           <cameraMessage.icon size={48} style={{ color: 'var(--warning-light)', margin: '0 auto 16px' }} />
           <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--warning-light)', marginBottom: '8px' }}>{cameraMessage.title}</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>{cameraMessage.message}</p>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>💡 {cameraMessage.tip}</p>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>{cameraMessage.tip}</p>
         </div>
       )}
 
-      {/* Camera viewport — only show if camera is available */}
+      {/* Camera viewport — calm, field-ready look */}
       {!cameraMessage && (
         <>
-          <div style={{ 
-            position: 'relative', 
-            width: '100%', 
-            maxWidth: '400px', 
-            margin: '0 auto 24px', 
-            borderRadius: 'var(--radius-lg)', 
+          <div style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: '400px',
+            margin: '0 auto 24px',
+            borderRadius: 'var(--radius-lg)',
             overflow: 'hidden',
-            border: scanning ? '2px solid var(--accent)' : '1px solid var(--border)',
-            boxShadow: scanning ? 'var(--shadow-glow)' : 'var(--shadow-md)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-md)',
             background: 'var(--navy-surface)',
             aspectRatio: '1/1'
           }}>
             <div id="qr-reader" style={{ width: '100%', height: '100%' }}></div>
-            
-            {/* Animated scanning frame when active */}
+
+            {/* Static reticle: four soft corner brackets — no animation */}
             {scanning && (
-              <div style={{
-                position: 'absolute',
-                inset: '20px',
-                border: '2px dashed rgba(99, 102, 241, 0.5)',
-                borderRadius: '12px',
-                pointerEvents: 'none',
-                animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-              }}>
-                <div style={{ position: 'absolute', width: '100%', height: '2px', background: 'var(--accent)', top: '50%', boxShadow: '0 0 10px var(--accent)', animation: 'scan 2s linear infinite' }} />
+              <div style={{ position: 'absolute', inset: '18%', pointerEvents: 'none' }} aria-hidden="true">
+                {[
+                  { top: 0,    left: 0,    borderTop: true,    borderLeft: true,  radius: 'borderTopLeftRadius' },
+                  { top: 0,    right: 0,   borderTop: true,    borderRight: true, radius: 'borderTopRightRadius' },
+                  { bottom: 0, left: 0,    borderBottom: true, borderLeft: true,  radius: 'borderBottomLeftRadius' },
+                  { bottom: 0, right: 0,   borderBottom: true, borderRight: true, radius: 'borderBottomRightRadius' },
+                ].map((c, i) => {
+                  const style = {
+                    position: 'absolute',
+                    width: 26,
+                    height: 26,
+                    [c.radius]: 4,
+                  };
+                  if (c.top !== undefined) style.top = c.top;
+                  if (c.bottom !== undefined) style.bottom = c.bottom;
+                  if (c.left !== undefined) style.left = c.left;
+                  if (c.right !== undefined) style.right = c.right;
+                  const stroke = '1.5px solid rgba(255, 255, 255, 0.75)';
+                  if (c.borderTop) style.borderTop = stroke;
+                  if (c.borderBottom) style.borderBottom = stroke;
+                  if (c.borderLeft) style.borderLeft = stroke;
+                  if (c.borderRight) style.borderRight = stroke;
+                  return <span key={i} style={style} />;
+                })}
               </div>
             )}
-            
-            <style>{`
-              @keyframes scan {
-                0% { transform: translateY(-100px); opacity: 0; }
-                10% { opacity: 1; }
-                90% { opacity: 1; }
-                100% { transform: translateY(100px); opacity: 0; }
-              }
-            `}</style>
 
+            {/* Status pill — single, unobtrusive line at the bottom */}
+            {scanning && statusText && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  right: 12,
+                  bottom: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '8px 12px',
+                  borderRadius: 999,
+                  background: 'rgba(10, 15, 30, 0.65)',
+                  backdropFilter: 'blur(6px)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  letterSpacing: '0.01em',
+                  pointerEvents: 'none',
+                }}
+                role="status"
+                aria-live="polite"
+              >
+                {processingPhase !== 'idle' && (
+                  <Loader2 size={14} style={{ animation: 'spin 1.4s linear infinite' }} />
+                )}
+                <span>{statusText}</span>
+              </div>
+            )}
+
+            {/* "Press Start" placeholder when camera is off */}
             {!scanning && (
               <div style={{
                 position: 'absolute',
@@ -331,7 +423,7 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
         </>
       )}
 
-      {/* Manual code entry — always available */}
+      {/* Manual code entry — also respects the processing lock */}
       <div className="glass-card">
         <h3 className="glass-card-title" style={{ marginBottom: '8px' }}>Saisie manuelle</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
@@ -339,17 +431,33 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
         </p>
         <form onSubmit={handleManualSubmit} style={{ display: 'flex', gap: '8px' }}>
           <input
-            type="text" 
-            className="form-input" 
+            type="text"
+            className="form-input"
             placeholder="ex: TRV-001"
-            value={manualCode} 
+            value={manualCode}
             onChange={(e) => setManualCode(e.target.value)}
-            style={{ flex: 1, fontFamily: 'var(--font-mono)' }} 
-            id="input-manual-code" 
+            style={{ flex: 1, fontFamily: 'var(--font-mono)' }}
+            id="input-manual-code"
             autoComplete="off"
+            disabled={isProcessingScan}
           />
-          <button type="submit" className="btn btn-success" disabled={!manualCode.trim()} id="btn-manual-checkin">
-            <Check size={18} /> Valider
+          <button
+            type="submit"
+            className="btn btn-success"
+            disabled={!manualCode.trim() || isProcessingScan}
+            id="btn-manual-checkin"
+            title={isProcessingScan ? 'Traitement en cours…' : ''}
+          >
+            {isProcessingScan ? (
+              <>
+                <Loader2 size={16} style={{ animation: 'spin 1.4s linear infinite' }} />
+                {processingPhase === 'cooldown' ? `${cooldownRemainingSec}s` : '…'}
+              </>
+            ) : (
+              <>
+                <Check size={18} /> Valider
+              </>
+            )}
           </button>
         </form>
       </div>
