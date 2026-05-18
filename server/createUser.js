@@ -1,11 +1,13 @@
-// Create or update a staff/admin user from the CLI.
+// Create or update a user from the CLI.
 //
 // Usage:
-//   node server/createUser.js <email> <password> [role]
-//   npm run create-user -- <email> <password> [role]
+//   node server/createUser.js <email> <password> <role> [agencyNameOrId]
+//   npm run create-user -- <email> <password> <role> [agencyNameOrId]
 //
-// role defaults to "staff". Valid roles: admin, staff.
-// If a user with the same email exists, its password and role are updated.
+// Roles: super_admin, agency_admin, staff (legacy 'admin' accepted → agency_admin).
+// - super_admin must NOT have an agency.
+// - agency_admin/staff MUST have an agencyNameOrId.
+// If a user with the same email exists, password and role/agency are updated.
 
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
@@ -13,30 +15,52 @@ const { v4: uuidv4 } = require('uuid');
 const { initDb, get, run, getPool } = require('./db');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const VALID_ROLES = new Set(['admin', 'staff']);
+const VALID_ROLES = new Set(['super_admin', 'agency_admin', 'staff']);
+
+function usage() {
+  console.error('Usage: node server/createUser.js <email> <password> <role> [agencyNameOrId]');
+  console.error('  roles: super_admin | agency_admin | staff');
+  console.error('  agency_admin/staff require an agency.');
+  process.exit(1);
+}
+
+async function resolveAgency(nameOrId) {
+  if (!nameOrId) return null;
+  let ag = await get(`SELECT * FROM agencies WHERE id = $1`, [nameOrId]);
+  if (!ag) ag = await get(`SELECT * FROM agencies WHERE LOWER(name) = LOWER($1) LIMIT 1`, [nameOrId]);
+  return ag;
+}
 
 async function main() {
-  const [, , email, password, roleArg] = process.argv;
-  const role = roleArg || 'staff';
+  const [, , email, password, roleRawArg, agencyArg] = process.argv;
+  let role = roleRawArg || 'staff';
+  if (role === 'admin') role = 'agency_admin';
 
-  if (!email || !password) {
-    console.error('Usage: node server/createUser.js <email> <password> [admin|staff]');
-    process.exit(1);
-  }
-  if (!EMAIL_RE.test(email)) {
-    console.error('Invalid email format.');
-    process.exit(1);
-  }
-  if (password.length < 8) {
-    console.error('Password must be at least 8 characters.');
-    process.exit(1);
-  }
-  if (!VALID_ROLES.has(role)) {
-    console.error(`Invalid role "${role}". Must be one of: admin, staff.`);
-    process.exit(1);
-  }
+  if (!email || !password) usage();
+  if (!EMAIL_RE.test(email)) { console.error('Invalid email format.'); process.exit(1); }
+  if (password.length < 8) { console.error('Password must be at least 8 characters.'); process.exit(1); }
+  if (!VALID_ROLES.has(role)) { console.error(`Invalid role "${role}".`); usage(); }
 
   await initDb();
+
+  let agencyId = null;
+  if (role === 'super_admin') {
+    if (agencyArg) {
+      console.error('super_admin must NOT have an agency. Omit the agency argument.');
+      process.exit(1);
+    }
+  } else {
+    if (!agencyArg) {
+      console.error(`Role "${role}" requires an agencyNameOrId argument.`);
+      process.exit(1);
+    }
+    const ag = await resolveAgency(agencyArg);
+    if (!ag) {
+      console.error(`Agency not found: ${agencyArg}`);
+      process.exit(1);
+    }
+    agencyId = ag.id;
+  }
 
   const existing = await get(`SELECT id FROM users WHERE LOWER(email) = LOWER($1)`, [email]);
   const now = new Date().toISOString();
@@ -44,19 +68,19 @@ async function main() {
 
   if (existing) {
     await run(
-      `UPDATE users SET "passwordHash" = $1, role = $2, "updatedAt" = $3 WHERE id = $4`,
-      [passwordHash, role, now, existing.id]
+      `UPDATE users SET "passwordHash" = $1, role = $2, "agencyId" = $3, "updatedAt" = $4 WHERE id = $5`,
+      [passwordHash, role, agencyId, now, existing.id]
     );
     await run(`DELETE FROM sessions WHERE "userId" = $1`, [existing.id]);
-    console.log(`✅ Updated existing user: ${email} (role=${role})`);
+    console.log(`✅ Updated user: ${email} (role=${role}${agencyId ? `, agency=${agencyId}` : ''})`);
   } else {
     const id = uuidv4();
     await run(
-      `INSERT INTO users (id, email, "passwordHash", role, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, email, passwordHash, role, now, now]
+      `INSERT INTO users (id, email, "passwordHash", role, "agencyId", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+      [id, email, passwordHash, role, agencyId, now]
     );
-    console.log(`✅ Created user: ${email} (role=${role})`);
+    console.log(`✅ Created user: ${email} (role=${role}${agencyId ? `, agency=${agencyId}` : ''})`);
   }
 
   await getPool().end();

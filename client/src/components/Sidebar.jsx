@@ -54,7 +54,7 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
         <NavItem to="/travelers" icon={<Users size={20} />} label="Voyageurs" />
         <NavItem to="/qrcodes" icon={<QrCode size={20} />} label="Codes QR" />
         <NavItem to="/trips" icon={<Map size={20} />} label="Voyages" />
-        {role === 'admin' && (
+        {(role === 'admin' || role === 'super_admin' || role === 'agency_admin') && (
           <NavItem to="/users" icon={<Shield size={20} />} label="Personnel" />
         )}
       </nav>

@@ -7,7 +7,14 @@
       "Bash(node -c c:\\\\Users\\\\user\\\\Desktop\\\\qrcode\\\\server\\\\routes\\\\checkin.js)",
       "Bash(node -c c:\\\\Users\\\\user\\\\Desktop\\\\qrcode\\\\server\\\\routes\\\\trips.js)",
       "Bash(node -c c:\\\\Users\\\\user\\\\Desktop\\\\qrcode\\\\server\\\\routes\\\\travelers.js)",
-      "PowerShell($files = @\\('server\\\\index.js','server\\\\routes\\\\auth.js','server\\\\routes\\\\checkin.js','server\\\\routes\\\\trips.js','server\\\\routes\\\\travelers.js','server\\\\middleware\\\\auth.js','server\\\\middleware\\\\rateLimit.js','server\\\\seed.js'\\); foreach \\($f in $files\\) { node --check \"c:\\\\Users\\\\user\\\\Desktop\\\\qrcode\\\\$f\"; if \\($LASTEXITCODE -ne 0\\) { Write-Host \"FAIL: $f\"; exit 1 } }; Write-Host OK)"
+      "PowerShell($files = @\\('server\\\\index.js','server\\\\routes\\\\auth.js','server\\\\routes\\\\checkin.js','server\\\\routes\\\\trips.js','server\\\\routes\\\\travelers.js','server\\\\middleware\\\\auth.js','server\\\\middleware\\\\rateLimit.js','server\\\\seed.js'\\); foreach \\($f in $files\\) { node --check \"c:\\\\Users\\\\user\\\\Desktop\\\\qrcode\\\\$f\"; if \\($LASTEXITCODE -ne 0\\) { Write-Host \"FAIL: $f\"; exit 1 } }; Write-Host OK)",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__execute_sql"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { run, get, all } = require('../db');
 const { v4: uuidv4 } = require('uuid');
+const { isSuperAdmin, effectiveAgencyId } = require('../lib/scope');
 
 const TRIP_STATUSES = ['active', 'archived', 'completed', 'cancelled'];
 const MAX_NAME = 200;
@@ -24,15 +25,29 @@ function validateStatus(s) {
   return s;
 }
 
+// Fetch a trip enforcing tenant scope. Returns null if not visible.
+async function fetchScopedTrip(user, tripId) {
+  const trip = await get('SELECT * FROM trips WHERE id = $1', [tripId]);
+  if (!trip) return null;
+  if (!isSuperAdmin(user) && trip.agencyId !== effectiveAgencyId(user)) return null;
+  return trip;
+}
+
 router.get('/', async (req, res) => {
   try {
     const { status } = req.query;
-    let trips;
-    if (status) {
-      trips = await all('SELECT * FROM trips WHERE status = $1 ORDER BY date DESC', [status]);
-    } else {
-      trips = await all('SELECT * FROM trips ORDER BY date DESC');
-    }
+    const superAdmin = isSuperAdmin(req.user);
+    // super_admin may optionally filter by agencyId
+    const agencyFilter = superAdmin ? (req.query.agencyId || null) : effectiveAgencyId(req.user);
+
+    const where = [];
+    const params = [];
+    if (status) { params.push(status); where.push(`status = $${params.length}`); }
+    if (agencyFilter) { params.push(agencyFilter); where.push(`"agencyId" = $${params.length}`); }
+    const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+
+    const trips = await all(`SELECT * FROM trips${whereSql} ORDER BY date DESC`, params);
+
     const enriched = await Promise.all(trips.map(async (trip) => {
       const total = await get('SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1', [trip.id]);
       const checkedIn = await get(`SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1 AND status = 'checked_in'`, [trip.id]);
@@ -53,7 +68,7 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const trip = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
+    const trip = await fetchScopedTrip(req.user, req.params.id);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     res.json(trip);
   } catch (err) {
@@ -69,12 +84,28 @@ router.post('/', async (req, res) => {
     const date = cleanStr(body.date, MAX_DATE);
     const notes = body.notes === undefined ? '' : (cleanStr(body.notes, MAX_NOTES) || '');
 
+    // agencyId selection:
+    //   non-super: always derived from req.user (body value ignored)
+    //   super_admin: may pass agencyId in body
+    let agencyId;
+    if (isSuperAdmin(req.user)) {
+      agencyId = typeof body.agencyId === 'string' && body.agencyId.trim() ? body.agencyId.trim() : null;
+      if (!agencyId) {
+        return res.status(400).json({ error: 'agencyId is required for super_admin', code: 'VALIDATION' });
+      }
+      const ag = await get('SELECT id FROM agencies WHERE id = $1', [agencyId]);
+      if (!ag) return res.status(400).json({ error: 'Unknown agencyId', code: 'VALIDATION' });
+    } else {
+      agencyId = req.user.agencyId;
+      if (!agencyId) return res.status(403).json({ error: 'No agency on account', code: 'NO_AGENCY' });
+    }
+
     const id = uuidv4();
     const now = new Date().toISOString();
 
     await run(
-      `INSERT INTO trips (id, name, date, notes, status, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [id, name, date || now.split('T')[0], notes, 'active', now, now]
+      `INSERT INTO trips (id, name, date, notes, status, "agencyId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, name, date || now.split('T')[0], notes, 'active', agencyId, now, now]
     );
 
     const trip = await get('SELECT * FROM trips WHERE id = $1', [id]);
@@ -88,7 +119,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const trip = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
+    const trip = await fetchScopedTrip(req.user, req.params.id);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
 
     const body = req.body || {};
@@ -120,7 +151,7 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    const trip = await get('SELECT * FROM trips WHERE id = $1', [req.params.id]);
+    const trip = await fetchScopedTrip(req.user, req.params.id);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     await run('DELETE FROM trips WHERE id = $1', [req.params.id]);
     res.json({ success: true, message: `Trip "${trip.name}" and all associated data deleted` });

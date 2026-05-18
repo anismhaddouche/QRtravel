@@ -116,6 +116,18 @@ async function initDb() {
 
   try {
     await client.query(`
+      CREATE TABLE IF NOT EXISTS agencies (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        "createdAt" TEXT NOT NULL,
+        "updatedAt" TEXT NOT NULL
+      )
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS trips (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -194,6 +206,16 @@ async function initDb() {
       `ALTER TABLE scan_events ADD COLUMN IF NOT EXISTS "tripId" TEXT REFERENCES trips(id) ON DELETE CASCADE`,
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS "userId" TEXT`,
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS role TEXT`,
+      // Multi-tenant: agencyId on every scoped table + on sessions
+      `ALTER TABLE users      ADD COLUMN IF NOT EXISTS "agencyId" TEXT REFERENCES agencies(id) ON DELETE SET NULL`,
+      `ALTER TABLE trips      ADD COLUMN IF NOT EXISTS "agencyId" TEXT REFERENCES agencies(id) ON DELETE CASCADE`,
+      `ALTER TABLE travelers  ADD COLUMN IF NOT EXISTS "agencyId" TEXT REFERENCES agencies(id) ON DELETE CASCADE`,
+      `ALTER TABLE scan_events ADD COLUMN IF NOT EXISTS "agencyId" TEXT REFERENCES agencies(id) ON DELETE CASCADE`,
+      `ALTER TABLE sessions   ADD COLUMN IF NOT EXISTS "agencyId" TEXT`,
+      `CREATE INDEX IF NOT EXISTS idx_trips_agency      ON trips("agencyId")`,
+      `CREATE INDEX IF NOT EXISTS idx_travelers_agency  ON travelers("agencyId")`,
+      `CREATE INDEX IF NOT EXISTS idx_scan_events_agency ON scan_events("agencyId")`,
+      `CREATE INDEX IF NOT EXISTS idx_users_agency      ON users("agencyId")`,
     ];
     for (const sql of migrations) {
       try { await client.query(sql); } catch { /* column already exists */ }

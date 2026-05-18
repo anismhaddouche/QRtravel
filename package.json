@@ -9,6 +9,7 @@
     "client": "cd client && npm run dev",
     "seed": "node server/seed.js",
     "create-user": "node server/createUser.js",
+    "create-agency": "node server/createAgency.js",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "build": "cd client && npm install --include=dev && npm run build",
     "start": "node server/index.js",

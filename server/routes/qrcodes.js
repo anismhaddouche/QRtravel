@@ -2,12 +2,25 @@ const express = require('express');
 const router = express.Router();
 const { get, all } = require('../db');
 const QRCode = require('qrcode');
+const { isSuperAdmin, effectiveAgencyId } = require('../lib/scope');
 
-// GET /api/qrcodes — get all QR codes as data URLs (for print/export page)
+function inUserScope(user, agencyId) {
+  if (isSuperAdmin(user)) return true;
+  return agencyId && agencyId === effectiveAgencyId(user);
+}
+
+// GET /api/qrcodes — all QR codes for a trip (agency-scoped)
 router.get('/', async (req, res) => {
   try {
     const tripId = req.query.tripId;
     if (!tripId) return res.status(400).json({ error: 'tripId query param is required' });
+
+    const trip = await get('SELECT id, "agencyId" FROM trips WHERE id = $1', [tripId]);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    if (!inUserScope(req.user, trip.agencyId)) {
+      return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN_AGENCY_SCOPE' });
+    }
+
     const travelers = await all('SELECT * FROM travelers WHERE "tripId" = $1 ORDER BY "referenceCode"', [tripId]);
 
     const qrCodes = await Promise.all(
@@ -30,7 +43,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/qrcodes/:referenceCode — generate a single QR code
+// GET /api/qrcodes/:referenceCode — single QR code (agency-scoped)
 router.get('/:referenceCode', async (req, res) => {
   try {
     const { referenceCode } = req.params;
@@ -38,6 +51,9 @@ router.get('/:referenceCode', async (req, res) => {
     const traveler = await get('SELECT * FROM travelers WHERE "referenceCode" = $1', [referenceCode]);
     if (!traveler) {
       return res.status(404).json({ error: `Unknown reference code: ${referenceCode}` });
+    }
+    if (!inUserScope(req.user, traveler.agencyId)) {
+      return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN_AGENCY_SCOPE' });
     }
 
     const format = req.query.format || 'png';

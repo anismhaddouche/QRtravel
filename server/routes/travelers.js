@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { run, get, all } = require('../db');
 const { v4: uuidv4 } = require('uuid');
+const { isSuperAdmin, effectiveAgencyId } = require('../lib/scope');
 
 const TYPES = ['person', 'couple', 'family', 'group'];
 const TRAVELER_STATUSES = ['not_checked_in', 'checked_in'];
@@ -55,10 +56,29 @@ function validatePeopleCount(v) {
   return n;
 }
 
+// Return trip if visible to user, else null.
+async function fetchScopedTrip(user, tripId) {
+  const trip = await get('SELECT * FROM trips WHERE id = $1', [tripId]);
+  if (!trip) return null;
+  if (!isSuperAdmin(user) && trip.agencyId !== effectiveAgencyId(user)) return null;
+  return trip;
+}
+
+// Return traveler if visible to user, else null.
+async function fetchScopedTraveler(user, travelerId) {
+  const t = await get('SELECT * FROM travelers WHERE id = $1', [travelerId]);
+  if (!t) return null;
+  if (!isSuperAdmin(user) && t.agencyId !== effectiveAgencyId(user)) return null;
+  return t;
+}
+
 router.get('/stats/summary', async (req, res) => {
   try {
     const tripId = req.query.tripId;
     if (!tripId) return res.status(400).json({ error: 'tripId query param is required', code: 'VALIDATION' });
+
+    const trip = await fetchScopedTrip(req.user, tripId);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
 
     const total = await get('SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1', [tripId]);
     const checkedIn = await get(`SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1 AND status = 'checked_in'`, [tripId]);
@@ -82,12 +102,15 @@ router.get('/stats/summary', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { tripId } = req.query;
-    let travelers;
-    if (tripId) {
-      travelers = await all('SELECT * FROM travelers WHERE "tripId" = $1 ORDER BY "referenceCode"', [tripId]);
-    } else {
-      travelers = await all('SELECT * FROM travelers ORDER BY "referenceCode"');
-    }
+    const superAdmin = isSuperAdmin(req.user);
+
+    const where = [];
+    const params = [];
+    if (tripId) { params.push(tripId); where.push(`"tripId" = $${params.length}`); }
+    if (!superAdmin) { params.push(effectiveAgencyId(req.user)); where.push(`"agencyId" = $${params.length}`); }
+    const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+
+    const travelers = await all(`SELECT * FROM travelers${whereSql} ORDER BY "referenceCode"`, params);
     res.json(travelers);
   } catch (err) {
     console.error('Error fetching travelers:', err.message);
@@ -97,7 +120,7 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const traveler = await get('SELECT * FROM travelers WHERE id = $1', [req.params.id]);
+    const traveler = await fetchScopedTraveler(req.user, req.params.id);
     if (!traveler) return res.status(404).json({ error: 'Traveler not found' });
     res.json(traveler);
   } catch (err) {
@@ -123,7 +146,7 @@ router.post('/', async (req, res) => {
     const peopleCount = validatePeopleCount(body.peopleCount);
     const notes = body.notes === undefined ? '' : (cleanStr(body.notes, MAX_NOTES) || '');
 
-    const trip = await get('SELECT id FROM trips WHERE id = $1', [tripId]);
+    const trip = await fetchScopedTrip(req.user, tripId);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
 
     const existing = await get('SELECT id FROM travelers WHERE "referenceCode" = $1', [referenceCode]);
@@ -136,9 +159,9 @@ router.post('/', async (req, res) => {
     const count = peopleCount ?? (type === 'person' ? 1 : type === 'couple' ? 2 : 3);
 
     await run(
-      `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, "tripId", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [id, referenceCode, displayName, type, count, notes, tripId, now, now]
+      `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, "tripId", "agencyId", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [id, referenceCode, displayName, type, count, notes, tripId, trip.agencyId, now, now]
     );
 
     const traveler = await get('SELECT * FROM travelers WHERE id = $1', [id]);
@@ -152,7 +175,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const traveler = await get('SELECT * FROM travelers WHERE id = $1', [req.params.id]);
+    const traveler = await fetchScopedTraveler(req.user, req.params.id);
     if (!traveler) return res.status(404).json({ error: 'Traveler not found' });
 
     const body = req.body || {};
@@ -186,7 +209,7 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    const traveler = await get('SELECT * FROM travelers WHERE id = $1', [req.params.id]);
+    const traveler = await fetchScopedTraveler(req.user, req.params.id);
     if (!traveler) return res.status(404).json({ error: 'Traveler not found' });
     await run('DELETE FROM scan_events WHERE "referenceCode" = $1', [traveler.referenceCode]);
     await run('DELETE FROM travelers WHERE id = $1', [req.params.id]);

@@ -141,7 +141,7 @@ function AuthenticatedApp({ username, role, onLogout }) {
             <Route path="/trips" element={
               <Trips onTripChange={tripCtx.refreshTrips} selectedTripId={tripCtx.selectedTripId} onSelectTrip={tripCtx.selectTrip} onLogout={!isDesktop ? onLogout : null} />
             } />
-            {role === 'admin' && (
+            {(role === 'admin' || role === 'super_admin' || role === 'agency_admin') && (
               <Route path="/users" element={<Users currentUsername={username} />} />
             )}
           </Routes>

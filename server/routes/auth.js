@@ -51,15 +51,15 @@ function cookieOptions() {
   };
 }
 
-async function createSession(res, { userId, username, role }) {
+async function createSession(res, { userId, username, role, agencyId }) {
   const sessionId = uuidv4();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SESSION_DURATION_MS);
 
   await run(
-    `INSERT INTO sessions (id, username, "userId", role, "createdAt", "expiresAt")
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [sessionId, username, userId, role, now.toISOString(), expiresAt.toISOString()]
+    `INSERT INTO sessions (id, username, "userId", role, "agencyId", "createdAt", "expiresAt")
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [sessionId, username, userId, role, agencyId || null, now.toISOString(), expiresAt.toISOString()]
   );
 
   res.cookie('qr_session', sessionId, cookieOptions());
@@ -104,11 +104,21 @@ router.post('/login', loginLimiter, async (req, res) => {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      await createSession(res, { userId: dbUser.id, username: dbUser.email, role: dbUser.role });
+      await createSession(res, {
+        userId: dbUser.id,
+        username: dbUser.email,
+        role: dbUser.role,
+        agencyId: dbUser.agencyId || null,
+      });
       clearTimeout(timeout);
       if (res.headersSent) return;
       console.log(`[AUTH] DB login success: ${dbUser.email} (${dbUser.role})`);
-      return res.json({ success: true, username: dbUser.email, role: dbUser.role });
+      return res.json({
+        success: true,
+        username: dbUser.email,
+        role: dbUser.role,
+        agencyId: dbUser.agencyId || null,
+      });
     }
 
     // 2. Fallback: env-based admin (emergency / local dev)
@@ -120,11 +130,12 @@ router.post('/login', loginLimiter, async (req, res) => {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      await createSession(res, { userId: null, username: ADMIN_USERNAME, role: 'admin' });
+      // Env-fallback admin = super_admin (no agency scope).
+      await createSession(res, { userId: null, username: ADMIN_USERNAME, role: 'super_admin', agencyId: null });
       clearTimeout(timeout);
       if (res.headersSent) return;
       console.log(`[AUTH] Env-fallback admin login: ${ADMIN_USERNAME}`);
-      return res.json({ success: true, username: ADMIN_USERNAME, role: 'admin' });
+      return res.json({ success: true, username: ADMIN_USERNAME, role: 'super_admin', agencyId: null });
     }
 
     clearTimeout(timeout);
@@ -171,7 +182,11 @@ router.get('/me', meLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Session expired' });
     }
 
-    res.json({ username: session.username, role: session.role || 'admin' });
+    res.json({
+      username: session.username,
+      role: session.role || 'admin',
+      agencyId: session.agencyId || null,
+    });
   } catch (err) {
     console.error('[AUTH] /me error:', err.message);
     res.clearCookie('qr_session', { path: '/' });

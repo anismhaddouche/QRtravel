@@ -1,90 +1,165 @@
-// seed.js is always run locally via `npm run seed`
+// Idempotent seed: ensures the platform super_admin, the Bouatit Travel
+// agency, the Bouatit agency_admin, and backfills any pre-existing rows
+// that are missing an agencyId. Never deletes existing trips/travelers
+// and never overwrites existing user passwords.
 require('dotenv').config();
-const { initDb, get, run, getPool } = require('./db');
+const { initDb, get, run, all, getPool } = require('./db');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 
-const SEED_USERS = [
-  { email: 'Bouatittravel@gmail.com', password: 'Qrbouatittravel2026', role: 'admin' },
-];
+const SUPER_ADMIN = {
+  email: 'ytiachacht@gmail.com',
+  password: 'Younes2005',
+  role: 'super_admin',
+};
 
-const TRIP_ID_1 = 'trip-demo-001';
-const TRIP_ID_2 = 'trip-demo-002';
-const now = new Date().toISOString();
+const BOUATIT_AGENCY_NAME = 'Bouatit Travel';
+const BOUATIT_ADMIN = {
+  email: 'Bouatittravel@gmail.com',
+  password: 'Qrbouatittravel2026',
+  role: 'agency_admin',
+};
 
-const sampleTravelers = [
-  { referenceCode: 'TRV-001', displayName: 'Marco Rossi', type: 'person', peopleCount: 1, notes: '', tripId: TRIP_ID_1 },
-  { referenceCode: 'TRV-002', displayName: 'Sophie & Pierre Dupont', type: 'couple', peopleCount: 2, notes: 'Anniversary trip', tripId: TRIP_ID_1 },
-  { referenceCode: 'TRV-003', displayName: 'The Johnson Family', type: 'family', peopleCount: 4, notes: '2 adults, 2 children', tripId: TRIP_ID_1 },
-  { referenceCode: 'TRV-004', displayName: 'Yuki Tanaka', type: 'person', peopleCount: 1, notes: 'Vegetarian meals', tripId: TRIP_ID_1 },
-  { referenceCode: 'TRV-005', displayName: 'Anna & Klaus Müller', type: 'couple', peopleCount: 2, notes: '', tripId: TRIP_ID_1 },
-  { referenceCode: 'TRV-006', displayName: 'The Garcia Family', type: 'family', peopleCount: 5, notes: '2 adults, 3 children', tripId: TRIP_ID_1 },
-  { referenceCode: 'TRV-007', displayName: 'Elena Petrova', type: 'person', peopleCount: 1, notes: '', tripId: TRIP_ID_1 },
-  { referenceCode: 'TRV-008', displayName: 'David & Sarah Chen', type: 'couple', peopleCount: 2, notes: 'Window seats preferred', tripId: TRIP_ID_1 },
-  { referenceCode: 'TRV-009', displayName: 'The Williams Family', type: 'family', peopleCount: 3, notes: '2 adults, 1 infant', tripId: TRIP_ID_1 },
-  { referenceCode: 'TRV-010', displayName: 'Luca Bianchi', type: 'person', peopleCount: 1, notes: 'Group leader contact', tripId: TRIP_ID_1 },
-  // Trip 2 travelers
-  { referenceCode: 'TRV-011', displayName: 'James Wilson', type: 'person', peopleCount: 1, notes: '', tripId: TRIP_ID_2 },
-  { referenceCode: 'TRV-012', displayName: 'Maria & Antonio Silva', type: 'couple', peopleCount: 2, notes: 'Honeymoon trip', tripId: TRIP_ID_2 },
-  { referenceCode: 'TRV-013', displayName: 'The Brown Family', type: 'family', peopleCount: 4, notes: '2 adults, 2 teens', tripId: TRIP_ID_2 },
-];
+async function ensureAgency(name, { email = null, phone = null } = {}) {
+  const existing = await get(`SELECT * FROM agencies WHERE LOWER(name) = LOWER($1) LIMIT 1`, [name]);
+  if (existing) {
+    console.log(`   🏢 Agency exists: ${existing.name} (${existing.id})`);
+    return existing;
+  }
+  const id = uuidv4();
+  const now = new Date().toISOString();
+  await run(
+    `INSERT INTO agencies (id, name, email, phone, status, "createdAt", "updatedAt")
+     VALUES ($1, $2, $3, $4, 'active', $5, $5)`,
+    [id, name, email, phone, now]
+  );
+  console.log(`   🏢 Created agency: ${name} (${id})`);
+  return await get(`SELECT * FROM agencies WHERE id = $1`, [id]);
+}
+
+async function ensureUser({ email, password, role, agencyId = null }) {
+  const existing = await get(`SELECT * FROM users WHERE LOWER(email) = LOWER($1)`, [email]);
+  const now = new Date().toISOString();
+
+  if (existing) {
+    // Update role + agencyId for existing user, NEVER overwrite password.
+    const changes = [];
+    const params = [];
+    if (existing.role !== role) {
+      params.push(role); changes.push(`role = $${params.length}`);
+    }
+    if ((existing.agencyId || null) !== (agencyId || null)) {
+      params.push(agencyId); changes.push(`"agencyId" = $${params.length}`);
+    }
+    if (changes.length === 0) {
+      console.log(`   👤 User already correct: ${email} (${role})`);
+      return existing;
+    }
+    params.push(now); changes.push(`"updatedAt" = $${params.length}`);
+    params.push(existing.id);
+    await run(`UPDATE users SET ${changes.join(', ')} WHERE id = $${params.length}`, params);
+    console.log(`   👤 Updated user: ${email} → role=${role}, agencyId=${agencyId || 'NULL'} (password preserved)`);
+    return await get(`SELECT * FROM users WHERE id = $1`, [existing.id]);
+  }
+
+  const id = uuidv4();
+  const passwordHash = await bcrypt.hash(password, 10);
+  await run(
+    `INSERT INTO users (id, email, "passwordHash", role, "agencyId", "createdAt", "updatedAt")
+     VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+    [id, email, passwordHash, role, agencyId, now]
+  );
+  console.log(`   👤 Created user: ${email} (${role})${agencyId ? `, agencyId=${agencyId}` : ''}`);
+  return await get(`SELECT * FROM users WHERE id = $1`, [id]);
+}
+
+async function backfillExistingData(defaultAgencyId) {
+  // Trips without agency → default agency
+  const orphanTrips = await all(`SELECT id FROM trips WHERE "agencyId" IS NULL`);
+  if (orphanTrips.length) {
+    await run(`UPDATE trips SET "agencyId" = $1 WHERE "agencyId" IS NULL`, [defaultAgencyId]);
+    console.log(`   🔄 Backfilled ${orphanTrips.length} trip(s) → agency`);
+  }
+
+  // Travelers → inherit from their trip
+  const orphanTravelers = await get(`SELECT COUNT(*)::int AS n FROM travelers WHERE "agencyId" IS NULL`);
+  if (orphanTravelers && orphanTravelers.n > 0) {
+    await run(
+      `UPDATE travelers t SET "agencyId" = tr."agencyId"
+       FROM trips tr WHERE t."tripId" = tr.id AND t."agencyId" IS NULL`
+    );
+    console.log(`   🔄 Backfilled ${orphanTravelers.n} traveler(s) from their trips`);
+  }
+
+  // Scan events → inherit from their trip
+  const orphanEvents = await get(`SELECT COUNT(*)::int AS n FROM scan_events WHERE "agencyId" IS NULL`);
+  if (orphanEvents && orphanEvents.n > 0) {
+    await run(
+      `UPDATE scan_events s SET "agencyId" = tr."agencyId"
+       FROM trips tr WHERE s."tripId" = tr.id AND s."agencyId" IS NULL`
+    );
+    console.log(`   🔄 Backfilled ${orphanEvents.n} scan event(s) from their trips`);
+  }
+
+  // Legacy 'admin' DB users without agencyId → bind to default agency as agency_admin
+  // (Skip the canonical super_admin email so we don't accidentally demote it.)
+  const legacyAdmins = await all(
+    `SELECT id, email FROM users WHERE role = 'admin' AND "agencyId" IS NULL AND LOWER(email) <> LOWER($1)`,
+    [SUPER_ADMIN.email]
+  );
+  for (const u of legacyAdmins) {
+    await run(
+      `UPDATE users SET role = 'agency_admin', "agencyId" = $1, "updatedAt" = $2 WHERE id = $3`,
+      [defaultAgencyId, new Date().toISOString(), u.id]
+    );
+    console.log(`   🔄 Migrated legacy admin → agency_admin: ${u.email}`);
+  }
+
+  // Legacy 'staff' users without agencyId → default agency
+  const legacyStaff = await all(`SELECT id, email FROM users WHERE role = 'staff' AND "agencyId" IS NULL`);
+  for (const u of legacyStaff) {
+    await run(
+      `UPDATE users SET "agencyId" = $1, "updatedAt" = $2 WHERE id = $3`,
+      [defaultAgencyId, new Date().toISOString(), u.id]
+    );
+    console.log(`   🔄 Bound legacy staff → default agency: ${u.email}`);
+  }
+}
 
 async function seed() {
   await initDb();
+  console.log('\n🌱 Seeding multi-tenant baseline...');
 
-  // Clear existing data (order matters for foreign keys)
-  await run('DELETE FROM scan_events');
-  await run('DELETE FROM travelers');
-  await run('DELETE FROM trips');
-  await run('DELETE FROM sessions');
+  // 1. Ensure Bouatit Travel agency exists.
+  const bouatit = await ensureAgency(BOUATIT_AGENCY_NAME, { email: BOUATIT_ADMIN.email });
 
-  // Create demo trips
-  await run(
-    `INSERT INTO trips (id, name, date, notes, status, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [TRIP_ID_1, 'Barcelona City Tour', '2026-04-10', 'Main spring tour with focus on Sagrada Familia and Gothic Quarter', 'active', now, now]
-  );
+  // 2. Backfill all existing trips/travelers/scan_events to Bouatit Travel,
+  //    since the legacy single-tenant data belongs to that agency in practice.
+  await backfillExistingData(bouatit.id);
 
-  await run(
-    `INSERT INTO trips (id, name, date, notes, status, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [TRIP_ID_2, 'Paris Weekend Getaway', '2026-04-18', 'Weekend trip — Eiffel Tower, Louvre, Montmartre', 'active', now, now]
-  );
+  // 3. Ensure platform super_admin.
+  await ensureUser(SUPER_ADMIN);
 
-  // Insert travelers
-  for (const t of sampleTravelers) {
-    await run(
-      `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", status, "checkedInAt", notes, "tripId", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, 'not_checked_in', NULL, $6, $7, $8, $9)`,
-      [uuidv4(), t.referenceCode, t.displayName, t.type, t.peopleCount, t.notes, t.tripId, now, now]
-    );
-  }
+  // 4. Ensure Bouatit agency_admin (bound to Bouatit Travel).
+  await ensureUser({ ...BOUATIT_ADMIN, agencyId: bouatit.id });
 
-  // Seed default users (idempotent — never deletes existing users)
-  for (const u of SEED_USERS) {
-    const existing = await get(`SELECT id FROM users WHERE LOWER(email) = LOWER($1)`, [u.email]);
-    if (existing) {
-      console.log(`   👤 User already exists, skipping: ${u.email}`);
-      continue;
-    }
-    const passwordHash = await bcrypt.hash(u.password, 10);
-    await run(
-      `INSERT INTO users (id, email, "passwordHash", role, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [uuidv4(), u.email, passwordHash, u.role, now, now]
-    );
-    console.log(`   👤 Created user: ${u.email} (${u.role})`);
-  }
-
-  const trip1Count = sampleTravelers.filter(t => t.tripId === TRIP_ID_1);
-  const trip2Count = sampleTravelers.filter(t => t.tripId === TRIP_ID_2);
+  const stats = {
+    agencies: (await get(`SELECT COUNT(*)::int AS n FROM agencies`)).n,
+    users:    (await get(`SELECT COUNT(*)::int AS n FROM users`)).n,
+    trips:    (await get(`SELECT COUNT(*)::int AS n FROM trips`)).n,
+    travelers:(await get(`SELECT COUNT(*)::int AS n FROM travelers`)).n,
+  };
 
   console.log('');
-  console.log('✅ Database seeded successfully!');
-  console.log(`   📌 Trip 1: "Barcelona City Tour" — ${trip1Count.length} units, ${trip1Count.reduce((s, t) => s + t.peopleCount, 0)} people`);
-  console.log(`   📌 Trip 2: "Paris Weekend Getaway" — ${trip2Count.length} units, ${trip2Count.reduce((s, t) => s + t.peopleCount, 0)} people`);
+  console.log('✅ Multi-tenant seed complete.');
+  console.log(`   Agencies:  ${stats.agencies}`);
+  console.log(`   Users:     ${stats.users}`);
+  console.log(`   Trips:     ${stats.trips}`);
+  console.log(`   Travelers: ${stats.travelers}`);
   console.log('');
-  console.log('   🔐 Login with:');
-  console.log(`      Username: ${process.env.ADMIN_USERNAME || 'ADMIN'}`);
-  console.log(`      Password: ${process.env.ADMIN_PASSWORD || 'ADMIN123'}`);
+  console.log('   🔐 Logins:');
+  console.log(`      super_admin:   ${SUPER_ADMIN.email}`);
+  console.log(`      agency_admin:  ${BOUATIT_ADMIN.email} (${BOUATIT_AGENCY_NAME})`);
   console.log('');
 
   await getPool().end();

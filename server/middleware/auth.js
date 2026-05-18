@@ -21,7 +21,9 @@ async function requireAuth(req, res, next) {
     req.user = {
       id: session.userId || null,
       username: session.username,
+      email: session.username,
       role: session.role || 'admin',
+      agencyId: session.agencyId || null,
     };
     next();
   } catch (err) {
@@ -30,8 +32,11 @@ async function requireAuth(req, res, next) {
   }
 }
 
+// requireAdmin = any admin-capable role (super_admin, agency_admin, legacy 'admin').
+// For super-admin-only routes use requireSuperAdmin from lib/scope.
 function requireAdmin(req, res, next) {
-  if (!req.user || req.user.role !== 'admin') {
+  const r = req.user?.role;
+  if (!req.user || (r !== 'admin' && r !== 'super_admin' && r !== 'agency_admin')) {
     return res.status(403).json({ error: 'Admin privileges required', code: 'FORBIDDEN' });
   }
   next();

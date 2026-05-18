@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { run, get, all } = require('../db');
 const { v4: uuidv4 } = require('uuid');
+const { isSuperAdmin, effectiveAgencyId } = require('../lib/scope');
 
 const REF_CODE_RE = /^[A-Za-z0-9_\-]{1,64}$/;
 const ID_RE = /^[A-Za-z0-9_\-]{1,64}$/;
@@ -31,6 +32,19 @@ function badRequest(res, message, field) {
   return res.status(400).json({ error: message, code: 'VALIDATION', field: field || null });
 }
 
+// Enforce tenant scope: returns true if the user may operate on this trip+traveler.
+function inUserScope(user, agencyId) {
+  if (isSuperAdmin(user)) return true;
+  return agencyId && agencyId === effectiveAgencyId(user);
+}
+
+function forbidScope(res) {
+  return res.status(403).json({
+    error: 'This resource belongs to another agency',
+    code: 'FORBIDDEN_AGENCY_SCOPE',
+  });
+}
+
 // POST /api/checkin — tripId REQUIRED.
 router.post('/', async (req, res) => {
   try {
@@ -43,6 +57,10 @@ router.post('/', async (req, res) => {
 
     const deviceId = normalizeDeviceId(body.deviceId);
 
+    const trip = await get('SELECT id, "agencyId" FROM trips WHERE id = $1', [tripId]);
+    if (!trip) return res.status(404).json({ error: 'Trip not found', code: 'UNKNOWN_TRIP' });
+    if (!inUserScope(req.user, trip.agencyId)) return forbidScope(res);
+
     const traveler = await get('SELECT * FROM travelers WHERE "referenceCode" = $1', [referenceCode]);
     if (!traveler) {
       return res.status(404).json({
@@ -51,6 +69,7 @@ router.post('/', async (req, res) => {
         referenceCode,
       });
     }
+    if (!inUserScope(req.user, traveler.agencyId)) return forbidScope(res);
 
     if (traveler.tripId !== tripId) {
       return res.status(409).json({
@@ -76,9 +95,9 @@ router.post('/', async (req, res) => {
 
     const eventId = uuidv4();
     await run(
-      `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId")
-       VALUES ($1, $2, 'check_in', $3, $4, 1, $5)`,
-      [eventId, referenceCode, now, deviceId, traveler.tripId]
+      `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId", "agencyId")
+       VALUES ($1, $2, 'check_in', $3, $4, 1, $5, $6)`,
+      [eventId, referenceCode, now, deviceId, traveler.tripId, traveler.agencyId]
     );
 
     const updatedTraveler = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
@@ -106,10 +125,15 @@ router.post('/undo', async (req, res) => {
 
     const deviceId = normalizeDeviceId(body.deviceId);
 
+    const trip = await get('SELECT id, "agencyId" FROM trips WHERE id = $1', [tripId]);
+    if (!trip) return res.status(404).json({ error: 'Trip not found', code: 'UNKNOWN_TRIP' });
+    if (!inUserScope(req.user, trip.agencyId)) return forbidScope(res);
+
     const traveler = await get('SELECT * FROM travelers WHERE "referenceCode" = $1', [referenceCode]);
     if (!traveler) {
       return res.status(404).json({ error: `Unknown reference code: ${referenceCode}`, code: 'UNKNOWN_CODE' });
     }
+    if (!inUserScope(req.user, traveler.agencyId)) return forbidScope(res);
     if (traveler.tripId !== tripId) {
       return res.status(409).json({ error: 'This code belongs to a different trip', code: 'WRONG_TRIP' });
     }
@@ -127,9 +151,9 @@ router.post('/undo', async (req, res) => {
 
     const eventId = uuidv4();
     await run(
-      `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId")
-       VALUES ($1, $2, 'undo_check_in', $3, $4, 1, $5)`,
-      [eventId, referenceCode, now, deviceId, traveler.tripId]
+      `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId", "agencyId")
+       VALUES ($1, $2, 'undo_check_in', $3, $4, 1, $5, $6)`,
+      [eventId, referenceCode, now, deviceId, traveler.tripId, traveler.agencyId]
     );
 
     const updatedTraveler = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
@@ -157,10 +181,15 @@ router.post('/manual', async (req, res) => {
 
     const deviceId = normalizeDeviceId(body.deviceId, 'manual');
 
+    const trip = await get('SELECT id, "agencyId" FROM trips WHERE id = $1', [tripId]);
+    if (!trip) return res.status(404).json({ error: 'Trip not found', code: 'UNKNOWN_TRIP' });
+    if (!inUserScope(req.user, trip.agencyId)) return forbidScope(res);
+
     const traveler = await get('SELECT * FROM travelers WHERE id = $1', [travelerId]);
     if (!traveler) {
       return res.status(404).json({ error: 'Traveler not found' });
     }
+    if (!inUserScope(req.user, traveler.agencyId)) return forbidScope(res);
     if (traveler.tripId !== tripId) {
       return res.status(409).json({ error: 'Traveler belongs to a different trip', code: 'WRONG_TRIP' });
     }
@@ -178,9 +207,9 @@ router.post('/manual', async (req, res) => {
 
     const eventId = uuidv4();
     await run(
-      `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId")
-       VALUES ($1, $2, 'check_in', $3, $4, 1, $5)`,
-      [eventId, traveler.referenceCode, now, deviceId, traveler.tripId]
+      `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId", "agencyId")
+       VALUES ($1, $2, 'check_in', $3, $4, 1, $5, $6)`,
+      [eventId, traveler.referenceCode, now, deviceId, traveler.tripId, traveler.agencyId]
     );
 
     const updatedTraveler = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
@@ -203,16 +232,25 @@ router.get('/events', async (req, res) => {
       ? Math.min(rawLimit, MAX_EVENTS_LIMIT)
       : 20;
     const tripId = req.query.tripId ? normalizeId(req.query.tripId) : null;
+    const superAdmin = isSuperAdmin(req.user);
 
-    let events;
+    const where = [];
+    const params = [];
     if (tripId) {
-      events = await all(
-        'SELECT * FROM scan_events WHERE "tripId" = $1 ORDER BY timestamp DESC LIMIT $2',
-        [tripId, limit]
-      );
-    } else {
-      events = await all('SELECT * FROM scan_events ORDER BY timestamp DESC LIMIT $1', [limit]);
+      // Validate scope on trip lookup
+      const trip = await get('SELECT id, "agencyId" FROM trips WHERE id = $1', [tripId]);
+      if (!trip) return res.json([]);
+      if (!inUserScope(req.user, trip.agencyId)) return res.json([]);
+      params.push(tripId); where.push(`"tripId" = $${params.length}`);
     }
+    if (!superAdmin) { params.push(effectiveAgencyId(req.user)); where.push(`"agencyId" = $${params.length}`); }
+    params.push(limit);
+    const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+
+    const events = await all(
+      `SELECT * FROM scan_events${whereSql} ORDER BY timestamp DESC LIMIT $${params.length}`,
+      params
+    );
     res.json(events);
   } catch (err) {
     console.error('[CHECKIN] events error:', err.message);
@@ -235,6 +273,10 @@ router.post('/sync', async (req, res) => {
     }
     const tripId = normalizeId(body.tripId);
     if (!tripId) return badRequest(res, 'tripId is required', 'tripId');
+
+    const trip = await get('SELECT id, "agencyId" FROM trips WHERE id = $1', [tripId]);
+    if (!trip) return res.status(404).json({ error: 'Trip not found', code: 'UNKNOWN_TRIP' });
+    if (!inUserScope(req.user, trip.agencyId)) return forbidScope(res);
 
     const results = [];
 
@@ -270,6 +312,10 @@ router.post('/sync', async (req, res) => {
         results.push({ eventId, status: 'error', message: `Unknown code: ${referenceCode}` });
         continue;
       }
+      if (!inUserScope(req.user, traveler.agencyId)) {
+        results.push({ eventId, status: 'error', message: 'Forbidden agency scope' });
+        continue;
+      }
       if (traveler.tripId !== tripId) {
         results.push({ eventId, status: 'error', message: 'Wrong trip' });
         continue;
@@ -284,9 +330,9 @@ router.post('/sync', async (req, res) => {
             [timestamp, traveler.id]
           );
           await run(
-            `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId")
-             VALUES ($1, $2, $3, $4, $5, 1, $6)`,
-            [eventId, referenceCode, action, timestamp, deviceId, traveler.tripId]
+            `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId", "agencyId")
+             VALUES ($1, $2, $3, $4, $5, 1, $6, $7)`,
+            [eventId, referenceCode, action, timestamp, deviceId, traveler.tripId, traveler.agencyId]
           );
           results.push({ eventId, status: 'success', message: `${traveler.displayName} checked in` });
         }
@@ -296,9 +342,9 @@ router.post('/sync', async (req, res) => {
           [traveler.id]
         );
         await run(
-          `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId")
-           VALUES ($1, $2, $3, $4, $5, 1, $6)`,
-          [eventId, referenceCode, action, timestamp, deviceId, traveler.tripId]
+          `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId", "agencyId")
+           VALUES ($1, $2, $3, $4, $5, 1, $6, $7)`,
+          [eventId, referenceCode, action, timestamp, deviceId, traveler.tripId, traveler.agencyId]
         );
         results.push({ eventId, status: 'success', message: `${traveler.displayName} check-in undone` });
       }
