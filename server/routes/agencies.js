@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const { all, get, run } = require('../db');
+const { all, get, run, getPool } = require('../db');
 const { requireSuperAdmin } = require('../lib/scope');
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const MAX_NAME = 200;
 const MAX_EMAIL = 200;
@@ -118,6 +121,64 @@ router.put('/:id', async (req, res) => {
     console.error('[AGENCIES] update error:', err.message);
     res.status(500).json({ error: 'Failed to update agency' });
   }
+});
+
+// POST /api/agencies/with-admin
+// Transactional: creates the agency and its agency_admin user in one shot.
+// Rolls back if either step fails. Never returns the password.
+router.post('/with-admin', async (req, res) => {
+  const body = req.body || {};
+  const agencyIn = body.agency || {};
+  const adminIn  = body.admin  || {};
+
+  const name  = cleanStr(agencyIn.name, MAX_NAME);
+  const aEmail = agencyIn.email === undefined ? null : cleanStr(agencyIn.email, MAX_EMAIL);
+  const aPhone = agencyIn.phone === undefined ? null : cleanStr(agencyIn.phone, MAX_PHONE);
+  const adminEmail    = typeof adminIn.email === 'string' ? adminIn.email.trim() : '';
+  const adminPassword = typeof adminIn.password === 'string' ? adminIn.password : '';
+
+  if (!name)                                   return res.status(400).json({ error: 'agency.name is required', code: 'VALIDATION' });
+  if (!EMAIL_RE.test(adminEmail))              return res.status(400).json({ error: 'admin.email is invalid', code: 'VALIDATION' });
+  if (adminPassword.length < 8 || adminPassword.length > 200) {
+    return res.status(400).json({ error: 'admin.password must be 8–200 characters', code: 'VALIDATION' });
+  }
+
+  const dupAgency = await get(`SELECT id FROM agencies WHERE LOWER(name) = LOWER($1) LIMIT 1`, [name]);
+  if (dupAgency) return res.status(409).json({ error: 'An agency with this name already exists' });
+
+  const dupUser = await get(`SELECT id FROM users WHERE LOWER(email) = LOWER($1)`, [adminEmail]);
+  if (dupUser) return res.status(409).json({ error: 'A user with this email already exists' });
+
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
+  const agencyId = uuidv4();
+  const userId   = uuidv4();
+  const now = new Date().toISOString();
+
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO agencies (id, name, email, phone, status, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, 'active', $5, $5)`,
+      [agencyId, name, aEmail, aPhone, now]
+    );
+    await client.query(
+      `INSERT INTO users (id, email, "passwordHash", role, "agencyId", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, 'agency_admin', $4, $5, $5)`,
+      [userId, adminEmail, passwordHash, agencyId, now]
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch { /* ignore */ }
+    console.error('[AGENCIES] with-admin tx error:', err.message);
+    return res.status(500).json({ error: 'Failed to create agency and admin' });
+  } finally {
+    client.release();
+  }
+
+  const agency = await get(`SELECT * FROM agencies WHERE id = $1`, [agencyId]);
+  const admin  = await get(`SELECT id, email, role, "agencyId", "createdAt", "updatedAt" FROM users WHERE id = $1`, [userId]);
+  res.status(201).json({ agency, admin });
 });
 
 // DELETE /api/agencies/:id — only if no users/trips/travelers remain.

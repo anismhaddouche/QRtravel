@@ -124,7 +124,7 @@ export default function Users({ currentUsername, currentRole }) {
 
   return (
     <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+      <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <UsersIcon size={28} />
           <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>Comptes</h1>
@@ -149,6 +149,7 @@ export default function Users({ currentUsername, currentRole }) {
             return (
               <div
                 key={u.id}
+                className="action-row"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -176,21 +177,23 @@ export default function Users({ currentUsername, currentRole }) {
                     {' · '}créé le {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}
                   </div>
                 </div>
-                <button
-                  className="btn btn-sm"
-                  title="Réinitialiser le mot de passe"
-                  onClick={() => { setResetTarget(u); setResetPassword(''); setResetError(''); }}
-                >
-                  <KeyRound size={16} />
-                </button>
-                <button
-                  className="btn btn-sm btn-danger"
-                  title="Supprimer"
-                  disabled={currentUsername && u.email.toLowerCase() === String(currentUsername).toLowerCase()}
-                  onClick={() => setDeleteConfirm(u)}
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div className="row-actions" style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    className="btn btn-sm"
+                    title="Réinitialiser le mot de passe"
+                    onClick={() => { setResetTarget(u); setResetPassword(''); setResetError(''); }}
+                  >
+                    <KeyRound size={16} />
+                  </button>
+                  <button
+                    className="btn btn-sm btn-danger"
+                    title="Supprimer"
+                    disabled={currentUsername && u.email.toLowerCase() === String(currentUsername).toLowerCase()}
+                    onClick={() => setDeleteConfirm(u)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -198,7 +201,7 @@ export default function Users({ currentUsername, currentRole }) {
       )}
 
       {showForm && (
-        <Modal title="Nouveau compte" onClose={() => { setShowForm(false); setFormError(''); }}>
+        <Modal isOpen={true} title="Nouveau compte" onClose={() => { setShowForm(false); setFormError(''); }}>
           <form onSubmit={handleCreate}>
             {formError && <div className="form-error">{formError}</div>}
             <div className="form-group">
@@ -258,7 +261,7 @@ export default function Users({ currentUsername, currentRole }) {
       )}
 
       {resetTarget && (
-        <Modal title={`Réinitialiser : ${resetTarget.email}`} onClose={() => setResetTarget(null)}>
+        <Modal isOpen={true} title={`Réinitialiser : ${resetTarget.email}`} onClose={() => setResetTarget(null)}>
           <form onSubmit={handleReset}>
             {resetError && <div className="form-error">{resetError}</div>}
             <div className="form-group">
@@ -282,7 +285,7 @@ export default function Users({ currentUsername, currentRole }) {
       )}
 
       {deleteConfirm && (
-        <Modal title="Supprimer ce compte ?" onClose={() => setDeleteConfirm(null)}>
+        <Modal isOpen={true} title="Supprimer ce compte ?" onClose={() => setDeleteConfirm(null)}>
           <p>
             Supprimer définitivement <strong>{deleteConfirm.email}</strong> ? Cette action est irréversible.
           </p>

@@ -62,6 +62,40 @@ test('legacy "admin" is aliased to agency_admin', () => {
   assert.equal(r.role, 'agency_admin');
 });
 
+// Mirror of POST /api/agencies/with-admin payload validation.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function validateWithAdminPayload(body) {
+  const agency = body?.agency || {};
+  const admin = body?.admin || {};
+  if (typeof agency.name !== 'string' || !agency.name.trim()) {
+    return { ok: false, field: 'agency.name' };
+  }
+  if (typeof admin.email !== 'string' || !EMAIL_RE.test(admin.email.trim())) {
+    return { ok: false, field: 'admin.email' };
+  }
+  const pw = typeof admin.password === 'string' ? admin.password : '';
+  if (pw.length < 8 || pw.length > 200) {
+    return { ok: false, field: 'admin.password' };
+  }
+  return { ok: true };
+}
+
+test('with-admin: rejects empty agency name', () => {
+  assert.equal(validateWithAdminPayload({ agency: { name: '' }, admin: { email: 'a@b.co', password: 'password' } }).ok, false);
+});
+
+test('with-admin: rejects invalid admin email', () => {
+  assert.equal(validateWithAdminPayload({ agency: { name: 'A' }, admin: { email: 'not-an-email', password: 'password' } }).ok, false);
+});
+
+test('with-admin: rejects short password', () => {
+  assert.equal(validateWithAdminPayload({ agency: { name: 'A' }, admin: { email: 'a@b.co', password: 'short' } }).ok, false);
+});
+
+test('with-admin: accepts a complete payload', () => {
+  assert.equal(validateWithAdminPayload({ agency: { name: 'Demo' }, admin: { email: 'a@b.co', password: 'password123' } }).ok, true);
+});
+
 test('unknown role is rejected', () => {
   assert.equal(validateCreateRole('owner').ok, false);
   assert.equal(validateCreateRole('').ok, false); // empty string is not a valid role

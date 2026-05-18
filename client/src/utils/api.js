@@ -94,6 +94,7 @@ export const api = {
   getAgencies: () => request('/agencies'),
   getAgency: (id) => request(`/agencies/${id}`),
   createAgency: (data) => request('/agencies', { method: 'POST', body: data }),
+  createAgencyWithAdmin: (data) => request('/agencies/with-admin', { method: 'POST', body: data }),
   updateAgency: (id, data) => request(`/agencies/${id}`, { method: 'PUT', body: data }),
   deleteAgency: (id) => request(`/agencies/${id}`, { method: 'DELETE' }),
 

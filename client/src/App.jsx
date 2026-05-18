@@ -124,7 +124,7 @@ function AuthenticatedApp({ username, role, onLogout }) {
             onLogout={onLogout}
           />
         ) : (
-          <BottomNav />
+          <BottomNav role={role} username={username} onLogout={onLogout} />
         )}
         
         {/* On mobile, we might need a small header just for trip selection if it's not in the bottom nav, 

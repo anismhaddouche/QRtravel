@@ -5,7 +5,7 @@ import { LoadingState } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import { Building2, Plus, Trash2, Pencil, CheckCircle2, XCircle, Eye } from 'lucide-react';
 
-const EMPTY_FORM = { name: '', email: '', phone: '' };
+const EMPTY_FORM = { name: '', email: '', phone: '', adminEmail: '', adminPassword: '', adminPasswordConfirm: '' };
 
 export default function Agencies() {
   const [agencies, setAgencies] = useState([]);
@@ -15,6 +15,7 @@ export default function Agencies() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [editing, setEditing] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [activeId, setActiveId] = useState(() => getActiveAgencyId());
@@ -43,12 +44,44 @@ export default function Agencies() {
   const handleSave = async (e) => {
     e.preventDefault();
     setFormError('');
+    setSuccessMessage('');
     if (!form.name.trim()) { setFormError('Nom requis'); return; }
+
+    if (editing) {
+      setSubmitting(true);
+      try {
+        await api.updateAgency(editing.id, {
+          name: form.name, email: form.email, phone: form.phone,
+        });
+        setShowForm(false); setForm(EMPTY_FORM); setEditing(null);
+        await fetchAgencies();
+      } catch (err) {
+        setFormError(err.message || 'Échec');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Create flow: validate admin fields
+    const aEmail = form.adminEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(aEmail)) {
+      setFormError('Email admin invalide'); return;
+    }
+    if (form.adminPassword.length < 8) {
+      setFormError('Mot de passe admin : 8 caractères minimum'); return;
+    }
+    if (form.adminPassword !== form.adminPasswordConfirm) {
+      setFormError('Les mots de passe ne correspondent pas'); return;
+    }
     setSubmitting(true);
     try {
-      if (editing) await api.updateAgency(editing.id, form);
-      else await api.createAgency(form);
-      setShowForm(false); setForm(EMPTY_FORM); setEditing(null);
+      const result = await api.createAgencyWithAdmin({
+        agency: { name: form.name.trim(), email: form.email.trim() || null, phone: form.phone.trim() || null },
+        admin:  { email: aEmail, password: form.adminPassword },
+      });
+      setShowForm(false); setForm(EMPTY_FORM);
+      setSuccessMessage(`Agence « ${result.agency.name} » créée avec l’admin ${result.admin.email}.`);
       await fetchAgencies();
     } catch (err) {
       setFormError(err.message || 'Échec');
@@ -85,7 +118,7 @@ export default function Agencies() {
 
   return (
     <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+      <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Building2 size={28} />
           <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>Agences</h1>
@@ -96,6 +129,11 @@ export default function Agencies() {
       </div>
 
       {error && <div className="form-error">{error}</div>}
+      {successMessage && (
+        <div className="glass-card" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid var(--success)', padding: '12px 16px', marginBottom: '16px' }}>
+          {successMessage}
+        </div>
+      )}
 
       {agencies.length === 0 ? (
         <EmptyState
@@ -110,6 +148,7 @@ export default function Agencies() {
             return (
               <div
                 key={a.id}
+                className="action-row"
                 style={{
                   display: 'flex', alignItems: 'center', gap: '16px',
                   padding: '16px 20px',
@@ -133,30 +172,32 @@ export default function Agencies() {
                     {' · '}{a.status}
                   </div>
                 </div>
-                <button
-                  className="btn btn-sm"
-                  title={isActive ? "Désélectionner" : "Sélectionner pour inspection"}
-                  onClick={() => handleSelectAgency(a.id)}
-                >
-                  <Eye size={16} />
-                </button>
-                <button className="btn btn-sm" title="Modifier" onClick={() => startEdit(a)}>
-                  <Pencil size={16} />
-                </button>
-                <button
-                  className="btn btn-sm"
-                  title={a.status === 'active' ? 'Désactiver' : 'Activer'}
-                  onClick={() => handleToggleStatus(a)}
-                >
-                  {a.status === 'active' ? <XCircle size={16} /> : <CheckCircle2 size={16} />}
-                </button>
-                <button
-                  className="btn btn-sm btn-danger"
-                  title="Supprimer"
-                  onClick={() => setDeleteConfirm(a)}
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div className="row-actions" style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    className="btn btn-sm"
+                    title={isActive ? "Désélectionner" : "Sélectionner pour inspection"}
+                    onClick={() => handleSelectAgency(a.id)}
+                  >
+                    <Eye size={16} />
+                  </button>
+                  <button className="btn btn-sm" title="Modifier" onClick={() => startEdit(a)}>
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    title={a.status === 'active' ? 'Désactiver' : 'Activer'}
+                    onClick={() => handleToggleStatus(a)}
+                  >
+                    {a.status === 'active' ? <XCircle size={16} /> : <CheckCircle2 size={16} />}
+                  </button>
+                  <button
+                    className="btn btn-sm btn-danger"
+                    title="Supprimer"
+                    onClick={() => setDeleteConfirm(a)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -164,7 +205,7 @@ export default function Agencies() {
       )}
 
       {showForm && (
-        <Modal title={editing ? `Modifier : ${editing.name}` : 'Nouvelle agence'} onClose={() => setShowForm(false)}>
+        <Modal isOpen={true} title={editing ? `Modifier : ${editing.name}` : 'Nouvelle agence'} onClose={() => setShowForm(false)}>
           <form onSubmit={handleSave}>
             {formError && <div className="form-error">{formError}</div>}
             <div className="form-group">
@@ -189,15 +230,48 @@ export default function Agencies() {
                 onChange={e => setForm({ ...form, phone: e.target.value })}
               />
             </div>
+
+            {!editing && (
+              <>
+                <h4 style={{ marginTop: '24px', marginBottom: '8px', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
+                  Administrateur de l’agence
+                </h4>
+                <div className="form-group">
+                  <label className="form-label">Email admin</label>
+                  <input
+                    className="form-input" type="email" value={form.adminEmail}
+                    onChange={e => setForm({ ...form, adminEmail: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Mot de passe</label>
+                  <input
+                    className="form-input" type="text" value={form.adminPassword}
+                    onChange={e => setForm({ ...form, adminPassword: e.target.value })}
+                    minLength={8} required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Confirmation mot de passe</label>
+                  <input
+                    className="form-input" type="text" value={form.adminPasswordConfirm}
+                    onChange={e => setForm({ ...form, adminPasswordConfirm: e.target.value })}
+                    minLength={8} required
+                  />
+                </div>
+              </>
+            )}
+
             <button type="submit" className="btn btn-primary w-full" disabled={submitting}>
-              {submitting ? 'Enregistrement...' : (editing ? 'Enregistrer' : 'Créer')}
+              {submitting ? 'Enregistrement...' : (editing ? 'Enregistrer' : 'Créer l’agence + admin')}
             </button>
           </form>
         </Modal>
       )}
 
       {deleteConfirm && (
-        <Modal title="Supprimer cette agence ?" onClose={() => setDeleteConfirm(null)}>
+        <Modal isOpen={true} title="Supprimer cette agence ?" onClose={() => setDeleteConfirm(null)}>
           <p>
             Supprimer <strong>{deleteConfirm.name}</strong> ? Cette action est irréversible.
             L'agence ne peut être supprimée que si elle ne contient ni utilisateurs, ni voyages, ni voyageurs.

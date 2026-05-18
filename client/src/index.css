@@ -460,19 +460,55 @@
      .form-grid-2 {
        grid-template-columns: 1fr;
      }
-     
+
      .form-group[style*="grid-column: span 2"] {
        grid-column: span 1 !important;
      }
-     
+
      .page-header {
        flex-direction: column;
-       align-items: flex-start;
+       align-items: stretch !important;
+       gap: 12px !important;
      }
-     
+
      .page-header .btn {
        width: 100%;
+       justify-content: center;
      }
+
+     /* Modal: edge-to-edge with safe padding on phones. */
+     .modal-content {
+       width: 100% !important;
+       max-width: calc(100vw - 24px) !important;
+       padding: 20px !important;
+       max-height: calc(100vh - 32px) !important;
+     }
+
+     /* List rows with trailing action buttons: allow wrapping so actions
+        never get clipped on narrow screens. */
+     .action-row {
+       flex-wrap: wrap;
+       gap: 8px !important;
+     }
+
+     .action-row .row-actions {
+       width: 100%;
+       justify-content: flex-end;
+     }
+
+     /* Buttons stay comfortably tappable on touch. */
+     .btn, .btn-sm {
+       min-height: 40px;
+     }
+   }
+
+   /* Page header utility class for headers with a title + action button. */
+   .page-header {
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     gap: 16px;
+     margin-bottom: 24px;
    }
    
    /* Print */
