@@ -8,8 +8,8 @@ const { isSuperAdmin, isAgencyAdmin, effectiveAgencyId } = require('../lib/scope
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Internally stored roles. Legacy 'admin' is still accepted on read; new
-// users created here must use the new role set.
-const VALID_ROLES = new Set(['super_admin', 'agency_admin', 'staff']);
+// users created here must use one of these.
+const VALID_ROLES = new Set(['super_admin', 'agency_admin']);
 
 function sanitize(u) {
   if (!u) return null;
@@ -48,18 +48,22 @@ router.post('/', async (req, res) => {
     const body = req.body || {};
     const email = typeof body.email === 'string' ? body.email.trim() : '';
     const password = typeof body.password === 'string' ? body.password : '';
-    let role = typeof body.role === 'string' ? body.role : 'staff';
+    let role = typeof body.role === 'string' ? body.role : 'agency_admin';
     // Legacy alias: accept 'admin' from old UI, map to agency_admin.
     if (role === 'admin') role = 'agency_admin';
+    // Explicit removal: 'staff' role no longer supported.
+    if (role === 'staff') {
+      return res.status(400).json({ error: 'Role "staff" is no longer supported', code: 'VALIDATION' });
+    }
 
     if (!EMAIL_RE.test(email) || email.length > 200) {
-      return res.status(400).json({ error: 'Invalid email' });
+      return res.status(400).json({ error: 'Invalid email', code: 'VALIDATION' });
     }
     if (!password || password.length < 8 || password.length > 200) {
-      return res.status(400).json({ error: 'Password must be 8–200 characters' });
+      return res.status(400).json({ error: 'Password must be 8–200 characters', code: 'VALIDATION' });
     }
     if (!VALID_ROLES.has(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
+      return res.status(400).json({ error: 'Invalid role', code: 'VALIDATION' });
     }
 
     // Authorization rules:

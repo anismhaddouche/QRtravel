@@ -5,12 +5,29 @@ import { LoadingState } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import { Users as UsersIcon, Plus, Trash2, KeyRound, Shield, User } from 'lucide-react';
 
-export default function Users({ currentUsername }) {
+const ROLE_LABEL = {
+  super_admin: 'Super administrateur',
+  agency_admin: 'Administrateur d’agence',
+  admin: 'Administrateur',          // legacy
+};
+
+function emptyForm(isSuperAdmin) {
+  return {
+    email: '',
+    password: '',
+    role: 'agency_admin',
+    agencyId: isSuperAdmin ? '' : null,
+  };
+}
+
+export default function Users({ currentUsername, currentRole }) {
+  const isSuperAdmin = currentRole === 'super_admin';
   const [users, setUsers] = useState([]);
+  const [agencies, setAgencies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ email: '', password: '', role: 'staff' });
+  const [form, setForm] = useState(() => emptyForm(isSuperAdmin));
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -32,6 +49,17 @@ export default function Users({ currentUsername }) {
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    api.getAgencies().then(setAgencies).catch(() => {});
+  }, [isSuperAdmin]);
+
+  const agencyName = (id) => {
+    if (!id) return '—';
+    const a = agencies.find(x => x.id === id);
+    return a ? a.name : id;
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -43,10 +71,20 @@ export default function Users({ currentUsername }) {
       setFormError('Mot de passe : 8 caractères minimum');
       return;
     }
+    if (form.role !== 'super_admin' && isSuperAdmin && !form.agencyId) {
+      setFormError('Agence requise');
+      return;
+    }
     setSubmitting(true);
     try {
-      await api.createUser(form);
-      setForm({ email: '', password: '', role: 'staff' });
+      const payload = {
+        email: form.email,
+        password: form.password,
+        role: form.role,
+      };
+      if (form.role !== 'super_admin' && isSuperAdmin) payload.agencyId = form.agencyId;
+      await api.createUser(payload);
+      setForm(emptyForm(isSuperAdmin));
       setShowForm(false);
       await fetchUsers();
     } catch (err) {
@@ -89,9 +127,9 @@ export default function Users({ currentUsername }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <UsersIcon size={28} />
-          <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>Comptes du personnel</h1>
+          <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>Comptes</h1>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+        <button className="btn btn-primary" onClick={() => { setForm(emptyForm(isSuperAdmin)); setFormError(''); setShowForm(true); }}>
           <Plus size={18} /> Nouveau compte
         </button>
       </div>
@@ -101,55 +139,61 @@ export default function Users({ currentUsername }) {
       {users.length === 0 ? (
         <EmptyState
           icon={<UsersIcon size={48} />}
-          title="Aucun compte personnel"
+          title="Aucun compte"
           description="Créez un premier compte pour permettre à votre équipe de se connecter."
         />
       ) : (
         <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-          {users.map((u, idx) => (
-            <div
-              key={u.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                padding: '16px 20px',
-                borderTop: idx > 0 ? '1px solid var(--border-subtle)' : 'none',
-              }}
-            >
-              <div style={{
-                width: '40px', height: '40px', borderRadius: '50%',
-                background: u.role === 'admin' ? 'var(--accent)' : 'var(--navy-surface)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
-              }}>
-                {u.role === 'admin' ? <Shield size={20} /> : <User size={20} />}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {u.email}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  {u.role === 'admin' ? 'Administrateur' : 'Personnel'}
-                  {' · '}créé le {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}
-                </div>
-              </div>
-              <button
-                className="btn btn-sm"
-                title="Réinitialiser le mot de passe"
-                onClick={() => { setResetTarget(u); setResetPassword(''); setResetError(''); }}
+          {users.map((u, idx) => {
+            const isAdminish = u.role === 'super_admin' || u.role === 'agency_admin' || u.role === 'admin';
+            return (
+              <div
+                key={u.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  padding: '16px 20px',
+                  borderTop: idx > 0 ? '1px solid var(--border-subtle)' : 'none',
+                }}
               >
-                <KeyRound size={16} />
-              </button>
-              <button
-                className="btn btn-sm btn-danger"
-                title="Supprimer"
-                disabled={currentUsername && u.email.toLowerCase() === String(currentUsername).toLowerCase()}
-                onClick={() => setDeleteConfirm(u)}
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
+                <div style={{
+                  width: '40px', height: '40px', borderRadius: '50%',
+                  background: isAdminish ? 'var(--accent)' : 'var(--navy-surface)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
+                }}>
+                  {isAdminish ? <Shield size={20} /> : <User size={20} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {u.email}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {ROLE_LABEL[u.role] || u.role}
+                    {isSuperAdmin && u.role !== 'super_admin' && (
+                      <> · {agencyName(u.agencyId)}</>
+                    )}
+                    {' · '}créé le {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}
+                  </div>
+                </div>
+                <button
+                  className="btn btn-sm"
+                  title="Réinitialiser le mot de passe"
+                  onClick={() => { setResetTarget(u); setResetPassword(''); setResetError(''); }}
+                >
+                  <KeyRound size={16} />
+                </button>
+                <button
+                  className="btn btn-sm btn-danger"
+                  title="Supprimer"
+                  disabled={currentUsername && u.email.toLowerCase() === String(currentUsername).toLowerCase()}
+                  onClick={() => setDeleteConfirm(u)}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -186,10 +230,26 @@ export default function Users({ currentUsername }) {
                 value={form.role}
                 onChange={e => setForm({ ...form, role: e.target.value })}
               >
-                <option value="staff">Personnel</option>
-                <option value="admin">Administrateur</option>
+                <option value="agency_admin">Administrateur d&apos;agence</option>
+                {isSuperAdmin && <option value="super_admin">Super administrateur</option>}
               </select>
             </div>
+            {isSuperAdmin && form.role !== 'super_admin' && (
+              <div className="form-group">
+                <label className="form-label">Agence</label>
+                <select
+                  className="form-select"
+                  value={form.agencyId || ''}
+                  onChange={e => setForm({ ...form, agencyId: e.target.value })}
+                  required
+                >
+                  <option value="">— Sélectionner une agence —</option>
+                  {agencies.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button type="submit" className="btn btn-primary w-full" disabled={submitting}>
               {submitting ? 'Création...' : 'Créer'}
             </button>

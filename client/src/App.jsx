@@ -11,6 +11,8 @@ import TravelerList from './pages/TravelerList';
 import QRCodes from './pages/QRCodes';
 import Trips from './pages/Trips';
 import Users from './pages/Users';
+import Agencies from './pages/Agencies';
+import { getActiveAgencyId, onActiveAgencyChange } from './utils/api';
 import { usePolling } from './hooks/usePolling';
 import { useOfflineQueue } from './hooks/useOfflineQueue';
 import { useTripContext } from './hooks/useTripContext';
@@ -81,10 +83,14 @@ export default function App() {
 }
 
 function AuthenticatedApp({ username, role, onLogout }) {
+  const isSuperAdmin = role === 'super_admin';
   const { status: isOnline, lastMessage } = usePolling();
   const tripCtx = useTripContext();
   const offlineQueue = useOfflineQueue(isOnline, tripCtx.selectedTripId);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  const [activeAgencyId, setActiveAgencyId] = useState(() => getActiveAgencyId());
+  useEffect(() => onActiveAgencyChange(setActiveAgencyId), []);
+  const needsAgencySelection = isSuperAdmin && !activeAgencyId;
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
@@ -127,26 +133,51 @@ function AuthenticatedApp({ username, role, onLogout }) {
         <main className="main-content">
           <Routes>
             <Route path="/" element={
-              <Dashboard tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />
+              needsAgencySelection
+                ? <AgencyPrompt />
+                : <Dashboard tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />
             } />
             <Route path="/scanner" element={
-              <Scanner isOnline={isOnline === 'connected'} offlineQueue={offlineQueue} tripId={tripCtx.selectedTripId} trip={tripCtx.selectedTrip} />
+              needsAgencySelection
+                ? <AgencyPrompt />
+                : <Scanner isOnline={isOnline === 'connected'} offlineQueue={offlineQueue} tripId={tripCtx.selectedTripId} trip={tripCtx.selectedTrip} />
             } />
             <Route path="/travelers" element={
-              <TravelerList tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />
+              needsAgencySelection
+                ? <AgencyPrompt />
+                : <TravelerList tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />
             } />
             <Route path="/qrcodes" element={
-              <QRCodes tripId={tripCtx.selectedTripId} trip={tripCtx.selectedTrip} />
+              needsAgencySelection
+                ? <AgencyPrompt />
+                : <QRCodes tripId={tripCtx.selectedTripId} trip={tripCtx.selectedTrip} />
             } />
             <Route path="/trips" element={
-              <Trips onTripChange={tripCtx.refreshTrips} selectedTripId={tripCtx.selectedTripId} onSelectTrip={tripCtx.selectTrip} onLogout={!isDesktop ? onLogout : null} />
+              needsAgencySelection
+                ? <AgencyPrompt />
+                : <Trips onTripChange={tripCtx.refreshTrips} selectedTripId={tripCtx.selectedTripId} onSelectTrip={tripCtx.selectTrip} onLogout={!isDesktop ? onLogout : null} />
             } />
+            {isSuperAdmin && (
+              <Route path="/agencies" element={<Agencies />} />
+            )}
             {(role === 'admin' || role === 'super_admin' || role === 'agency_admin') && (
-              <Route path="/users" element={<Users currentUsername={username} />} />
+              <Route path="/users" element={<Users currentUsername={username} currentRole={role} />} />
             )}
           </Routes>
         </main>
       </div>
     </BrowserRouter>
+  );
+}
+
+function AgencyPrompt() {
+  return (
+    <div style={{ padding: '40px', maxWidth: '600px', margin: '40px auto', textAlign: 'center' }}>
+      <h2 style={{ marginBottom: '12px' }}>Aucune agence sélectionnée</h2>
+      <p style={{ color: 'var(--text-muted)' }}>
+        Sélectionnez une agence dans la barre latérale (ou ouvrez la page <strong>Agences</strong>)
+        pour gérer ses voyages et voyageurs.
+      </p>
+    </div>
   );
 }

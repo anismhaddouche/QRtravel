@@ -24,6 +24,32 @@ export function setAuthErrorHandler(handler) {
   onAuthError = handler;
 }
 
+// ─── Super-admin selected agency ─────────────────────────────────────
+// Persisted in localStorage. agency_admin users ignore this entirely
+// (the backend forces their scope). Only used to inject ?agencyId=
+// onto super_admin reads so they can browse one agency at a time.
+const ACTIVE_AGENCY_KEY = 'qr_super_admin_active_agency_id';
+const agencyListeners = new Set();
+export function getActiveAgencyId() {
+  try { return localStorage.getItem(ACTIVE_AGENCY_KEY) || null; } catch { return null; }
+}
+export function setActiveAgencyId(id) {
+  try {
+    if (id) localStorage.setItem(ACTIVE_AGENCY_KEY, id);
+    else localStorage.removeItem(ACTIVE_AGENCY_KEY);
+  } catch { /* ignore */ }
+  for (const fn of agencyListeners) { try { fn(id || null); } catch { /* ignore */ } }
+}
+export function onActiveAgencyChange(fn) {
+  agencyListeners.add(fn);
+  return () => agencyListeners.delete(fn);
+}
+function appendAgencyParam(url) {
+  const id = getActiveAgencyId();
+  if (!id) return url;
+  return url.includes('?') ? `${url}&agencyId=${encodeURIComponent(id)}` : `${url}?agencyId=${encodeURIComponent(id)}`;
+}
+
 async function request(url, options = {}) {
   const config = {
     headers: { 'Content-Type': 'application/json' },
@@ -64,8 +90,15 @@ export const api = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
 
+  // Agencies (super_admin only)
+  getAgencies: () => request('/agencies'),
+  getAgency: (id) => request(`/agencies/${id}`),
+  createAgency: (data) => request('/agencies', { method: 'POST', body: data }),
+  updateAgency: (id, data) => request(`/agencies/${id}`, { method: 'PUT', body: data }),
+  deleteAgency: (id) => request(`/agencies/${id}`, { method: 'DELETE' }),
+
   // Trips
-  getTrips: () => request('/trips'),
+  getTrips: () => request(appendAgencyParam('/trips')),
   getTrip: (id) => request(`/trips/${id}`),
   createTrip: (data) => request('/trips', { method: 'POST', body: data }),
   updateTrip: (id, data) => request(`/trips/${id}`, { method: 'PUT', body: data }),

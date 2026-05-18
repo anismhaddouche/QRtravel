@@ -150,6 +150,7 @@ app.get('/api/debug/db-test', debugGuard, async (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 
 // ─── Protected routes ───
+app.use('/api/agencies',  requireAuth, require('./routes/agencies'));
 app.use('/api/trips',     requireAuth, require('./routes/trips'));
 app.use('/api/checkin',   requireAuth, require('./routes/checkin'));
 app.use('/api/qrcodes',   requireAuth, require('./routes/qrcodes'));

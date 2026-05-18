@@ -107,7 +107,11 @@ router.get('/', async (req, res) => {
     const where = [];
     const params = [];
     if (tripId) { params.push(tripId); where.push(`"tripId" = $${params.length}`); }
-    if (!superAdmin) { params.push(effectiveAgencyId(req.user)); where.push(`"agencyId" = $${params.length}`); }
+    if (superAdmin) {
+      if (req.query.agencyId) { params.push(req.query.agencyId); where.push(`"agencyId" = $${params.length}`); }
+    } else {
+      params.push(effectiveAgencyId(req.user)); where.push(`"agencyId" = $${params.length}`);
+    }
     const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
 
     const travelers = await all(`SELECT * FROM travelers${whereSql} ORDER BY "referenceCode"`, params);

@@ -20,6 +20,13 @@ const BOUATIT_ADMIN = {
   role: 'agency_admin',
 };
 
+const MILLESIME_AGENCY_NAME = 'Millesime Voyage';
+const MILLESIME_ADMIN = {
+  email: 'millesime.voyage@gmail.com',
+  password: 'Millesime2026@',
+  role: 'agency_admin',
+};
+
 async function ensureAgency(name, { email = null, phone = null } = {}) {
   const existing = await get(`SELECT * FROM agencies WHERE LOWER(name) = LOWER($1) LIMIT 1`, [name]);
   if (existing) {
@@ -115,14 +122,17 @@ async function backfillExistingData(defaultAgencyId) {
     console.log(`   🔄 Migrated legacy admin → agency_admin: ${u.email}`);
   }
 
-  // Legacy 'staff' users without agencyId → default agency
-  const legacyStaff = await all(`SELECT id, email FROM users WHERE role = 'staff' AND "agencyId" IS NULL`);
+  // Legacy 'staff' role no longer supported — promote to agency_admin in their
+  // current (or default) agency. Safe because Phase 2 collapsed staff into
+  // agency_admin; no data is lost.
+  const legacyStaff = await all(`SELECT id, email, "agencyId" FROM users WHERE role = 'staff'`);
   for (const u of legacyStaff) {
+    const agencyId = u.agencyId || defaultAgencyId;
     await run(
-      `UPDATE users SET "agencyId" = $1, "updatedAt" = $2 WHERE id = $3`,
-      [defaultAgencyId, new Date().toISOString(), u.id]
+      `UPDATE users SET role = 'agency_admin', "agencyId" = $1, "updatedAt" = $2 WHERE id = $3`,
+      [agencyId, new Date().toISOString(), u.id]
     );
-    console.log(`   🔄 Bound legacy staff → default agency: ${u.email}`);
+    console.log(`   🔄 Migrated legacy staff → agency_admin: ${u.email}`);
   }
 }
 
@@ -143,6 +153,10 @@ async function seed() {
   // 4. Ensure Bouatit agency_admin (bound to Bouatit Travel).
   await ensureUser({ ...BOUATIT_ADMIN, agencyId: bouatit.id });
 
+  // 5. Ensure Millesime Voyage agency + its agency_admin.
+  const millesime = await ensureAgency(MILLESIME_AGENCY_NAME, { email: MILLESIME_ADMIN.email });
+  await ensureUser({ ...MILLESIME_ADMIN, agencyId: millesime.id });
+
   const stats = {
     agencies: (await get(`SELECT COUNT(*)::int AS n FROM agencies`)).n,
     users:    (await get(`SELECT COUNT(*)::int AS n FROM users`)).n,
@@ -160,6 +174,7 @@ async function seed() {
   console.log('   🔐 Logins:');
   console.log(`      super_admin:   ${SUPER_ADMIN.email}`);
   console.log(`      agency_admin:  ${BOUATIT_ADMIN.email} (${BOUATIT_AGENCY_NAME})`);
+  console.log(`      agency_admin:  ${MILLESIME_ADMIN.email} (${MILLESIME_AGENCY_NAME})`);
   console.log('');
 
   await getPool().end();

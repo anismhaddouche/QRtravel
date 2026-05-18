@@ -4,9 +4,10 @@
 //   node server/createUser.js <email> <password> <role> [agencyNameOrId]
 //   npm run create-user -- <email> <password> <role> [agencyNameOrId]
 //
-// Roles: super_admin, agency_admin, staff (legacy 'admin' accepted → agency_admin).
+// Roles: super_admin, agency_admin (legacy 'admin' accepted → agency_admin).
 // - super_admin must NOT have an agency.
-// - agency_admin/staff MUST have an agencyNameOrId.
+// - agency_admin MUST have an agencyNameOrId.
+// - 'staff' role is no longer supported.
 // If a user with the same email exists, password and role/agency are updated.
 
 require('dotenv').config();
@@ -15,12 +16,12 @@ const { v4: uuidv4 } = require('uuid');
 const { initDb, get, run, getPool } = require('./db');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const VALID_ROLES = new Set(['super_admin', 'agency_admin', 'staff']);
+const VALID_ROLES = new Set(['super_admin', 'agency_admin']);
 
 function usage() {
   console.error('Usage: node server/createUser.js <email> <password> <role> [agencyNameOrId]');
-  console.error('  roles: super_admin | agency_admin | staff');
-  console.error('  agency_admin/staff require an agency.');
+  console.error('  roles: super_admin | agency_admin');
+  console.error('  agency_admin requires an agency. super_admin must omit it.');
   process.exit(1);
 }
 
@@ -33,8 +34,12 @@ async function resolveAgency(nameOrId) {
 
 async function main() {
   const [, , email, password, roleRawArg, agencyArg] = process.argv;
-  let role = roleRawArg || 'staff';
+  let role = roleRawArg || 'agency_admin';
   if (role === 'admin') role = 'agency_admin';
+  if (role === 'staff') {
+    console.error('Role "staff" is no longer supported. Use agency_admin.');
+    process.exit(1);
+  }
 
   if (!email || !password) usage();
   if (!EMAIL_RE.test(email)) { console.error('Invalid email format.'); process.exit(1); }
