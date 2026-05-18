@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { isSuperAdmin, isAgencyAdmin, effectiveAgencyId } = require('../lib/scope');
+const { isSuperAdmin, isAgencyAdmin, effectiveAgencyId, requireSuperAdmin } = require('../lib/scope');
 
 test('super_admin is recognized', () => {
   assert.equal(isSuperAdmin({ role: 'super_admin' }), true);
@@ -90,6 +90,49 @@ test('with-admin: rejects invalid admin email', () => {
 
 test('with-admin: rejects short password', () => {
   assert.equal(validateWithAdminPayload({ agency: { name: 'A' }, admin: { email: 'a@b.co', password: 'short' } }).ok, false);
+});
+
+// requireSuperAdmin middleware enforces super_admin only on /api/users.
+function runMw(mw, user) {
+  let nextCalled = false;
+  let status = null;
+  let body = null;
+  const req = { user };
+  const res = {
+    status(code) { status = code; return this; },
+    json(payload) { body = payload; return this; },
+  };
+  mw(req, res, () => { nextCalled = true; });
+  return { nextCalled, status, body };
+}
+
+test('requireSuperAdmin: super_admin passes', () => {
+  const r = runMw(requireSuperAdmin, { role: 'super_admin' });
+  assert.equal(r.nextCalled, true);
+});
+
+test('requireSuperAdmin: agency_admin rejected with 403', () => {
+  const r = runMw(requireSuperAdmin, { role: 'agency_admin', agencyId: 'a' });
+  assert.equal(r.nextCalled, false);
+  assert.equal(r.status, 403);
+  assert.equal(r.body.code, 'FORBIDDEN');
+});
+
+test('requireSuperAdmin: anonymous rejected with 403', () => {
+  const r = runMw(requireSuperAdmin, null);
+  assert.equal(r.nextCalled, false);
+  assert.equal(r.status, 403);
+});
+
+test('requireSuperAdmin: legacy env-fallback admin (no agency) passes', () => {
+  const r = runMw(requireSuperAdmin, { role: 'admin', agencyId: null });
+  assert.equal(r.nextCalled, true);
+});
+
+test('requireSuperAdmin: legacy admin WITH agencyId is rejected (treated as agency_admin)', () => {
+  const r = runMw(requireSuperAdmin, { role: 'admin', agencyId: 'a' });
+  assert.equal(r.nextCalled, false);
+  assert.equal(r.status, 403);
 });
 
 test('with-admin: accepts a complete payload', () => {

@@ -164,7 +164,8 @@ function MobileMenu({ isSuperAdmin, isAgencyAdmin, username, role, onClose, onLo
           <button style={itemStyle} onClick={() => go('/travelers')}><Users size={20} /> Voyageurs</button>
           <button style={itemStyle} onClick={() => go('/qrcodes')}><QrCode size={20} /> Codes QR</button>
           <button style={itemStyle} onClick={() => go('/scanner')}><ScanLine size={20} /> Scanner</button>
-          {(isSuperAdmin || isAgencyAdmin) && (
+          {/* Personnel is super_admin only — agency_admin cannot manage users. */}
+          {isSuperAdmin && (
             <button style={itemStyle} onClick={() => go('/users')}><Shield size={20} /> Personnel</button>
           )}
           <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '8px 0' }} />

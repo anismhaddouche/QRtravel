@@ -3,8 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { all, get, run } = require('../db');
-const { requireAdmin } = require('../middleware/auth');
-const { isSuperAdmin, isAgencyAdmin, effectiveAgencyId } = require('../lib/scope');
+const { isSuperAdmin, isAgencyAdmin, effectiveAgencyId, requireSuperAdmin } = require('../lib/scope');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Internally stored roles. Legacy 'admin' is still accepted on read; new
@@ -23,7 +22,9 @@ function sanitize(u) {
   };
 }
 
-router.use(requireAdmin);
+// User management is restricted to super_admin only.
+// agency_admin / staff (removed) / any other role → 403 FORBIDDEN.
+router.use(requireSuperAdmin);
 
 router.get('/', async (req, res) => {
   try {

@@ -72,20 +72,21 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
         </select>
       </div>
 
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
         <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Tableau de bord" end />
         {isSuperAdmin && <NavItem to="/agencies" icon={<Building2 size={20} />} label="Agences" />}
         <NavItem to="/scanner" icon={<ScanLine size={20} />} label="Scanner" />
         <NavItem to="/travelers" icon={<Users size={20} />} label="Voyageurs" />
         <NavItem to="/qrcodes" icon={<QrCode size={20} />} label="Codes QR" />
         <NavItem to="/trips" icon={<Map size={20} />} label="Voyages" />
-        {(isSuperAdmin || isAgencyAdmin) && (
+        {/* Personnel is super_admin only — agency_admin cannot manage users. */}
+        {isSuperAdmin && (
           <NavItem to="/users" icon={<Shield size={20} />} label="Personnel" />
         )}
       </nav>
 
-      <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+      <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{
               width: '8px', height: '8px', borderRadius: '50%',
@@ -104,29 +105,28 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
         </div>
 
         {username && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                {username}
-              </div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                {role === 'super_admin' ? 'Super admin' : (role === 'agency_admin' || role === 'admin') ? 'Admin agence' : role}
-              </div>
+          <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: 'var(--radius-md)', marginBottom: '8px' }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {username}
             </div>
-            <button
-              onClick={onLogout}
-              title="Déconnexion"
-              style={{
-                background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer',
-                display: 'flex', padding: '4px', transition: 'color 200ms ease'
-              }}
-              onMouseOver={e => e.currentTarget.style.color = 'var(--danger-light)'}
-              onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}
-            >
-              <LogOut size={18} />
-            </button>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+              {role === 'super_admin' ? 'Super administrateur' : (role === 'agency_admin' || role === 'admin') ? 'Administrateur d’agence' : role}
+            </div>
           </div>
         )}
+
+        <button
+          onClick={onLogout}
+          className="btn"
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: '8px', color: 'var(--danger-light)', borderColor: 'var(--danger-light)',
+            background: 'transparent',
+          }}
+        >
+          <LogOut size={18} />
+          <span>Se déconnecter</span>
+        </button>
       </div>
     </aside>
   );

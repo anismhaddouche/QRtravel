@@ -160,7 +160,8 @@ function AuthenticatedApp({ username, role, onLogout }) {
             {isSuperAdmin && (
               <Route path="/agencies" element={<Agencies />} />
             )}
-            {(role === 'admin' || role === 'super_admin' || role === 'agency_admin') && (
+            {/* Personnel is super_admin only — agency_admin cannot manage users. */}
+            {isSuperAdmin && (
               <Route path="/users" element={<Users currentUsername={username} currentRole={role} />} />
             )}
           </Routes>
