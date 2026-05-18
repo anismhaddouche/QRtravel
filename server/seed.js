@@ -1,7 +1,12 @@
 // seed.js is always run locally via `npm run seed`
 require('dotenv').config();
-const { initDb, run, getPool } = require('./db');
+const { initDb, get, run, getPool } = require('./db');
 const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcryptjs');
+
+const SEED_USERS = [
+  { email: 'Bouatittravel@gmail.com', password: 'Qrbouatittravel2026', role: 'admin' },
+];
 
 const TRIP_ID_1 = 'trip-demo-001';
 const TRIP_ID_2 = 'trip-demo-002';
@@ -51,6 +56,22 @@ async function seed() {
        VALUES ($1, $2, $3, $4, $5, 'not_checked_in', NULL, $6, $7, $8, $9)`,
       [uuidv4(), t.referenceCode, t.displayName, t.type, t.peopleCount, t.notes, t.tripId, now, now]
     );
+  }
+
+  // Seed default users (idempotent — never deletes existing users)
+  for (const u of SEED_USERS) {
+    const existing = await get(`SELECT id FROM users WHERE LOWER(email) = LOWER($1)`, [u.email]);
+    if (existing) {
+      console.log(`   👤 User already exists, skipping: ${u.email}`);
+      continue;
+    }
+    const passwordHash = await bcrypt.hash(u.password, 10);
+    await run(
+      `INSERT INTO users (id, email, "passwordHash", role, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [uuidv4(), u.email, passwordHash, u.role, now, now]
+    );
+    console.log(`   👤 Created user: ${u.email} (${u.role})`);
   }
 
   const trip1Count = sampleTravelers.filter(t => t.tripId === TRIP_ID_1);

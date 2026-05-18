@@ -94,6 +94,13 @@ export const api = {
   // QR Codes
   getQRCodes: (tripId) => request(`/qrcodes?tripId=${tripId}`),
 
+  // Users (admin only)
+  getUsers: () => request('/users'),
+  createUser: (data) => request('/users', { method: 'POST', body: data }),
+  deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+  resetUserPassword: (id, password) =>
+    request(`/users/${id}/reset-password`, { method: 'POST', body: { password } }),
+
   // Health
   health: () => fetch(`${API_BASE}/health`).then(r => r.json()),
 };

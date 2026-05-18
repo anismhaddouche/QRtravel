@@ -1,10 +1,5 @@
 const { get } = require('../db');
 
-// Validate session cookie. On Vercel serverless we do NOT register a
-// module-level setInterval cleanup — long-running timers leak across
-// invocations and are unsupported. Expired sessions are filtered by
-// the SQL "expiresAt" predicate below and can be purged separately
-// via a scheduled DB job if/when accumulation becomes a concern.
 async function requireAuth(req, res, next) {
   const sessionId = req.cookies?.qr_session;
 
@@ -23,7 +18,11 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ error: 'Session expired', code: 'SESSION_EXPIRED' });
     }
 
-    req.user = { username: session.username };
+    req.user = {
+      id: session.userId || null,
+      username: session.username,
+      role: session.role || 'admin',
+    };
     next();
   } catch (err) {
     console.error('[AUTH] middleware error:', err.message);
@@ -31,4 +30,11 @@ async function requireAuth(req, res, next) {
   }
 }
 
-module.exports = { requireAuth };
+function requireAdmin(req, res, next) {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin privileges required', code: 'FORBIDDEN' });
+  }
+  next();
+}
+
+module.exports = { requireAuth, requireAdmin };

@@ -10,6 +10,7 @@ import Scanner from './pages/Scanner';
 import TravelerList from './pages/TravelerList';
 import QRCodes from './pages/QRCodes';
 import Trips from './pages/Trips';
+import Users from './pages/Users';
 import { usePolling } from './hooks/usePolling';
 import { useOfflineQueue } from './hooks/useOfflineQueue';
 import { useTripContext } from './hooks/useTripContext';
@@ -18,12 +19,14 @@ import { api, setAuthErrorHandler } from './utils/api';
 export default function App() {
   const [authState, setAuthState] = useState('checking'); // checking | authenticated | unauthenticated
   const [username, setUsername] = useState(null);
+  const [role, setRole] = useState(null);
 
   // Check authentication on mount
   useEffect(() => {
     api.me()
       .then((data) => {
         setUsername(data.username);
+        setRole(data.role || 'admin');
         setAuthState('authenticated');
       })
       .catch(() => {
@@ -36,17 +39,20 @@ export default function App() {
     setAuthErrorHandler(() => {
       setAuthState('unauthenticated');
       setUsername(null);
+      setRole(null);
     });
   }, []);
 
-  const handleLogin = useCallback((user) => {
+  const handleLogin = useCallback((user, userRole) => {
     setUsername(user);
+    setRole(userRole || 'admin');
     setAuthState('authenticated');
   }, []);
 
   const handleLogout = useCallback(async () => {
     try { await api.logout(); } catch (e) { /* ignore */ }
     setUsername(null);
+    setRole(null);
     setAuthState('unauthenticated');
   }, []);
 
@@ -69,12 +75,12 @@ export default function App() {
   // Authenticated — render the full app
   return (
     <ToastProvider>
-      <AuthenticatedApp username={username} onLogout={handleLogout} />
+      <AuthenticatedApp username={username} role={role} onLogout={handleLogout} />
     </ToastProvider>
   );
 }
 
-function AuthenticatedApp({ username, onLogout }) {
+function AuthenticatedApp({ username, role, onLogout }) {
   const { status: isOnline, lastMessage } = usePolling();
   const tripCtx = useTripContext();
   const offlineQueue = useOfflineQueue(isOnline, tripCtx.selectedTripId);
@@ -108,6 +114,7 @@ function AuthenticatedApp({ username, onLogout }) {
             selectedTrip={tripCtx.selectedTrip}
             onSelectTrip={tripCtx.selectTrip}
             username={username}
+            role={role}
             onLogout={onLogout}
           />
         ) : (
@@ -134,6 +141,9 @@ function AuthenticatedApp({ username, onLogout }) {
             <Route path="/trips" element={
               <Trips onTripChange={tripCtx.refreshTrips} selectedTripId={tripCtx.selectedTripId} onSelectTrip={tripCtx.selectTrip} onLogout={!isDesktop ? onLogout : null} />
             } />
+            {role === 'admin' && (
+              <Route path="/users" element={<Users currentUsername={username} />} />
+            )}
           </Routes>
         </main>
       </div>

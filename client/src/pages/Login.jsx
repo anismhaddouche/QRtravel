@@ -15,7 +15,7 @@ export default function Login({ onLogin }) {
 
     try {
       const result = await api.login(username, password);
-      onLogin(result.username);
+      onLogin(result.username, result.role);
     } catch (err) {
       setError(err.message || 'Identifiants invalides');
     } finally {

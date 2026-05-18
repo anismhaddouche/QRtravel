@@ -154,6 +154,7 @@ app.use('/api/trips',     requireAuth, require('./routes/trips'));
 app.use('/api/checkin',   requireAuth, require('./routes/checkin'));
 app.use('/api/qrcodes',   requireAuth, require('./routes/qrcodes'));
 app.use('/api/travelers', requireAuth, require('./routes/travelers'));
+app.use('/api/users',     requireAuth, require('./routes/users'));
 
 // JSON error handler — never leak HTML 500s from /api.
 app.use('/api', (err, req, res, next) => {

@@ -165,6 +165,17 @@ async function initDb() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        "passwordHash" TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'staff',
+        "createdAt" TEXT NOT NULL,
+        "updatedAt" TEXT NOT NULL
+      )
+    `);
+
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_travelers_reference ON travelers("referenceCode")`,
       `CREATE INDEX IF NOT EXISTS idx_travelers_trip ON travelers("tripId")`,
@@ -172,6 +183,7 @@ async function initDb() {
       `CREATE INDEX IF NOT EXISTS idx_scan_events_trip ON scan_events("tripId")`,
       `CREATE INDEX IF NOT EXISTS idx_trips_status ON trips(status)`,
       `CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions("expiresAt")`,
+      `CREATE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email))`,
     ];
     for (const sql of indexes) {
       await client.query(sql);
@@ -180,6 +192,8 @@ async function initDb() {
     const migrations = [
       `ALTER TABLE trips ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''`,
       `ALTER TABLE scan_events ADD COLUMN IF NOT EXISTS "tripId" TEXT REFERENCES trips(id) ON DELETE CASCADE`,
+      `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS "userId" TEXT`,
+      `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS role TEXT`,
     ];
     for (const sql of migrations) {
       try { await client.query(sql); } catch { /* column already exists */ }

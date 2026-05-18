@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, ScanLine, QrCode, Map, LogOut, Plane, Wifi, WifiOff } from 'lucide-react';
+import { LayoutDashboard, Users, ScanLine, QrCode, Map, LogOut, Plane, Wifi, WifiOff, Shield } from 'lucide-react';
 
-export default function Sidebar({ isOnline, queueLength, syncStatus, trips, selectedTrip, onSelectTrip, username, onLogout }) {
+export default function Sidebar({ isOnline, queueLength, syncStatus, trips, selectedTrip, onSelectTrip, username, role, onLogout }) {
   return (
     <aside className="sidebar glass-card" style={{
       position: 'fixed',
@@ -54,6 +54,9 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
         <NavItem to="/travelers" icon={<Users size={20} />} label="Voyageurs" />
         <NavItem to="/qrcodes" icon={<QrCode size={20} />} label="Codes QR" />
         <NavItem to="/trips" icon={<Map size={20} />} label="Voyages" />
+        {role === 'admin' && (
+          <NavItem to="/users" icon={<Shield size={20} />} label="Personnel" />
+        )}
       </nav>
 
       <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)' }}>

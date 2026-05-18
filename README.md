@@ -82,6 +82,49 @@ openssl rand -hex 32
 
 **4. Redéployer.** Toutes les sessions existantes sont invalidées par le changement de hash.
 
+## Comptes du personnel (staff users)
+
+L'application supporte plusieurs comptes personnels stockés en base (`users`), avec mots de passe **bcrypt**. Les identifiants `ADMIN_USERNAME` / `ADMIN_PASSWORD` (ou `ADMIN_PASSWORD_HASH`) restent disponibles **uniquement en secours / dev local**.
+
+### Schéma `users`
+
+| Colonne | Type | Notes |
+|---|---|---|
+| `id` | TEXT (uuid) | clé primaire |
+| `email` | TEXT UNIQUE | identifiant de connexion |
+| `passwordHash` | TEXT | bcrypt (cost 10) |
+| `role` | TEXT | `admin` ou `staff` |
+| `createdAt` / `updatedAt` | TEXT (ISO) | |
+
+### Création depuis la CLI
+
+```bash
+# Créer (ou mettre à jour) un compte
+npm run create-user -- <email> <password> [admin|staff]
+
+# Exemple
+npm run create-user -- Bouatittravel@gmail.com Qrbouatittravel2026 admin
+```
+
+Le script est **idempotent** : si l'email existe déjà, le mot de passe et le rôle sont mis à jour et les sessions actives de cet utilisateur sont révoquées.
+
+`npm run seed` crée automatiquement le compte initial **Bouatittravel@gmail.com** (admin) s'il n'existe pas (les comptes existants ne sont jamais écrasés par `seed`).
+
+### Gestion depuis l'application
+
+Connecté en tant qu'**admin**, ouvrez **Personnel** dans la barre latérale (route `/users`) pour :
+
+- créer un nouveau compte (`admin` ou `staff`)
+- réinitialiser le mot de passe d'un compte (révoque ses sessions actives)
+- supprimer un compte (interdit pour le dernier admin et pour le compte connecté)
+
+### Ordre de résolution lors du login
+
+1. **DB** : `SELECT * FROM users WHERE LOWER(email) = LOWER($1)` puis `bcrypt.compare`.
+2. **Fallback env** : si aucun user en base, on compare à `ADMIN_USERNAME` + `ADMIN_PASSWORD_HASH` (ou `ADMIN_PASSWORD`).
+
+Le fallback env est conçu pour le **bootstrap initial** et la **récupération d'urgence**. En production, créez des comptes en base et retirez ou rotez `ADMIN_PASSWORD`.
+
 ## CSRF — modèle de sécurité
 
 Le frontend et l'API sont **déployés sur le même domaine Vercel** (same-origin). Les cookies de session sont :
