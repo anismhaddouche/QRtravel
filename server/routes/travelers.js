@@ -348,6 +348,67 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// ─── Bulk delete ───────────────────────────────────────────────────
+// Body: { travelerIds: string[] }
+// Returns: { deleted, skipped, errors: [{ id, reason }] }
+// IDs outside the caller's tenant scope are silently skipped (never
+// trusted from the client).
+router.delete('/bulk', express.json({ limit: '64kb' }), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const ids = body.travelerIds;
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ error: 'travelerIds must be an array', code: 'VALIDATION' });
+    }
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'travelerIds must not be empty', code: 'VALIDATION' });
+    }
+    if (ids.length > 500) {
+      return res.status(413).json({ error: 'Too many ids (max 500)', code: 'TOO_MANY_IDS' });
+    }
+    const cleanIds = [];
+    for (const v of ids) {
+      if (typeof v !== 'string') continue;
+      const s = v.trim();
+      if (s && s.length <= 128) cleanIds.push(s);
+    }
+    if (cleanIds.length === 0) {
+      return res.status(400).json({ error: 'No valid ids', code: 'VALIDATION' });
+    }
+
+    const superAdmin = isSuperAdmin(req.user);
+    // Build IN placeholder list
+    const placeholders = cleanIds.map((_, i) => `$${i + 1}`).join(',');
+    let scopedSql = `SELECT id, "referenceCode", "agencyId" FROM travelers WHERE id IN (${placeholders})`;
+    const params = [...cleanIds];
+    if (!superAdmin) {
+      params.push(effectiveAgencyId(req.user));
+      scopedSql += ` AND "agencyId" = $${params.length}`;
+    }
+    const visible = await all(scopedSql, params);
+    const visibleIds = visible.map(t => t.id);
+    const visibleRefs = visible.map(t => t.referenceCode);
+    const skipped = cleanIds.length - visibleIds.length;
+
+    if (visibleIds.length === 0) {
+      return res.json({ deleted: 0, skipped, errors: [] });
+    }
+
+    // Delete scan_events for these reference codes, then travelers.
+    if (visibleRefs.length > 0) {
+      const refPh = visibleRefs.map((_, i) => `$${i + 1}`).join(',');
+      await run(`DELETE FROM scan_events WHERE "referenceCode" IN (${refPh})`, visibleRefs);
+    }
+    const idPh = visibleIds.map((_, i) => `$${i + 1}`).join(',');
+    await run(`DELETE FROM travelers WHERE id IN (${idPh})`, visibleIds);
+
+    res.json({ deleted: visibleIds.length, skipped, errors: [] });
+  } catch (err) {
+    console.error('[travelers.bulk-delete] error', { pgCode: err && err.code, message: err && err.message });
+    res.status(500).json({ error: 'Erreur base de données — vérifier les logs serveur', code: 'DB_ERROR' });
+  }
+});
+
 router.delete('/:id', async (req, res) => {
   try {
     const traveler = await fetchScopedTraveler(req.user, req.params.id);

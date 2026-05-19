@@ -112,6 +112,8 @@ export const api = {
   createTraveler: (data) => request('/travelers', { method: 'POST', body: data }),
   updateTraveler: (id, data) => request(`/travelers/${id}`, { method: 'PUT', body: data }),
   deleteTraveler: (id) => request(`/travelers/${id}`, { method: 'DELETE' }),
+  bulkDeleteTravelers: (travelerIds) =>
+    request('/travelers/bulk', { method: 'DELETE', body: { travelerIds } }),
   getStats: (tripId) => request(`/travelers/stats/summary?tripId=${tripId}`),
   importTravelersCsv: async (tripId, csvText) => {
     const response = await fetch(`${API_BASE}/travelers/import-csv?tripId=${encodeURIComponent(tripId)}`, {

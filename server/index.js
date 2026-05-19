@@ -170,6 +170,61 @@ app.use('/api', (err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
+// ─── Public QR share page ──────────────────────────────────────────
+// Renders a minimal HTML page showing a traveler's QR code + non-
+// sensitive info (display name, trip name, reference code). No auth,
+// no PII beyond what the agency would print on a ticket. The QR
+// payload itself is the bare referenceCode — same as in the rest of
+// the app. Mounted BEFORE the SPA catch-all so it isn't shadowed.
+const QRCode = require('qrcode');
+const { get: dbGet } = require('./db');
+app.get('/qr/:referenceCode', async (req, res) => {
+  try {
+    const raw = String(req.params.referenceCode || '');
+    if (!/^[A-Za-z0-9_\-]{1,64}$/.test(raw)) {
+      return res.status(400).type('text/html').send('<!doctype html><meta charset="utf-8"><title>QR</title><p>Code invalide.</p>');
+    }
+    const t = await dbGet(
+      `SELECT t."displayName", t."referenceCode", tr.name AS "tripName"
+         FROM travelers t LEFT JOIN trips tr ON tr.id = t."tripId"
+        WHERE t."referenceCode" = $1`,
+      [raw]
+    );
+    if (!t) {
+      return res.status(404).type('text/html').send('<!doctype html><meta charset="utf-8"><title>QR</title><p>QR code introuvable.</p>');
+    }
+    const dataUrl = await QRCode.toDataURL(t.referenceCode, { margin: 2, width: 320 });
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[c]);
+    res.type('text/html').send(`<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>QR — ${esc(t.referenceCode)}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:#0b1020; color:#e6edff; margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+  .card { background:#141a32; border:1px solid #2a3358; border-radius:16px; padding:28px; max-width:380px; width:100%; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,0.4); }
+  h1 { font-size:1.1rem; margin:0 0 4px; color:#a9b6e8; font-weight:500; }
+  h2 { font-size:1.4rem; margin:0 0 18px; }
+  img { width:100%; max-width:280px; height:auto; background:#fff; padding:12px; border-radius:12px; }
+  .ref { font-family: ui-monospace, "SF Mono", monospace; font-size:1rem; background:#0b1020; border:1px solid #2a3358; padding:8px 12px; border-radius:8px; display:inline-block; margin-top:14px; }
+  p.hint { color:#a9b6e8; font-size:0.85rem; margin-top:14px; }
+</style></head><body>
+<div class="card">
+  <h1>${esc(t.tripName || 'Voyage')}</h1>
+  <h2>${esc(t.displayName)}</h2>
+  <img src="${dataUrl}" alt="QR code">
+  <div class="ref">${esc(t.referenceCode)}</div>
+  <p class="hint">Présentez ce QR code au moment de l'embarquement.</p>
+</div>
+</body></html>`);
+  } catch (err) {
+    console.error('[qr-share] error', err.message);
+    res.status(500).type('text/html').send('<!doctype html><meta charset="utf-8"><title>QR</title><p>Erreur serveur.</p>');
+  }
+});
+
 // ─── Serve built React frontend (local dev / traditional hosting) ───
 const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');
 if (fs.existsSync(clientBuildPath)) {
