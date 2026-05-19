@@ -1,0 +1,86 @@
+-- ─────────────────────────────────────────────────────────────────────
+-- Supabase RLS policies — reference / future use only.
+-- ─────────────────────────────────────────────────────────────────────
+--
+-- CURRENT POSTURE (Phase 3):
+--   * RLS is ENABLED on every public table.
+--   * NO policies are defined → anon/authenticated reads from PostgREST
+--     return zero rows. This is the desired posture because the app
+--     does not use the Supabase JS client. Every read/write goes
+--     through the Express backend over the direct pg connection.
+--   * The backend connects as the `postgres` role which has BYPASSRLS,
+--     so the app is unaffected by RLS being on.
+--
+-- WHY KEEP THIS FILE:
+--   If you later switch to Supabase-native auth + the JS client (so
+--   PostgREST sees a real `auth.uid()` and a JWT with claims), the
+--   following policies are a starting point. They assume two custom
+--   JWT claims:
+--     * jwt → role           ('super_admin' | 'agency_admin')
+--     * jwt → agency_id      (UUID-as-text)
+--   You would emit those from your auth flow (e.g. a Supabase Edge
+--   Function that signs a JWT after verifying the legacy login).
+--
+-- DO NOT apply these as-is to production right now: with the current
+-- backend they would have no effect (the postgres role bypasses RLS).
+-- They are written defensively so they could be applied alongside a
+-- future Supabase-client migration without breaking the existing
+-- backend (postgres still bypasses everything).
+-- ─────────────────────────────────────────────────────────────────────
+
+-- Helper inline expressions (no functions to keep this idempotent).
+
+-- AGENCIES — super_admin reads everything; agency_admin reads only own.
+-- CREATE POLICY agencies_super_admin_all ON public.agencies
+--   FOR ALL TO authenticated
+--   USING ((auth.jwt() ->> 'role') = 'super_admin')
+--   WITH CHECK ((auth.jwt() ->> 'role') = 'super_admin');
+--
+-- CREATE POLICY agencies_agency_admin_select ON public.agencies
+--   FOR SELECT TO authenticated
+--   USING (id = (auth.jwt() ->> 'agency_id'));
+
+-- USERS — super_admin manages all; agency_admin sees only own-agency users.
+-- CREATE POLICY users_super_admin_all ON public.users
+--   FOR ALL TO authenticated
+--   USING ((auth.jwt() ->> 'role') = 'super_admin')
+--   WITH CHECK ((auth.jwt() ->> 'role') = 'super_admin');
+--
+-- CREATE POLICY users_agency_admin_select ON public.users
+--   FOR SELECT TO authenticated
+--   USING ("agencyId" = (auth.jwt() ->> 'agency_id'));
+
+-- TRIPS — agency-scoped reads/writes; super_admin bypasses.
+-- CREATE POLICY trips_super_admin_all ON public.trips
+--   FOR ALL TO authenticated
+--   USING ((auth.jwt() ->> 'role') = 'super_admin')
+--   WITH CHECK ((auth.jwt() ->> 'role') = 'super_admin');
+--
+-- CREATE POLICY trips_agency_scope ON public.trips
+--   FOR ALL TO authenticated
+--   USING ("agencyId" = (auth.jwt() ->> 'agency_id'))
+--   WITH CHECK ("agencyId" = (auth.jwt() ->> 'agency_id'));
+
+-- TRAVELERS — same agency-scope pattern.
+-- CREATE POLICY travelers_super_admin_all ON public.travelers
+--   FOR ALL TO authenticated
+--   USING ((auth.jwt() ->> 'role') = 'super_admin')
+--   WITH CHECK ((auth.jwt() ->> 'role') = 'super_admin');
+--
+-- CREATE POLICY travelers_agency_scope ON public.travelers
+--   FOR ALL TO authenticated
+--   USING ("agencyId" = (auth.jwt() ->> 'agency_id'))
+--   WITH CHECK ("agencyId" = (auth.jwt() ->> 'agency_id'));
+
+-- SCAN_EVENTS — same agency-scope pattern.
+-- CREATE POLICY scan_events_super_admin_all ON public.scan_events
+--   FOR ALL TO authenticated
+--   USING ((auth.jwt() ->> 'role') = 'super_admin')
+--   WITH CHECK ((auth.jwt() ->> 'role') = 'super_admin');
+--
+-- CREATE POLICY scan_events_agency_scope ON public.scan_events
+--   FOR ALL TO authenticated
+--   USING ("agencyId" = (auth.jwt() ->> 'agency_id'))
+--   WITH CHECK ("agencyId" = (auth.jwt() ->> 'agency_id'));
+
+-- SESSIONS — generally backend-only; no public policy.
