@@ -4,13 +4,93 @@ const { run, get, all } = require('../db');
 const { v4: uuidv4 } = require('uuid');
 const { isSuperAdmin, effectiveAgencyId } = require('../lib/scope');
 
+const CSV_MAX_BYTES = 1024 * 1024; // 1 MB
+const CSV_MAX_ROWS = 500;
+
+// Parse a CSV text into { header, rows } with auto-detected separator
+// (comma or semicolon), supporting quoted fields and CRLF/LF newlines.
+function parseCsv(text) {
+  if (typeof text !== 'string') return { header: [], rows: [] };
+  // Strip UTF-8 BOM
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  // Pick separator from first non-empty line
+  const firstLine = text.split(/\r?\n/, 1)[0] || '';
+  const sep = (firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length ? ';' : ',';
+
+  const out = [];
+  let field = '';
+  let row = [];
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === sep) { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); out.push(row); row = []; field = ''; }
+      else if (c === '\r') { /* skip */ }
+      else field += c;
+    }
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); out.push(row); }
+  // Drop trailing blank rows
+  while (out.length && out[out.length - 1].every(c => (c || '').trim() === '')) out.pop();
+  if (out.length === 0) return { header: [], rows: [], sep };
+  const header = out[0].map(h => (h || '').trim().toLowerCase());
+  const rows = out.slice(1);
+  return { header, rows, sep };
+}
+
+function normalizeHeader(h) {
+  // Accept common French/English header variants
+  const map = {
+    type: 'type',
+    nom: 'nom', lastname: 'nom', 'last name': 'nom', name: 'nom',
+    prenom: 'prenom', 'prénom': 'prenom', firstname: 'prenom', 'first name': 'prenom',
+    tel: 'tel', telephone: 'tel', 'téléphone': 'tel', phone: 'tel',
+    mail: 'mail', email: 'mail', courriel: 'mail',
+  };
+  return map[h] || h;
+}
+
+function generateUniqueRefCode(existing) {
+  for (let i = 0; i < 50; i++) {
+    const rnd = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const code = `TRV-${rnd}`;
+    if (!existing.has(code)) return code;
+  }
+  return `TRV-${uuidv4().slice(0, 8).toUpperCase()}`;
+}
+
 const TYPES = ['person', 'couple', 'family', 'group'];
 const TRAVELER_STATUSES = ['not_checked_in', 'checked_in'];
 const REF_CODE_RE = /^[A-Za-z0-9_\-]{1,64}$/;
 const MAX_NAME = 200;
 const MAX_NOTES = 2000;
+const MAX_PHONE = 30;
+const MAX_EMAIL = 255;
 const MIN_PEOPLE = 1;
 const MAX_PEOPLE = 200;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Maps a free-form CSV "type" cell to one of the internal TYPES.
+const TYPE_ALIASES = {
+  individuel: 'person', individual: 'person', person: 'person', personne: 'person', solo: 'person',
+  couple: 'couple', duo: 'couple',
+  famille: 'family', family: 'family',
+  groupe: 'group', group: 'group',
+};
+function mapType(raw) {
+  if (typeof raw !== 'string') return null;
+  const k = raw.trim().toLowerCase();
+  if (!k) return null;
+  if (TYPES.includes(k)) return k;
+  return TYPE_ALIASES[k] || null;
+}
 
 function cleanStr(v, max) {
   if (typeof v !== 'string') return null;
@@ -44,6 +124,36 @@ function validateStatus(v) {
     err.statusCode = 400; throw err;
   }
   return v;
+}
+
+function validatePhone(v, { throwOnError = true } = {}) {
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v !== 'string') {
+    if (throwOnError) { const err = new Error('phone must be a string'); err.statusCode = 400; throw err; }
+    return null;
+  }
+  const s = v.trim();
+  if (!s) return null;
+  if (s.length > MAX_PHONE) {
+    if (throwOnError) { const err = new Error(`phone must be at most ${MAX_PHONE} characters`); err.statusCode = 400; throw err; }
+    return null;
+  }
+  return s;
+}
+
+function validateEmail(v, { throwOnError = true } = {}) {
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v !== 'string') {
+    if (throwOnError) { const err = new Error('email must be a string'); err.statusCode = 400; throw err; }
+    return null;
+  }
+  const s = v.trim().toLowerCase();
+  if (!s) return null;
+  if (s.length > MAX_EMAIL || !EMAIL_RE.test(s)) {
+    if (throwOnError) { const err = new Error('email is invalid'); err.statusCode = 400; throw err; }
+    return null;
+  }
+  return s;
 }
 
 function validatePeopleCount(v) {
@@ -149,6 +259,8 @@ router.post('/', async (req, res) => {
     const type = validateType(body.type, { required: true });
     const peopleCount = validatePeopleCount(body.peopleCount);
     const notes = body.notes === undefined ? '' : (cleanStr(body.notes, MAX_NOTES) || '');
+    const phone = validatePhone(body.phone);
+    const email = validateEmail(body.email);
 
     const trip = await fetchScopedTrip(req.user, tripId);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
@@ -163,9 +275,9 @@ router.post('/', async (req, res) => {
     const count = peopleCount ?? (type === 'person' ? 1 : type === 'couple' ? 2 : 3);
 
     await run(
-      `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, "tripId", "agencyId", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [id, referenceCode, displayName, type, count, notes, tripId, trip.agencyId, now, now]
+      `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, phone, email, "tripId", "agencyId", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [id, referenceCode, displayName, type, count, notes, phone, email, tripId, trip.agencyId, now, now]
     );
 
     const traveler = await get('SELECT * FROM travelers WHERE id = $1', [id]);
@@ -188,6 +300,15 @@ router.put('/:id', async (req, res) => {
     const peopleCount = validatePeopleCount(body.peopleCount);
     const status = validateStatus(body.status);
     const notes = body.notes === undefined ? null : (cleanStr(body.notes, MAX_NOTES) || '');
+    // For phone/email, `undefined` = leave unchanged. Empty string = explicit clear.
+    let phone;
+    if (body.phone === undefined) phone = undefined;
+    else if (body.phone === null || body.phone === '') phone = null;
+    else phone = validatePhone(body.phone);
+    let email;
+    if (body.email === undefined) email = undefined;
+    else if (body.email === null || body.email === '') email = null;
+    else email = validateEmail(body.email);
     const now = new Date().toISOString();
 
     await run(
@@ -197,9 +318,16 @@ router.put('/:id', async (req, res) => {
            "peopleCount" = COALESCE($3, "peopleCount"),
            notes = COALESCE($4, notes),
            status = COALESCE($5, status),
+           phone = CASE WHEN $7::boolean THEN $8 ELSE phone END,
+           email = CASE WHEN $9::boolean THEN $10 ELSE email END,
            "updatedAt" = $6
-       WHERE id = $7`,
-      [displayName, type, peopleCount, notes, status, now, req.params.id]
+       WHERE id = $11`,
+      [
+        displayName, type, peopleCount, notes, status, now,
+        phone !== undefined, phone ?? null,
+        email !== undefined, email ?? null,
+        req.params.id,
+      ]
     );
 
     const updated = await get('SELECT * FROM travelers WHERE id = $1', [req.params.id]);
@@ -223,5 +351,128 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete traveler' });
   }
 });
+
+// ─── CSV import ────────────────────────────────────────────────────
+// Accepts text/csv body up to 1 MB. Auth + tenant isolation enforced
+// via fetchScopedTrip. Returns per-row errors instead of all-or-nothing.
+router.post(
+  '/import-csv',
+  express.text({ type: ['text/csv', 'text/plain', 'application/csv'], limit: CSV_MAX_BYTES }),
+  async (req, res) => {
+    try {
+      const tripId = typeof req.query.tripId === 'string' ? req.query.tripId.trim() : '';
+      if (!tripId) {
+        return res.status(400).json({ error: 'tripId query param is required', code: 'VALIDATION' });
+      }
+
+      const text = typeof req.body === 'string' ? req.body : '';
+      if (!text.trim()) {
+        return res.status(400).json({ error: 'CSV body is empty', code: 'VALIDATION' });
+      }
+
+      const trip = await fetchScopedTrip(req.user, tripId);
+      if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+      const { header, rows } = parseCsv(text);
+      if (!header.length) {
+        return res.status(400).json({ error: 'CSV header is missing', code: 'VALIDATION' });
+      }
+      const cols = header.map(normalizeHeader);
+      const idx = {
+        type: cols.indexOf('type'),
+        nom: cols.indexOf('nom'),
+        prenom: cols.indexOf('prenom'),
+        tel: cols.indexOf('tel'),
+        mail: cols.indexOf('mail'),
+      };
+      if (idx.nom === -1 || idx.prenom === -1) {
+        return res.status(400).json({
+          error: 'CSV must contain at least columns: nom, prenom (and ideally type, tel, mail)',
+          code: 'VALIDATION',
+        });
+      }
+      if (rows.length > CSV_MAX_ROWS) {
+        return res.status(413).json({
+          error: `CSV exceeds the maximum of ${CSV_MAX_ROWS} rows`,
+          code: 'TOO_MANY_ROWS',
+        });
+      }
+
+      // Preload existing referenceCodes for this agency to keep generation unique.
+      const existingRows = await all(
+        'SELECT "referenceCode" FROM travelers WHERE "agencyId" = $1',
+        [trip.agencyId]
+      );
+      const usedRefs = new Set(existingRows.map(r => r.referenceCode));
+
+      const errors = [];
+      let created = 0;
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const lineNo = i + 2; // header is line 1
+        // Skip fully empty rows silently
+        if (row.every(c => (c || '').trim() === '')) continue;
+
+        const rawType = idx.type >= 0 ? row[idx.type] : '';
+        const nom = idx.nom >= 0 ? (row[idx.nom] || '').trim() : '';
+        const prenom = idx.prenom >= 0 ? (row[idx.prenom] || '').trim() : '';
+        const tel = idx.tel >= 0 ? (row[idx.tel] || '').trim() : '';
+        const mail = idx.mail >= 0 ? (row[idx.mail] || '').trim() : '';
+
+        if (!nom && !prenom) {
+          errors.push({ line: lineNo, error: 'Nom manquant' });
+          continue;
+        }
+        if (!nom) {
+          errors.push({ line: lineNo, error: 'Nom manquant' });
+          continue;
+        }
+
+        const displayName = (prenom ? `${prenom} ${nom}` : nom).slice(0, MAX_NAME);
+        const type = rawType ? mapType(rawType) : 'person';
+        if (!type) {
+          errors.push({ line: lineNo, error: `Type invalide: "${rawType}"` });
+          continue;
+        }
+
+        let phone = null;
+        if (tel) {
+          try { phone = validatePhone(tel); }
+          catch { errors.push({ line: lineNo, error: 'Téléphone trop long' }); continue; }
+        }
+        let email = null;
+        if (mail) {
+          try { email = validateEmail(mail); }
+          catch { errors.push({ line: lineNo, error: 'Email invalide' }); continue; }
+        }
+
+        const referenceCode = generateUniqueRefCode(usedRefs);
+        usedRefs.add(referenceCode);
+
+        const id = uuidv4();
+        const now = new Date().toISOString();
+        try {
+          await run(
+            `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, phone, email, "tripId", "agencyId", "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            [id, referenceCode, displayName, type, 1, '', phone, email, tripId, trip.agencyId, now, now]
+          );
+          created++;
+        } catch (e) {
+          errors.push({ line: lineNo, error: 'Erreur base de données' });
+        }
+      }
+
+      res.json({ created, failed: errors.length, errors });
+    } catch (err) {
+      if (err && err.type === 'entity.too.large') {
+        return res.status(413).json({ error: 'CSV file too large (max 1 MB)', code: 'PAYLOAD_TOO_LARGE' });
+      }
+      console.error('Error importing CSV:', err.message);
+      res.status(500).json({ error: 'Failed to import CSV' });
+    }
+  }
+);
 
 module.exports = router;

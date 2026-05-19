@@ -4,7 +4,7 @@ import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
 import { LoadingState } from '../components/Skeleton';
-import { Users, User, Users2, Search, Plus, Edit2, Trash2, QrCode, CornerUpLeft, Check } from 'lucide-react';
+import { Users, User, Users2, Search, Plus, Edit2, Trash2, QrCode, CornerUpLeft, Check, Upload, Phone, Mail } from 'lucide-react';
 
 const TYPE_ICONS = { person: User, couple: Users, family: Users2, group: Users };
 const TYPE_LABELS = { person: 'Individuel', couple: 'Couple', family: 'Famille', group: 'Groupe' };
@@ -18,9 +18,13 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all'); // all, person, couple, family, group
   const [form, setForm] = useState({
-    referenceCode: '', displayName: '', type: 'person', peopleCount: 1, notes: '',
+    referenceCode: '', displayName: '', type: 'person', peopleCount: 1, notes: '', phone: '', email: '',
   });
   const [formError, setFormError] = useState('');
+  const [showImport, setShowImport] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [importError, setImportError] = useState('');
 
   const fetchTravelers = useCallback(async () => {
     if (!tripId) return;
@@ -38,9 +42,32 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
   useEffect(() => { if (lastMessage) fetchTravelers(); }, [lastMessage, fetchTravelers]);
 
   const resetForm = () => {
-    setForm({ referenceCode: '', displayName: '', type: 'person', peopleCount: 1, notes: '' });
+    setForm({ referenceCode: '', displayName: '', type: 'person', peopleCount: 1, notes: '', phone: '', email: '' });
     setFormError('');
     setEditingId(null);
+  };
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setImportError('');
+    setImportResult(null);
+    if (file.size > 1024 * 1024) {
+      setImportError('Fichier trop volumineux (max 1 Mo).');
+      return;
+    }
+    try {
+      setImporting(true);
+      const text = await file.text();
+      const result = await api.importTravelersCsv(tripId, text);
+      setImportResult(result);
+      fetchTravelers();
+    } catch (err) {
+      setImportError(err.message || 'Échec de l\'import');
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -73,6 +100,8 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
       type: t.type,
       peopleCount: t.peopleCount,
       notes: t.notes || '',
+      phone: t.phone || '',
+      email: t.email || '',
     });
     setEditingId(t.id);
     setShowForm(true);
@@ -145,13 +174,22 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
           <h1 className="page-title"><Users size={28} style={{ color: 'var(--accent)' }} /> Voyageurs</h1>
           <p className="page-subtitle">{travelers.length} unités • {totalPeople} personnes — {trip?.name || 'Voyage'}</p>
         </div>
-        <button 
-          className="btn btn-primary" 
-          onClick={() => { setShowForm(true); resetForm(); }} 
-          id="btn-add-traveler"
-        >
-          <Plus size={18} /> Ajouter un voyageur
-        </button>
+        <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-outline"
+            onClick={() => { setShowImport(true); setImportResult(null); setImportError(''); }}
+            id="btn-import-travelers"
+          >
+            <Upload size={18} /> Importer CSV
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => { setShowForm(true); resetForm(); }}
+            id="btn-add-traveler"
+          >
+            <Plus size={18} /> Ajouter un voyageur
+          </button>
+        </div>
       </div>
 
       <div className="glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
@@ -267,12 +305,38 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
               id="input-traveler-count"
             />
           </div>
+          <div className="form-grid-2">
+            <div className="form-group">
+              <label className="form-label">Téléphone (optionnel)</label>
+              <input
+                className="form-input"
+                type="tel"
+                placeholder="ex: 0612345678"
+                value={form.phone}
+                onChange={e => setForm({ ...form, phone: e.target.value })}
+                maxLength={30}
+                id="input-traveler-phone"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email (optionnel)</label>
+              <input
+                className="form-input"
+                type="email"
+                placeholder="ex: jean@example.com"
+                value={form.email}
+                onChange={e => setForm({ ...form, email: e.target.value })}
+                maxLength={255}
+                id="input-traveler-email"
+              />
+            </div>
+          </div>
           <div className="form-group">
             <label className="form-label">Notes (optionnel)</label>
-            <input 
-              className="form-input" 
+            <input
+              className="form-input"
               placeholder="Régimes alimentaires, accessibilité, etc."
-              value={form.notes} 
+              value={form.notes}
               onChange={e => setForm({ ...form, notes: e.target.value })}
               id="input-traveler-notes"
             />
@@ -339,6 +403,21 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
                   </span>
                 </div>
 
+                {(t.phone || t.email) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    {t.phone && (
+                      <a href={`tel:${t.phone}`} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'inherit', textDecoration: 'none' }}>
+                        <Phone size={14} /> {t.phone}
+                      </a>
+                    )}
+                    {t.email && (
+                      <a href={`mailto:${t.email}`} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'inherit', textDecoration: 'none', wordBreak: 'break-all' }}>
+                        <Mail size={14} /> {t.email}
+                      </a>
+                    )}
+                  </div>
+                )}
+
                 {t.notes && (
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', background: 'var(--glass)', padding: '8px', borderRadius: '4px' }}>
                     {t.notes}
@@ -400,6 +479,65 @@ export default function TravelerList({ tripId, lastMessage, trip }) {
           <button className="btn btn-danger" onClick={() => handleDelete(deleteConfirm)} id="btn-confirm-delete-traveler">
             <Trash2 size={18} /> Supprimer
           </button>
+        </div>
+      </Modal>
+
+      {/* CSV Import Modal */}
+      <Modal
+        isOpen={showImport}
+        onClose={() => { setShowImport(false); setImportResult(null); setImportError(''); }}
+        title="Importer des voyageurs (CSV)"
+      >
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '8px', fontSize: '0.9rem' }}>
+          Le fichier doit contenir les colonnes : <strong>type, nom, prenom, tel, mail</strong>.<br />
+          Séparateur accepté : virgule (,) ou point-virgule (;). Max 500 lignes, 1 Mo.
+        </p>
+        <pre style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', fontSize: '0.8rem', overflowX: 'auto', color: 'var(--text-secondary)' }}>
+{`type,nom,prenom,tel,mail
+Individuel,Dupont,Karim,0555555555,karim@example.com
+Individuel,Benali,Sara,0666666666,sara@example.com`}
+        </pre>
+
+        {importError && <div className="form-error" style={{ marginTop: '12px' }}>{importError}</div>}
+
+        {importResult && (
+          <div style={{ marginTop: '12px', padding: '12px', borderRadius: '8px', background: 'var(--glass)' }}>
+            <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+              {importResult.created} voyageur(s) créé(s), {importResult.failed} en erreur.
+            </div>
+            {importResult.errors && importResult.errors.length > 0 && (
+              <ul style={{ marginTop: '8px', paddingLeft: '20px', fontSize: '0.85rem', color: 'var(--danger-light)', maxHeight: '200px', overflowY: 'auto' }}>
+                {importResult.errors.map((er, i) => (
+                  <li key={i}>Ligne {er.line} — {er.error}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        <div className="form-group" style={{ marginTop: '16px' }}>
+          <label className="form-label">Fichier CSV</label>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleImportFile}
+            disabled={importing}
+            id="input-csv-file"
+            className="form-input"
+          />
+        </div>
+
+        <div className="flex justify-between mt-4">
+          <button
+            className="btn btn-outline"
+            onClick={() => { setShowImport(false); setImportResult(null); setImportError(''); }}
+            disabled={importing}
+          >
+            Fermer
+          </button>
+          {importing && (
+            <span style={{ color: 'var(--text-secondary)', alignSelf: 'center' }}>Import en cours…</span>
+          )}
         </div>
       </Modal>
     </div>

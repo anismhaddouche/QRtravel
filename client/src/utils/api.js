@@ -113,6 +113,25 @@ export const api = {
   updateTraveler: (id, data) => request(`/travelers/${id}`, { method: 'PUT', body: data }),
   deleteTraveler: (id) => request(`/travelers/${id}`, { method: 'DELETE' }),
   getStats: (tripId) => request(`/travelers/stats/summary?tripId=${tripId}`),
+  importTravelersCsv: async (tripId, csvText) => {
+    const response = await fetch(`${API_BASE}/travelers/import-csv?tripId=${encodeURIComponent(tripId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/csv' },
+      credentials: 'include',
+      body: csvText,
+    });
+    if (response.status === 401 && onAuthError) {
+      onAuthError();
+      const err = new Error('Authentication required'); err.status = 401; throw err;
+    }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const err = new Error(data.error || 'CSV import failed');
+      err.status = response.status; err.code = data.code; err.data = data;
+      throw err;
+    }
+    return data;
+  },
 
   // Check-in (tripId is REQUIRED — backend rejects without it)
   checkIn: (referenceCode, tripId, deviceId) =>

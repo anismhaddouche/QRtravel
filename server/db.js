@@ -216,6 +216,9 @@ async function initDb() {
       `CREATE INDEX IF NOT EXISTS idx_travelers_agency  ON travelers("agencyId")`,
       `CREATE INDEX IF NOT EXISTS idx_scan_events_agency ON scan_events("agencyId")`,
       `CREATE INDEX IF NOT EXISTS idx_users_agency      ON users("agencyId")`,
+      // Contact fields on travelers (optional)
+      `ALTER TABLE travelers   ADD COLUMN IF NOT EXISTS phone TEXT`,
+      `ALTER TABLE travelers   ADD COLUMN IF NOT EXISTS email TEXT`,
     ];
     for (const sql of migrations) {
       try { await client.query(sql); } catch { /* column already exists */ }
