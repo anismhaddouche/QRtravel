@@ -180,9 +180,33 @@ const QRCode = require('qrcode');
 const { get: dbGet } = require('./db');
 const REF_CODE_PUBLIC_RE = /^[A-Za-z0-9_\-]{1,64}$/;
 
-// Direct PNG image of the QR. Useful as a `qrLink` in WhatsApp/email so
-// the recipient sees a real image preview. Payload is the bare
-// referenceCode — same as the rest of the app.
+// Direct PNG image of the QR — served under /api/ so Vercel's static
+// filesystem handler doesn't shadow it with index.html (the SPA
+// catch-all in vercel.json sends every non-/api/* path to index.html).
+// Used as `qrLink` in WhatsApp/email so recipients see an image
+// preview. Payload of the QR is the bare referenceCode.
+app.get('/api/qr-image/:referenceCode.png', async (req, res) => {
+  try {
+    const raw = String(req.params.referenceCode || '');
+    if (!REF_CODE_PUBLIC_RE.test(raw)) {
+      return res.status(400).json({ error: 'Invalid reference code', code: 'VALIDATION' });
+    }
+    const t = await dbGet('SELECT "referenceCode" FROM travelers WHERE "referenceCode" = $1', [raw]);
+    if (!t) return res.status(404).json({ error: 'QR code not found' });
+
+    const buffer = await QRCode.toBuffer(t.referenceCode, { margin: 2, width: 512 });
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('Content-Type', 'image/png');
+    res.end(buffer);
+  } catch (err) {
+    console.error('[qr-image] error', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Legacy local-dev only — on Vercel this path is shadowed by the
+// static catch-all in vercel.json. Kept for local Express development
+// and as a fallback HTML viewer; not used in share links any more.
 app.get('/qr/:referenceCode.png', async (req, res) => {
   try {
     const raw = String(req.params.referenceCode || '');

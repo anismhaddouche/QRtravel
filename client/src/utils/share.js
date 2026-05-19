@@ -9,7 +9,7 @@
 export function getTravelerQrLink(referenceCode, origin) {
   if (!referenceCode) return null;
   const base = origin || (typeof window !== 'undefined' ? window.location.origin : '');
-  return `${base}/qr/${encodeURIComponent(referenceCode)}.png`;
+  return `${base}/api/qr-image/${encodeURIComponent(referenceCode)}.png`;
 }
 
 // Same origin but to the HTML viewer (useful if you want a styled page

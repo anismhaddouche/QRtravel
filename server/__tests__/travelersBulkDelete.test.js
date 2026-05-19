@@ -189,43 +189,49 @@ test('bulk-delete: super_admin → SELECT has no agency filter', async () => {
 
 // ─── Public PNG QR route ───────────────────────────────────────────
 
-test('GET /qr/:code.png: returns PNG buffer with image/png + cache header', async () => {
+test('GET /api/qr-image/:code.png: returns PNG buffer with image/png + cache header', async () => {
   _impl.get = async (sql, params) => {
     if (/FROM travelers WHERE "referenceCode" = \$1/.test(sql) && params[0] === 'TRV-OK') {
       return { referenceCode: 'TRV-OK' };
     }
     return null;
   };
-  // Build a minimal app that mounts the public route the same way server/index.js does.
+  // Mirror server/index.js: route registered under /api/ so Vercel's
+  // SPA catch-all (which only sends non-/api/* to index.html) can never
+  // shadow it.
   const app = express();
   const QRCode = require('qrcode');
   const { get: dbGet } = require('../db');
-  app.get('/qr/:referenceCode.png', async (req, res) => {
+  app.get('/api/qr-image/:referenceCode.png', async (req, res) => {
     const raw = String(req.params.referenceCode || '');
-    if (!/^[A-Za-z0-9_\-]{1,64}$/.test(raw)) return res.status(400).send('bad');
+    if (!/^[A-Za-z0-9_\-]{1,64}$/.test(raw)) return res.status(400).json({ error: 'bad', code: 'VALIDATION' });
     const t = await dbGet('SELECT "referenceCode" FROM travelers WHERE "referenceCode" = $1', [raw]);
-    if (!t) return res.status(404).send('nf');
+    if (!t) return res.status(404).json({ error: 'not found' });
     const buf = await QRCode.toBuffer(t.referenceCode, { margin: 2, width: 256 });
     res.set('Cache-Control', 'public, max-age=86400');
-    res.type('image/png').send(buf);
+    res.set('Content-Type', 'image/png');
+    res.end(buf);
   });
 
   await withServer(app, async (base) => {
-    const ok = await fetch(`${base}/qr/TRV-OK.png`);
+    const ok = await fetch(`${base}/api/qr-image/TRV-OK.png`);
     assert.equal(ok.status, 200);
     assert.equal(ok.headers.get('content-type'), 'image/png');
     assert.match(ok.headers.get('cache-control') || '', /public/);
     const buf = Buffer.from(await ok.arrayBuffer());
-    // PNG magic header
+    // PNG magic header — proves it's not HTML
     assert.equal(buf[0], 0x89);
     assert.equal(buf[1], 0x50);
     assert.equal(buf[2], 0x4e);
     assert.equal(buf[3], 0x47);
+    const asText = buf.toString('utf8', 0, Math.min(256, buf.length));
+    assert.equal(asText.includes('<!doctype html>'), false);
+    assert.equal(asText.includes('id="root"'), false);
 
-    const nf = await fetch(`${base}/qr/TRV-MISSING.png`);
+    const nf = await fetch(`${base}/api/qr-image/TRV-MISSING.png`);
     assert.equal(nf.status, 404);
 
-    const bad = await fetch(`${base}/qr/${encodeURIComponent('bad code!')}.png`);
+    const bad = await fetch(`${base}/api/qr-image/${encodeURIComponent('bad code!')}.png`);
     assert.equal(bad.status, 400);
   });
 });
@@ -279,11 +285,11 @@ test('share helpers: buildMailtoLink contains subject + body with ref/trip', asy
   assert.match(body, /Acme Travel/);
 });
 
-test('share helpers: getTravelerQrLink builds /qr/<code>.png on origin', async () => {
+test('share helpers: getTravelerQrLink builds /api/qr-image/<code>.png on origin', async () => {
   const mod = await import('../../client/src/utils/share.js');
   assert.equal(
     mod.getTravelerQrLink('TRV-1', 'https://app.example.com'),
-    'https://app.example.com/qr/TRV-1.png'
+    'https://app.example.com/api/qr-image/TRV-1.png'
   );
   assert.equal(mod.getTravelerQrLink('', 'https://x'), null);
 });
