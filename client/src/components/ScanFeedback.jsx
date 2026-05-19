@@ -1,7 +1,12 @@
 import { useEffect } from 'react';
 import { CheckCircle2, AlertTriangle, XCircle, Clock } from 'lucide-react';
 
-// Simple beep using Web Audio API (works offline, no file needed)
+// Visible duration of one feedback card. Tuned to be just under the
+// scanner cooldown so the next scan can fire as soon as the message
+// fades.
+const FEEDBACK_VISIBLE_MS = 1700;
+
+// Simple beep using Web Audio API (works offline, no file needed).
 function playBeep(frequency = 800, duration = 150) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -14,77 +19,88 @@ function playBeep(frequency = 800, duration = 150) {
     gain.gain.value = 0.3;
     oscillator.start();
     oscillator.stop(ctx.currentTime + duration / 1000);
-  } catch (e) {
-    // Audio not available
+  } catch {
+    /* audio unavailable — silent fallback */
   }
 }
+
+const TYPE_CONFIG = {
+  success:   { icon: CheckCircle2,  color: 'var(--success)',       sound: 'success' },
+  duplicate: { icon: AlertTriangle, color: 'var(--warning)',       sound: 'warn' },
+  warning:   { icon: Clock,         color: 'var(--warning-light)', sound: 'warn' },
+  error:     { icon: XCircle,       color: 'var(--danger)',        sound: 'error' },
+};
 
 export default function ScanFeedback({ result, onDismiss }) {
   useEffect(() => {
     if (!result) return;
 
-    // Play sound based on result type
-    if (result.type === 'success') {
+    const cfg = TYPE_CONFIG[result.type] || TYPE_CONFIG.error;
+    if (cfg.sound === 'success') {
       playBeep(880, 120);
       setTimeout(() => playBeep(1100, 150), 140);
-    } else if (result.type === 'duplicate') {
-      playBeep(400, 300);
+    } else if (cfg.sound === 'warn') {
+      playBeep(400, 250);
     } else {
-      playBeep(300, 400);
+      playBeep(300, 350);
     }
 
-    // Auto-dismiss after 2.5 seconds
-    const timer = setTimeout(() => onDismiss(), 2500);
+    const timer = setTimeout(() => onDismiss(), FEEDBACK_VISIBLE_MS);
     return () => clearTimeout(timer);
   }, [result, onDismiss]);
 
   if (!result) return null;
 
-  const config = {
-    success: { icon: CheckCircle2, color: 'var(--success)' },
-    duplicate: { icon: AlertTriangle, color: 'var(--warning)' },
-    warning: { icon: Clock, color: 'var(--warning-light)' },
-    error: { icon: XCircle, color: 'var(--danger)' },
-  };
+  const { icon: Icon, color } = TYPE_CONFIG[result.type] || TYPE_CONFIG.error;
 
-  const { icon: Icon, color } = config[result.type] || config.error;
-
+  // Compact bottom-anchored toast. Does NOT cover the camera viewport —
+  // the operator can keep their phone aimed at the next QR while the
+  // last result fades out. One toast at a time (parent overwrites the
+  // result state on each scan, so we never stack).
   return (
-    <div 
-      className="scan-feedback" 
+    <div
       onClick={onDismiss}
+      role="status"
+      aria-live="polite"
       style={{
         position: 'fixed',
-        inset: 0,
-        backgroundColor: `${color}1A`, // 10% opacity of the color
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        left: 0, right: 0,
+        bottom: 'calc(16px + env(safe-area-inset-bottom))',
         display: 'flex',
-        alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 300,
-        animation: 'fadeIn 200ms ease',
+        pointerEvents: 'none', // overlay never blocks the camera
+        zIndex: 200,
+        padding: '0 12px',
+        animation: 'slideUp 220ms cubic-bezier(0.2, 0.8, 0.2, 1)',
       }}
     >
-      <div 
+      <div
         className="glass-card"
         style={{
-          padding: '40px 48px',
-          textAlign: 'center',
-          borderColor: color,
-          boxShadow: `0 8px 32px rgba(0,0,0,0.4), 0 0 30px ${color}33`, // 20% glow
-          maxWidth: '360px',
-          animation: 'slideUp 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+          pointerEvents: 'auto', // but the toast itself is tappable to dismiss
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '12px 16px',
+          width: '100%',
+          maxWidth: '420px',
+          borderLeft: `4px solid ${color}`,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
         }}
       >
-        <div style={{ color, marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
-          <Icon size={64} strokeWidth={1.5} />
-        </div>
-        <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
-          {result.title}
-        </div>
-        <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
-          {result.message}
+        <Icon size={28} strokeWidth={1.75} style={{ color, flexShrink: 0 }} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            {result.title}
+          </div>
+          {result.message && (
+            <div style={{
+              fontSize: '0.85rem', color: 'var(--text-secondary)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {result.message}
+            </div>
+          )}
         </div>
       </div>
     </div>

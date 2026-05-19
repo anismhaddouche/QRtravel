@@ -149,9 +149,15 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
       if (err.code === 'ALREADY_CHECKED_IN') {
         setFeedback({ type: 'duplicate', title: 'Déjà embarqué', message: err.data?.traveler?.displayName || referenceCode });
       } else if (err.code === 'UNKNOWN_CODE') {
-        setFeedback({ type: 'error', title: 'Code invalide', message: `"${referenceCode}" non trouvé dans ce voyage` });
+        setFeedback({ type: 'error', title: 'QR inconnu', message: `"${referenceCode}" non trouvé dans ce voyage` });
       } else if (err.code === 'WRONG_TRIP') {
-        setFeedback({ type: 'error', title: 'Mauvais voyage', message: `Ce code n'appartient pas au voyage sélectionné.` });
+        setFeedback({ type: 'warning', title: 'QR d’un autre voyage', message: `Ce code n'appartient pas au voyage sélectionné.` });
+      } else if (err.code === 'FORBIDDEN_AGENCY_SCOPE') {
+        setFeedback({ type: 'error', title: 'QR non autorisé', message: 'Ce code appartient à une autre agence.' });
+      } else if (err.status && err.status >= 400 && err.status < 500) {
+        // Other client-side rejections from the API — show the server
+        // message rather than guessing offline behavior.
+        setFeedback({ type: 'error', title: 'Erreur de scan', message: err.message || 'Scan refusé.' });
       } else {
         // OFFLINE FALLBACK
         const validation = offlineQueue.validateOffline(referenceCode);
@@ -189,7 +195,16 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
 
       await html5QrCode.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1 },
+        {
+          fps: 10,
+          // Scale the decode box to ~84% of the viewfinder so it matches
+          // the visible reticle on every device width.
+          qrbox: (vw, vh) => {
+            const edge = Math.floor(Math.min(vw, vh) * 0.84);
+            return { width: edge, height: edge };
+          },
+          aspectRatio: 1,
+        },
         (decodedText) => handleScan(decodedText),
         () => {}
       );
@@ -316,7 +331,8 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
           <div style={{
             position: 'relative',
             width: '100%',
-            maxWidth: '400px',
+            // ~94 vw on phones, capped at 480 px on tablet/desktop.
+            maxWidth: 'min(94vw, 480px)',
             margin: '0 auto 24px',
             borderRadius: 'var(--radius-lg)',
             overflow: 'hidden',
@@ -327,9 +343,11 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
           }}>
             <div id="qr-reader" style={{ width: '100%', height: '100%' }}></div>
 
-            {/* Static reticle: four soft corner brackets — no animation */}
+            {/* Static reticle: four soft corner brackets — no animation.
+                Inset 8% → frame covers ~84% of the viewport, matching the
+                qrbox area while staying clean and modern. */}
             {scanning && (
-              <div style={{ position: 'absolute', inset: '18%', pointerEvents: 'none' }} aria-hidden="true">
+              <div style={{ position: 'absolute', inset: '8%', pointerEvents: 'none' }} aria-hidden="true">
                 {[
                   { top: 0,    left: 0,    borderTop: true,    borderLeft: true,  radius: 'borderTopLeftRadius' },
                   { top: 0,    right: 0,   borderTop: true,    borderRight: true, radius: 'borderTopRightRadius' },
@@ -338,15 +356,16 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
                 ].map((c, i) => {
                   const style = {
                     position: 'absolute',
-                    width: 26,
-                    height: 26,
-                    [c.radius]: 4,
+                    width: 36,
+                    height: 36,
+                    [c.radius]: 8,
+                    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))',
                   };
                   if (c.top !== undefined) style.top = c.top;
                   if (c.bottom !== undefined) style.bottom = c.bottom;
                   if (c.left !== undefined) style.left = c.left;
                   if (c.right !== undefined) style.right = c.right;
-                  const stroke = '1.5px solid rgba(255, 255, 255, 0.75)';
+                  const stroke = '2px solid rgba(255, 255, 255, 0.92)';
                   if (c.borderTop) style.borderTop = stroke;
                   if (c.borderBottom) style.borderBottom = stroke;
                   if (c.borderLeft) style.borderLeft = stroke;
