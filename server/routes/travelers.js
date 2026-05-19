@@ -284,8 +284,17 @@ router.post('/', async (req, res) => {
     res.status(201).json(traveler);
   } catch (err) {
     if (err && err.statusCode === 400) return res.status(400).json({ error: err.message, code: 'VALIDATION' });
-    console.error('Error creating traveler:', err.message);
-    res.status(500).json({ error: 'Failed to create traveler' });
+    // Unique violation on referenceCode
+    if (err && err.code === '23505') {
+      return res.status(409).json({ error: 'Code de référence déjà utilisé', code: 'DUPLICATE_REFERENCE' });
+    }
+    console.error('[travelers.POST] DB error', {
+      pgCode: err && err.code,
+      constraint: err && err.constraint,
+      column: err && err.column,
+      message: err && err.message,
+    });
+    res.status(500).json({ error: 'Erreur base de données — vérifier les logs serveur', code: 'DB_ERROR' });
   }
 });
 
@@ -405,8 +414,18 @@ router.post(
       );
       const usedRefs = new Set(existingRows.map(r => r.referenceCode));
 
+      console.log('[travelers.import-csv] start', {
+        tripId,
+        userRole: req.user && req.user.role,
+        userAgencyId: req.user && req.user.agencyId,
+        tripAgencyId: trip.agencyId,
+        rowsParsed: rows.length,
+        sep: header && header.length ? (text.split(/\r?\n/, 1)[0].includes(';') ? ';' : ',') : 'n/a',
+      });
+
       const errors = [];
       let created = 0;
+      let firstDbError = null;
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -460,10 +479,20 @@ router.post(
           );
           created++;
         } catch (e) {
-          errors.push({ line: lineNo, error: 'Erreur base de données' });
+          if (!firstDbError) {
+            firstDbError = { pgCode: e && e.code, constraint: e && e.constraint, column: e && e.column, message: e && e.message };
+            console.error('[travelers.import-csv] insert failed', { line: lineNo, ...firstDbError });
+          }
+          let msg = 'Erreur base de données';
+          if (e && e.code === '23505') msg = 'Code de référence déjà utilisé';
+          else if (e && e.code === '42703') msg = 'Colonne manquante en base — migration requise';
+          else if (e && e.code === '23502') msg = 'Champ requis manquant';
+          else if (e && e.code === '23514') msg = 'Valeur invalide pour une contrainte';
+          errors.push({ line: lineNo, error: msg });
         }
       }
 
+      console.log('[travelers.import-csv] done', { created, failed: errors.length });
       res.json({ created, failed: errors.length, errors });
     } catch (err) {
       if (err && err.type === 'entity.too.large') {

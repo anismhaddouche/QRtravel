@@ -339,6 +339,79 @@ test('CSV import: too many rows → 413', async () => {
   });
 });
 
+test('POST /travelers: duplicate referenceCode (pg 23505) → 409 DUPLICATE_REFERENCE', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      // Pre-check returns null so we reach INSERT, which then races to a duplicate.
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
+      return null;
+    },
+    run: async () => { const e = new Error('duplicate key'); e.code = '23505'; throw e; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referenceCode: 'TRV-DUP', displayName: 'X', type: 'person', tripId: 'trip-1' }),
+    });
+    assert.equal(res.status, 409);
+    const body = await res.json();
+    assert.equal(body.code, 'DUPLICATE_REFERENCE');
+  });
+});
+
+test('POST /travelers: missing column (pg 42703) → 500 DB_ERROR with safe message', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
+      return null;
+    },
+    run: async () => { const e = new Error('column "phone" does not exist'); e.code = '42703'; throw e; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referenceCode: 'TRV-X', displayName: 'X', type: 'person', tripId: 'trip-1' }),
+    });
+    assert.equal(res.status, 500);
+    const body = await res.json();
+    assert.equal(body.code, 'DB_ERROR');
+    assert.match(body.error, /Erreur base de données/);
+  });
+});
+
+test('CSV import: missing column on every row → per-line message names it', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      return null;
+    },
+    all: async () => [],
+    run: async (sql) => {
+      if (/INSERT INTO travelers/.test(sql)) {
+        const e = new Error('column "phone" does not exist'); e.code = '42703'; throw e;
+      }
+    },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  const csv = `type,nom,prenom,tel,mail\nIndividuel,Dupont,Karim,0555,karim@example.com`;
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/import-csv?tripId=trip-1`, {
+      method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: csv,
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.created, 0);
+    assert.equal(body.failed, 1);
+    assert.match(body.errors[0].error, /Colonne manquante/);
+  });
+});
+
 test('CSV import: empty body → 400 VALIDATION', async () => {
   setDbStubs(stubsForImport());
   const app = buildApp('agency_admin', 'agency-A');

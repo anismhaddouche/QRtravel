@@ -221,7 +221,19 @@ async function initDb() {
       `ALTER TABLE travelers   ADD COLUMN IF NOT EXISTS email TEXT`,
     ];
     for (const sql of migrations) {
-      try { await client.query(sql); } catch { /* column already exists */ }
+      try {
+        await client.query(sql);
+      } catch (e) {
+        // 42701 = duplicate_column (expected when re-running ADD COLUMN
+        // without IF NOT EXISTS). 42P07 = duplicate_table. 42710 =
+        // duplicate_object. Everything else means a real migration
+        // failure — surface it instead of swallowing.
+        const benign = e && (e.code === '42701' || e.code === '42P07' || e.code === '42710');
+        if (!benign) {
+          console.error('[DB] Migration failed:', sql, '|', e.code, e.message);
+          throw e;
+        }
+      }
     }
 
     console.log('[DB] Schema initialized successfully');
