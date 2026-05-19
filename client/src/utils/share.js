@@ -1,10 +1,20 @@
 // Helpers for building share links (WhatsApp / mailto) and the public
 // QR-share URL. Pure functions, no React, easy to test.
 
-// Returns an absolute URL like "https://app.example.com/qr/TRV-123"
-// using the current page origin in the browser. The QR share page is
-// served by the Express app at /qr/:referenceCode.
+// Returns an absolute URL pointing to the raw PNG image of the
+// traveler's QR code — e.g. "https://app.example.com/qr/TRV-123.png".
+// Used in WhatsApp/email messages so recipients see an image preview.
+// The HTML share page (without `.png`) is still served and useful for
+// in-browser viewing.
 export function getTravelerQrLink(referenceCode, origin) {
+  if (!referenceCode) return null;
+  const base = origin || (typeof window !== 'undefined' ? window.location.origin : '');
+  return `${base}/qr/${encodeURIComponent(referenceCode)}.png`;
+}
+
+// Same origin but to the HTML viewer (useful if you want a styled page
+// with the trip name and reference code under the QR).
+export function getTravelerQrPageLink(referenceCode, origin) {
   if (!referenceCode) return null;
   const base = origin || (typeof window !== 'undefined' ? window.location.origin : '');
   return `${base}/qr/${encodeURIComponent(referenceCode)}`;

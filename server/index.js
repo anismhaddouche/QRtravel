@@ -178,6 +178,29 @@ app.use('/api', (err, req, res, next) => {
 // the app. Mounted BEFORE the SPA catch-all so it isn't shadowed.
 const QRCode = require('qrcode');
 const { get: dbGet } = require('./db');
+const REF_CODE_PUBLIC_RE = /^[A-Za-z0-9_\-]{1,64}$/;
+
+// Direct PNG image of the QR. Useful as a `qrLink` in WhatsApp/email so
+// the recipient sees a real image preview. Payload is the bare
+// referenceCode — same as the rest of the app.
+app.get('/qr/:referenceCode.png', async (req, res) => {
+  try {
+    const raw = String(req.params.referenceCode || '');
+    if (!REF_CODE_PUBLIC_RE.test(raw)) {
+      return res.status(400).type('text/plain').send('Invalid reference code');
+    }
+    const t = await dbGet('SELECT "referenceCode" FROM travelers WHERE "referenceCode" = $1', [raw]);
+    if (!t) return res.status(404).type('text/plain').send('QR code not found');
+
+    const buffer = await QRCode.toBuffer(t.referenceCode, { margin: 2, width: 512 });
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.type('image/png').send(buffer);
+  } catch (err) {
+    console.error('[qr-share png] error', err.message);
+    res.status(500).type('text/plain').send('Server error');
+  }
+});
+
 app.get('/qr/:referenceCode', async (req, res) => {
   try {
     const raw = String(req.params.referenceCode || '');
