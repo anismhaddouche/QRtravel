@@ -96,7 +96,8 @@ export const api = {
   createAgency: (data) => request('/agencies', { method: 'POST', body: data }),
   createAgencyWithAdmin: (data) => request('/agencies/with-admin', { method: 'POST', body: data }),
   updateAgency: (id, data) => request(`/agencies/${id}`, { method: 'PUT', body: data }),
-  deleteAgency: (id) => request(`/agencies/${id}`, { method: 'DELETE' }),
+  deleteAgency: (id, { force = false } = {}) =>
+    request(`/agencies/${id}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
 
   // Trips
   getTrips: () => request(appendAgencyParam('/trips')),

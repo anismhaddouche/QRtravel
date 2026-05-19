@@ -327,6 +327,164 @@ test('checkin: duplicate scan → 409 ALREADY_CHECKED_IN', async () => {
   });
 });
 
+// ─── /api/agencies DELETE — force / guards ─────────────────────────
+test('DELETE agency: empty agency → 200', async () => {
+  let agencyDeleted = false;
+  const txCalls = [];
+  setDbStubs({
+    get: async (sql, params) => {
+      if (/FROM agencies WHERE id/.test(sql)) return { id: 'agency-A', name: 'A' };
+      if (/COUNT\(\*\)::int FROM users\s*WHERE "agencyId" = \$1\) AS users/.test(sql)) {
+        return { users: 0, trips: 0, travelers: 0, scanEvents: 0 };
+      }
+      if (/COUNT\(\*\)::int AS n FROM users WHERE "agencyId" = \$1 AND role = 'super_admin'/.test(sql)) {
+        return { n: 0 };
+      }
+      return null;
+    },
+    getPool: () => ({
+      connect: async () => ({
+        query: async (sql) => {
+          txCalls.push(sql);
+          if (/DELETE FROM agencies/.test(sql)) agencyDeleted = true;
+          return { rows: [] };
+        },
+        release: () => {},
+      }),
+    }),
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/agencies/agency-A`, { method: 'DELETE' });
+    assert.equal(res.status, 200);
+    assert.equal(agencyDeleted, true);
+    assert.equal(txCalls[0], 'BEGIN');
+    assert.equal(txCalls[txCalls.length - 1], 'COMMIT');
+  });
+});
+
+test('DELETE non-empty agency without force → 409 AGENCY_NOT_EMPTY with counts', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM agencies WHERE id/.test(sql)) return { id: 'agency-A', name: 'A' };
+      if (/AS users/.test(sql)) return { users: 1, trips: 3, travelers: 12, scanEvents: 40 };
+      return null;
+    },
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/agencies/agency-A`, { method: 'DELETE' });
+    assert.equal(res.status, 409);
+    const body = await res.json();
+    assert.equal(body.code, 'AGENCY_NOT_EMPTY');
+    assert.equal(body.counts.trips, 3);
+    assert.equal(body.counts.scanEvents, 40);
+  });
+});
+
+test('DELETE non-empty agency with force=true → transactional purge', async () => {
+  const txCalls = [];
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM agencies WHERE id/.test(sql)) return { id: 'agency-A', name: 'A' };
+      if (/AS users/.test(sql)) return { users: 1, trips: 3, travelers: 12, scanEvents: 40 };
+      if (/role = 'super_admin'/.test(sql)) return { n: 0 };
+      return null;
+    },
+    getPool: () => ({
+      connect: async () => ({
+        query: async (sql) => { txCalls.push(sql); return { rows: [] }; },
+        release: () => {},
+      }),
+    }),
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/agencies/agency-A?force=true`, { method: 'DELETE' });
+    assert.equal(res.status, 200);
+    const joined = txCalls.join(' | ');
+    assert.match(joined, /BEGIN/);
+    assert.match(joined, /DELETE FROM sessions/);
+    assert.match(joined, /DELETE FROM scan_events/);
+    assert.match(joined, /DELETE FROM travelers/);
+    assert.match(joined, /DELETE FROM trips/);
+    assert.match(joined, /DELETE FROM users.*'agency_admin'/);
+    assert.match(joined, /DELETE FROM agencies/);
+    assert.match(joined, /COMMIT/);
+  });
+});
+
+test('DELETE agency with force=true refuses if super_admin bound to it → 409', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM agencies WHERE id/.test(sql)) return { id: 'agency-A', name: 'A' };
+      if (/AS users/.test(sql)) return { users: 2, trips: 0, travelers: 0, scanEvents: 0 };
+      if (/role = 'super_admin'/.test(sql)) return { n: 1 };
+      return null;
+    },
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/agencies/agency-A?force=true`, { method: 'DELETE' });
+    assert.equal(res.status, 409);
+    const body = await res.json();
+    assert.equal(body.code, 'SUPER_ADMIN_IN_AGENCY');
+  });
+});
+
+test('DELETE agency: agency_admin → 403', async () => {
+  setDbStubs();
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/agencies/agency-A`, { method: 'DELETE' });
+    assert.equal(res.status, 403);
+  });
+});
+
+// ─── /api/users DELETE — guards ─────────────────────────────────────
+test('DELETE user: super_admin can delete an agency_admin', async () => {
+  const deletes = [];
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM users WHERE id/.test(sql)) return { id: 'user-X', role: 'agency_admin', agencyId: 'agency-A' };
+      return null;
+    },
+    run: async (sql, params) => { deletes.push({ sql, params }); },
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/users/user-X`, { method: 'DELETE' });
+    assert.equal(res.status, 200);
+    assert.equal(deletes.some(d => /DELETE FROM sessions/.test(d.sql)), true);
+    assert.equal(deletes.some(d => /DELETE FROM users WHERE id/.test(d.sql)), true);
+  });
+});
+
+test('DELETE user: cannot delete the last super_admin', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM users WHERE id/.test(sql)) return { id: 'user-X', role: 'super_admin', agencyId: null };
+      if (/COUNT\(\*\)::int AS n FROM users WHERE role = 'super_admin'/.test(sql)) return { n: 1 };
+      return null;
+    },
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/users/user-X`, { method: 'DELETE' });
+    assert.equal(res.status, 400);
+  });
+});
+
+test('DELETE user: cannot delete own account', async () => {
+  setDbStubs();
+  const app = buildApp('super_admin');
+  // The injected req.user has id 'user-1'; deleting 'user-1' is forbidden.
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/users/user-1`, { method: 'DELETE' });
+    assert.equal(res.status, 400);
+  });
+});
+
 // ─── /api/qrcodes ──────────────────────────────────────────────────
 test('qrcodes: another-agency trip → 403 FORBIDDEN_AGENCY_SCOPE', async () => {
   setDbStubs({

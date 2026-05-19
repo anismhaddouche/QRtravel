@@ -166,24 +166,20 @@ router.delete('/:id', async (req, res) => {
       }
     }
 
-    // Prevent deleting last super_admin
+    // Prevent deleting last super_admin (this guard is critical — it is
+    // the only role that can recreate admins).
     if (user.role === 'super_admin') {
       const c = await get(`SELECT COUNT(*)::int AS n FROM users WHERE role = 'super_admin'`);
       if (c && c.n <= 1) return res.status(400).json({ error: 'Cannot delete the last super_admin' });
     }
-    // Prevent deleting last agency_admin of the agency
-    if (user.role === 'agency_admin' && user.agencyId) {
-      const c = await get(
-        `SELECT COUNT(*)::int AS n FROM users WHERE role IN ('agency_admin','admin') AND "agencyId" = $1`,
-        [user.agencyId]
-      );
-      if (c && c.n <= 1) return res.status(400).json({ error: 'Cannot delete the last admin of this agency' });
-    }
-    // Legacy 'admin' guard
-    if (user.role === 'admin') {
-      const c = await get(`SELECT COUNT(*)::int AS n FROM users WHERE role IN ('admin','super_admin','agency_admin')`);
+    // Legacy 'admin' (env-fallback shape) — same protection.
+    if (user.role === 'admin' && !user.agencyId) {
+      const c = await get(`SELECT COUNT(*)::int AS n FROM users WHERE role IN ('admin','super_admin') AND "agencyId" IS NULL`);
       if (c && c.n <= 1) return res.status(400).json({ error: 'Cannot delete the last admin user' });
     }
+    // NOTE: super_admin is allowed to delete the last agency_admin of an
+    // agency. The agency can run without an admin until super_admin
+    // creates a new one or deletes the agency.
 
     await run(`DELETE FROM sessions WHERE "userId" = $1`, [id]);
     await run(`DELETE FROM users WHERE id = $1`, [id]);

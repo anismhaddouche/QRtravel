@@ -181,7 +181,10 @@ router.post('/with-admin', async (req, res) => {
   res.status(201).json({ agency, admin });
 });
 
-// DELETE /api/agencies/:id — only if no users/trips/travelers remain.
+// DELETE /api/agencies/:id  — empty agency: simple delete.
+//   ?force=true (or body { force:true }): transactional purge of all
+//   linked sessions, scan_events, travelers, trips, agency users (NEVER
+//   super_admin), then the agency.
 router.delete('/:id', async (req, res) => {
   try {
     const ag = await get(`SELECT * FROM agencies WHERE id = $1`, [req.params.id]);
@@ -189,21 +192,72 @@ router.delete('/:id', async (req, res) => {
 
     const counts = await get(`
       SELECT
-        (SELECT COUNT(*)::int FROM users     WHERE "agencyId" = $1) AS users,
-        (SELECT COUNT(*)::int FROM trips     WHERE "agencyId" = $1) AS trips,
-        (SELECT COUNT(*)::int FROM travelers WHERE "agencyId" = $1) AS travelers
+        (SELECT COUNT(*)::int FROM users        WHERE "agencyId" = $1) AS users,
+        (SELECT COUNT(*)::int FROM trips        WHERE "agencyId" = $1) AS trips,
+        (SELECT COUNT(*)::int FROM travelers    WHERE "agencyId" = $1) AS travelers,
+        (SELECT COUNT(*)::int FROM scan_events  WHERE "agencyId" = $1) AS "scanEvents"
     `, [req.params.id]);
 
-    if (counts.users > 0 || counts.trips > 0 || counts.travelers > 0) {
+    const force = req.query.force === 'true' || req.body?.force === true;
+    const isEmpty = counts.users === 0 && counts.trips === 0
+      && counts.travelers === 0 && counts.scanEvents === 0;
+
+    if (!isEmpty && !force) {
       return res.status(409).json({
-        error: 'Cannot delete an agency that still has users, trips, or travelers. Deactivate it instead.',
+        error: 'Agency still contains users, trips, travelers, or scan events. Pass force=true to purge.',
         code: 'AGENCY_NOT_EMPTY',
         counts,
       });
     }
 
-    await run(`DELETE FROM agencies WHERE id = $1`, [req.params.id]);
-    res.json({ success: true, message: `Agency "${ag.name}" deleted` });
+    // Hard refusal: never let a force-delete touch a super_admin row,
+    // even if one is mis-bound to this agency.
+    const trapped = await get(
+      `SELECT COUNT(*)::int AS n FROM users WHERE "agencyId" = $1 AND role = 'super_admin'`,
+      [req.params.id]
+    );
+    if (trapped && trapped.n > 0) {
+      return res.status(409).json({
+        error: 'A super_admin is bound to this agency. Re-assign or delete it first.',
+        code: 'SUPER_ADMIN_IN_AGENCY',
+      });
+    }
+
+    const client = await getPool().connect();
+    try {
+      await client.query('BEGIN');
+      // Revoke sessions of users in this agency.
+      await client.query(
+        `DELETE FROM sessions WHERE "userId" IN (SELECT id FROM users WHERE "agencyId" = $1)`,
+        [req.params.id]
+      );
+      // Purge child rows. agencyId FKs are ON DELETE CASCADE for the
+      // data tables, so the agency DELETE would cascade anyway — but we
+      // do it explicitly inside the transaction so a partial failure
+      // rolls back cleanly and we never leave orphans on legacy rows.
+      await client.query(`DELETE FROM scan_events WHERE "agencyId" = $1`, [req.params.id]);
+      await client.query(`DELETE FROM travelers   WHERE "agencyId" = $1`, [req.params.id]);
+      await client.query(`DELETE FROM trips       WHERE "agencyId" = $1`, [req.params.id]);
+      // Only agency-scoped roles. NEVER super_admin (guarded above too).
+      await client.query(
+        `DELETE FROM users WHERE "agencyId" = $1 AND role IN ('agency_admin','admin')`,
+        [req.params.id]
+      );
+      await client.query(`DELETE FROM agencies WHERE id = $1`, [req.params.id]);
+      await client.query('COMMIT');
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch { /* ignore */ }
+      console.error('[AGENCIES] force-delete tx error:', err.message);
+      return res.status(500).json({ error: 'Failed to delete agency', code: 'DELETE_FAILED' });
+    } finally {
+      client.release();
+    }
+
+    res.json({
+      success: true,
+      message: `Agency "${ag.name}" deleted`,
+      purged: force ? counts : null,
+    });
   } catch (err) {
     console.error('[AGENCIES] delete error:', err.message);
     res.status(500).json({ error: 'Failed to delete agency' });

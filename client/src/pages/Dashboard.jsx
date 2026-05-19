@@ -72,7 +72,6 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
     );
   }
 
-  const progress = stats ? Math.round((stats.checkedInUnits / Math.max(stats.totalUnits, 1)) * 100) : 0;
   const missingTravelers = travelers.filter(t => t.status === 'not_checked_in');
   const checkedInTravelers = travelers.filter(t => t.status === 'checked_in');
 
@@ -124,15 +123,6 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{stats.missingPeople} personnes</div>
           </div>
           
-          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div className="flex items-center justify-between mb-2">
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Progression</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: progress === 100 ? 'var(--success)' : 'var(--white)' }}>{progress}%</div>
-            </div>
-            <div className="progress-bar-container" style={{ height: '12px', marginTop: '16px' }}>
-              <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
-            </div>
-          </div>
         </div>
       )}
 

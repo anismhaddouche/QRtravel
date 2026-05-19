@@ -7,6 +7,91 @@ import { Building2, Plus, Trash2, Pencil, CheckCircle2, XCircle, Eye } from 'luc
 
 const EMPTY_FORM = { name: '', email: '', phone: '', adminEmail: '', adminPassword: '', adminPasswordConfirm: '' };
 
+// Strong-confirm modal for agency deletion. Requires the operator to
+// type the agency name AND check the irreversible-action box before
+// the destructive button activates. Handles both empty-agency and
+// force-purge paths.
+function DeleteAgencyModal({ agency, onClose, onDelete }) {
+  const [typed, setTyped] = useState('');
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const hasData =
+    (agency.userCount || 0) + (agency.tripCount || 0) + (agency.travelerCount || 0) > 0;
+  const nameMatches = typed.trim().toLowerCase() === agency.name.trim().toLowerCase();
+  const canSubmit = nameMatches && acknowledged && !submitting;
+
+  const submit = async () => {
+    setError(''); setSubmitting(true);
+    try {
+      await onDelete(agency, { force: hasData });
+    } catch (err) {
+      setError(err.message || 'Suppression échouée');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={true} title={`Supprimer ${agency.name}`} onClose={onClose}>
+      {error && <div className="form-error">{error}</div>}
+      {hasData ? (
+        <>
+          <p>
+            Cette agence contient <strong>{agency.userCount || 0}</strong> compte(s),{' '}
+            <strong>{agency.tripCount || 0}</strong> voyage(s) et{' '}
+            <strong>{agency.travelerCount || 0}</strong> voyageur(s).
+          </p>
+          <p style={{ color: 'var(--warning-light)' }}>
+            La suppression supprimera définitivement toutes ces données ainsi que
+            tous les historiques de scan et sessions liés. Aucun super_admin ne
+            sera supprimé.
+          </p>
+        </>
+      ) : (
+        <p>Cette agence est vide. La suppression est définitive.</p>
+      )}
+
+      <div className="form-group" style={{ marginTop: '12px' }}>
+        <label className="form-label">
+          Pour confirmer, tapez le nom de l’agence : <strong>{agency.name}</strong>
+        </label>
+        <input
+          className="form-input"
+          type="text"
+          value={typed}
+          onChange={e => setTyped(e.target.value)}
+          autoFocus
+          autoComplete="off"
+        />
+      </div>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0 16px' }}>
+        <input
+          type="checkbox"
+          checked={acknowledged}
+          onChange={e => setAcknowledged(e.target.checked)}
+        />
+        <span>Je comprends que cette action est irréversible.</span>
+      </label>
+
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <button className="btn" onClick={onClose} style={{ flex: 1 }} disabled={submitting}>
+          Annuler
+        </button>
+        <button
+          className="btn btn-danger"
+          style={{ flex: 1 }}
+          disabled={!canSubmit}
+          onClick={submit}
+        >
+          {submitting ? 'Suppression...' : (hasData ? 'Tout supprimer' : 'Supprimer')}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 export default function Agencies() {
   const [agencies, setAgencies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,18 +179,18 @@ export default function Agencies() {
     try {
       await api.updateAgency(ag.id, { status: ag.status === 'active' ? 'inactive' : 'active' });
       await fetchAgencies();
-    } catch (err) { alert(err.message || 'Échec'); }
+    } catch (err) {
+      setError(err.message || 'Échec');
+    }
   };
 
-  const handleDelete = async (id) => {
-    try {
-      await api.deleteAgency(id);
-      setDeleteConfirm(null);
-      if (activeId === id) { setActiveAgencyId(null); setActiveId(null); }
-      await fetchAgencies();
-    } catch (err) {
-      alert(err.message || 'Suppression échouée');
-    }
+  const performDelete = async (ag, { force }) => {
+    const result = await api.deleteAgency(ag.id, { force });
+    if (activeId === ag.id) { setActiveAgencyId(null); setActiveId(null); }
+    setDeleteConfirm(null);
+    await fetchAgencies();
+    setSuccessMessage(`Agence « ${ag.name} » supprimée${force ? ' avec toutes ses données' : ''}.`);
+    return result;
   };
 
   const handleSelectAgency = (id) => {
@@ -271,18 +356,11 @@ export default function Agencies() {
       )}
 
       {deleteConfirm && (
-        <Modal isOpen={true} title="Supprimer cette agence ?" onClose={() => setDeleteConfirm(null)}>
-          <p>
-            Supprimer <strong>{deleteConfirm.name}</strong> ? Cette action est irréversible.
-            L'agence ne peut être supprimée que si elle ne contient ni utilisateurs, ni voyages, ni voyageurs.
-          </p>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-            <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ flex: 1 }}>Annuler</button>
-            <button className="btn btn-danger" onClick={() => handleDelete(deleteConfirm.id)} style={{ flex: 1 }}>
-              Supprimer
-            </button>
-          </div>
-        </Modal>
+        <DeleteAgencyModal
+          agency={deleteConfirm}
+          onClose={() => setDeleteConfirm(null)}
+          onDelete={performDelete}
+        />
       )}
     </div>
   );
