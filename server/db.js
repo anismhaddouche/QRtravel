@@ -246,6 +246,23 @@ async function initDb() {
       }
     }
 
+    // Sanity-check the critical columns added by recent migrations. If
+    // anything is missing in this environment, log it loudly so the
+    // operator notices before the first 500 hits production.
+    try {
+      const check = await client.query(
+        `SELECT column_name FROM information_schema.columns
+          WHERE table_name = 'travelers' AND column_name = 'groupMembers'`
+      );
+      if (check.rows.length === 0) {
+        console.error('[DB MIGRATION] travelers."groupMembers" column MISSING after migration step');
+      } else {
+        console.log('[DB MIGRATION] travelers.groupMembers ensured');
+      }
+    } catch (e) {
+      console.error('[DB MIGRATION] sanity check failed:', e.code, e.message);
+    }
+
     console.log('[DB] Schema initialized successfully');
   } catch (err) {
     console.error('[DB] Schema initialization failed:', err.message);

@@ -359,7 +359,7 @@ router.post('/', async (req, res) => {
 
     await run(
       `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, phone, email, "tripId", "agencyId", "createdAt", "updatedAt", "groupMembers")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)`,
       [id, referenceCode, displayName, type, count, notes, phone, email, tripId, trip.agencyId, now, now,
         groupMembers === null ? null : JSON.stringify(groupMembers)]
     );
@@ -372,11 +372,39 @@ router.post('/', async (req, res) => {
     if (err && err.code === '23505') {
       return res.status(409).json({ error: 'Code de référence déjà utilisé', code: 'DUPLICATE_REFERENCE' });
     }
+    // Missing column — points to a migration that hasn't run in this
+    // environment. Surface a precise message so the operator knows
+    // exactly what to do (apply the migration in Supabase).
+    if (err && err.code === '42703') {
+      console.error('[travelers.POST] missing column', {
+        route: 'POST /api/travelers',
+        type: req.body && req.body.type,
+        peopleCount: req.body && req.body.peopleCount,
+        groupMembersCount: Array.isArray(req.body && req.body.groupMembers) ? req.body.groupMembers.length : null,
+        pgCode: err.code,
+        pgColumn: err.column,
+        pgConstraint: err.constraint,
+        pgMessage: err.message,
+      });
+      const missing = err.message && err.message.match(/column "([^"]+)"/);
+      const col = missing ? missing[1] : 'inconnue';
+      return res.status(500).json({
+        error: col === 'groupMembers'
+          ? 'Colonne groupMembers manquante en base — migration requise'
+          : `Colonne ${col} manquante en base — migration requise`,
+        code: 'DB_MIGRATION_REQUIRED',
+        column: col,
+      });
+    }
     console.error('[travelers.POST] DB error', {
+      route: 'POST /api/travelers',
+      type: req.body && req.body.type,
+      peopleCount: req.body && req.body.peopleCount,
+      groupMembersCount: Array.isArray(req.body && req.body.groupMembers) ? req.body.groupMembers.length : null,
       pgCode: err && err.code,
-      constraint: err && err.constraint,
-      column: err && err.column,
-      message: err && err.message,
+      pgColumn: err && err.column,
+      pgConstraint: err && err.constraint,
+      pgMessage: err && err.message,
     });
     res.status(500).json({ error: 'Erreur base de données — vérifier les logs serveur', code: 'DB_ERROR' });
   }
