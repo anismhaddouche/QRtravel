@@ -30,34 +30,23 @@ export default function Login({ onLogin }) {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '20px',
-      backgroundImage: `
-        radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.12), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.1), transparent 25%)
-      `
+      background: 'var(--bg-page)',
     }}>
-      <div className="glass-card" style={{ width: '100%', maxWidth: '420px', animation: 'slideUp 400ms ease' }}>
-        <div className="text-center" style={{ marginBottom: '32px' }}>
-          <div style={{ 
-            display: 'inline-flex',
-            background: 'var(--accent)',
-            color: 'white',
-            padding: '16px',
-            borderRadius: '20px',
-            marginBottom: '16px',
-            boxShadow: 'var(--shadow-glowLg)',
-            animation: 'float 3s ease-in-out infinite'
+      <div className="glass-card" style={{ width: '100%', maxWidth: '400px' }}>
+        <div className="text-center" style={{ marginBottom: '24px' }}>
+          <div className="brand__mark" style={{
+            margin: '0 auto 14px', width: '44px', height: '44px', borderRadius: '12px',
           }}>
-            <Plane size={40} />
+            <Plane size={22} />
           </div>
-          <h1 style={{ 
-            fontSize: '1.8rem', 
-            fontWeight: 800, 
-            marginBottom: '8px',
-            background: 'linear-gradient(135deg, var(--white), var(--accent-light))',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
+          <h1 style={{
+            fontSize: '1.4rem',
+            fontWeight: 700,
+            marginBottom: '4px',
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.015em',
           }}>VoyageCheck</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Administration Agence de Voyage</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Espace administration</p>
         </div>
 
         <form onSubmit={handleSubmit}>

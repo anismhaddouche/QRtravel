@@ -23,10 +23,11 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
   };
 
   return (
-    <aside className="sidebar glass-card" style={{
-      position: 'fixed', top: '20px', bottom: '20px', left: '20px', width: '264px',
-      display: 'flex', flexDirection: 'column', padding: '20px', zIndex: 50,
-      border: '1px solid var(--border-subtle)', borderRadius: '20px',
+    <aside className="sidebar" style={{
+      position: 'fixed', top: 0, bottom: 0, left: 0, width: '252px',
+      display: 'flex', flexDirection: 'column', padding: '16px 14px', zIndex: 50,
+      background: 'var(--surface-1)',
+      borderRight: '1px solid var(--border)',
     }}>
       <div className="brand" style={{ marginBottom: '20px' }}>
         <span className="brand__mark"><Plane size={22} /></span>
