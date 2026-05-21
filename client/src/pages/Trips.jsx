@@ -3,7 +3,10 @@ import { api } from '../utils/api';
 import Modal from '../components/Modal';
 import { LoadingState } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
-import { Map, Plus, Edit2, Trash2, LogOut } from 'lucide-react';
+import { Map, Plus, Edit2, Trash2, LogOut, AlertCircle } from 'lucide-react';
+
+const TRIP_LIMIT = 3;
+const TRIP_LIMIT_MESSAGE = 'Limite atteinte : cette agence a déjà 3 voyages. Supprimez un voyage existant avant d\'en créer un nouveau.';
 
 const STATUS_CONFIG = {
   active: { label: 'Actif', className: 'badge-success' },
@@ -19,6 +22,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [form, setForm] = useState({ name: '', date: '', notes: '', status: 'active' });
   const [formError, setFormError] = useState('');
+  const [showLimit, setShowLimit] = useState(false);
 
   const fetchTrips = useCallback(async () => {
     try {
@@ -59,7 +63,12 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
       fetchTrips();
       if (onTripChange) onTripChange();
     } catch (err) {
-      setFormError(err.message);
+      if (err && err.code === 'TRIP_LIMIT_REACHED') {
+        setShowForm(false);
+        setShowLimit(true);
+      } else {
+        setFormError(err.message);
+      }
     }
   };
 
@@ -111,8 +120,16 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
         <div className="flex gap-3">
           <button
             className="btn btn-primary"
-            onClick={() => { setShowForm(true); resetForm(); }}
+            onClick={() => {
+              if (trips.length >= TRIP_LIMIT) {
+                setShowLimit(true);
+                return;
+              }
+              setShowForm(true);
+              resetForm();
+            }}
             id="btn-add-trip"
+            title={trips.length >= TRIP_LIMIT ? TRIP_LIMIT_MESSAGE : 'Créer un nouveau voyage'}
           >
             <Plus size={18} /> Nouveau voyage
           </button>
@@ -211,6 +228,22 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={showLimit}
+        onClose={() => setShowLimit(false)}
+        title="Limite de voyages atteinte"
+      >
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+          <AlertCircle size={18} style={{ color: 'var(--warning-light)', flexShrink: 0, marginTop: '2px' }} />
+          <span>{TRIP_LIMIT_MESSAGE}</span>
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn btn-primary" onClick={() => setShowLimit(false)}>
+            J'ai compris
+          </button>
+        </div>
       </Modal>
 
       {/* Trip List */}

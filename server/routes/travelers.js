@@ -256,7 +256,7 @@ router.get('/:id', async (req, res) => {
          FROM scan_events
         WHERE "referenceCode" = $1 AND "tripId" = $2
         ORDER BY timestamp DESC
-        LIMIT 50`,
+        LIMIT 10`,
       [traveler.referenceCode, traveler.tripId]
     );
     res.json({ ...(enriched || traveler), activity });

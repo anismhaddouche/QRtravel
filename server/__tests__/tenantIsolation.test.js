@@ -176,6 +176,72 @@ test('agency_admin cannot see another agency trip → 404', async () => {
   });
 });
 
+test('agency_admin POST /api/trips: blocked at 3 trips with TRIP_LIMIT_REACHED', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/COUNT\(\*\) AS count FROM trips/.test(sql)) return { count: '3' };
+      return null;
+    },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/trips`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Fourth Trip' }),
+    });
+    assert.equal(res.status, 409);
+    const body = await res.json();
+    assert.equal(body.code, 'TRIP_LIMIT_REACHED');
+    assert.equal(body.limit, 3);
+  });
+});
+
+test('agency_admin POST /api/trips: allowed when agency has 2 trips', async () => {
+  let inserted = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/COUNT\(\*\) AS count FROM trips/.test(sql)) return { count: '2' };
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-new', agencyId: 'agency-A', name: 'Third' };
+      return null;
+    },
+    run: async (sql, params) => { if (/INSERT INTO trips/.test(sql)) inserted = params; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/trips`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Third' }),
+    });
+    assert.equal(res.status, 201);
+    assert.notEqual(inserted, null);
+  });
+});
+
+test('super_admin POST /api/trips: also blocked at 3 trips for the target agency', async () => {
+  let countParams = null;
+  setDbStubs({
+    get: async (sql, params) => {
+      if (/FROM agencies WHERE id/.test(sql)) return { id: 'agency-B' };
+      if (/COUNT\(\*\) AS count FROM trips/.test(sql)) { countParams = params; return { count: '3' }; }
+      return null;
+    },
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/trips`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Big trip', agencyId: 'agency-B' }),
+    });
+    assert.equal(res.status, 409);
+    const body = await res.json();
+    assert.equal(body.code, 'TRIP_LIMIT_REACHED');
+    assert.deepEqual(countParams, ['agency-B'], 'limit is checked against the target agency');
+  });
+});
+
 test('agency_admin POST /api/trips: agencyId is forced from req.user, body value ignored', async () => {
   let inserted = null;
   setDbStubs({

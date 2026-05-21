@@ -5,6 +5,8 @@ const { v4: uuidv4 } = require('uuid');
 const { isSuperAdmin, effectiveAgencyId } = require('../lib/scope');
 
 const TRIP_STATUSES = ['active', 'archived', 'completed', 'cancelled'];
+const MAX_TRIPS_PER_AGENCY = 3;
+const TRIP_LIMIT_MESSAGE = 'Cette agence a déjà 3 voyages. Supprimez un voyage existant avant d\'en créer un nouveau.';
 const MAX_NAME = 200;
 const MAX_NOTES = 2000;
 const MAX_DATE = 40;
@@ -98,6 +100,20 @@ router.post('/', async (req, res) => {
     } else {
       agencyId = req.user.agencyId;
       if (!agencyId) return res.status(403).json({ error: 'No agency on account', code: 'NO_AGENCY' });
+    }
+
+    // Enforce the per-agency trip cap. Applies to every caller —
+    // super_admin too, since the limit is a property of the agency.
+    const tripCount = await get(
+      'SELECT COUNT(*) AS count FROM trips WHERE "agencyId" = $1',
+      [agencyId]
+    );
+    if (parseInt(tripCount.count, 10) >= MAX_TRIPS_PER_AGENCY) {
+      return res.status(409).json({
+        error: TRIP_LIMIT_MESSAGE,
+        code: 'TRIP_LIMIT_REACHED',
+        limit: MAX_TRIPS_PER_AGENCY,
+      });
     }
 
     const id = uuidv4();

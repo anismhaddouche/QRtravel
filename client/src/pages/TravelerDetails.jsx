@@ -8,7 +8,7 @@ import Modal from '../components/Modal';
 import {
   ArrowLeft, User, Users, Phone, Mail, MessageCircle, Copy,
   QrCode, Hash, MapPin, Building2, FileText, AlertCircle,
-  Edit2, Trash2, Save,
+  Edit2, Trash2, Save, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink } from '../utils/share';
 
@@ -29,6 +29,9 @@ export default function TravelerDetails({ role }) {
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 768 : true
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -250,49 +253,70 @@ export default function TravelerDetails({ role }) {
         </div>
       </div>
 
-      {/* Activité du voyageur */}
+      {/* Activité du voyageur — pliable */}
       <div className="glass-card" style={{ marginTop: '24px' }}>
-        <div className="glass-card-header">
-          <h2 className="glass-card-title">
-            <FileText size={20} /> Activité du voyageur {traveler.activity?.length ? `(${traveler.activity.length})` : ''}
+        <button
+          type="button"
+          onClick={() => setActivityOpen(v => !v)}
+          aria-expanded={activityOpen}
+          style={{
+            width: '100%',
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+          }}
+        >
+          <h2 className="glass-card-title" style={{ margin: 0 }}>
+            <FileText size={20} /> Activité du voyageur
+            {traveler.activity?.length ? ` (${traveler.activity.length} derniers événements)` : ''}
           </h2>
-        </div>
-        {!traveler.activity || traveler.activity.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title="Aucune activité pour ce voyageur"
-            description="Les embarquements et désembarquements apparaîtront ici."
-          />
-        ) : (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            {traveler.activity.map((ev) => {
-              const isCheckin = ev.action === 'check_in';
-              const label = isCheckin ? 'Embarqué' : ev.action === 'undo_check_in' ? 'Désembarqué' : ev.action;
-              const when = new Date(ev.timestamp).toLocaleString('fr-FR');
-              const source = ev.deviceId && ev.deviceId !== 'unknown' ? ev.deviceId : null;
-              return (
-                <li key={ev.id} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: '16px',
-                  padding: '12px 0', borderBottom: '1px solid var(--border-subtle)',
-                }}>
-                  <div style={{
-                    marginTop: '6px', width: '10px', height: '10px', borderRadius: '50%',
-                    background: isCheckin ? 'var(--success)' : 'var(--warning)',
-                    boxShadow: isCheckin ? '0 0 8px var(--success)' : 'none',
-                    flexShrink: 0,
-                  }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>
-                      {label}
+          {activityOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </button>
+        {activityOpen && (
+          !traveler.activity || traveler.activity.length === 0 ? (
+            <div style={{ marginTop: '12px' }}>
+              <EmptyState
+                icon={FileText}
+                title="Aucune activité pour ce voyageur"
+                description="Les embarquements et désembarquements apparaîtront ici."
+              />
+            </div>
+          ) : (
+            <ul style={{ listStyle: 'none', margin: '12px 0 0', padding: 0 }}>
+              {traveler.activity.map((ev) => {
+                const isCheckin = ev.action === 'check_in';
+                const label = isCheckin ? 'Embarqué' : ev.action === 'undo_check_in' ? 'Désembarqué' : ev.action;
+                const when = new Date(ev.timestamp).toLocaleString('fr-FR');
+                const source = ev.deviceId && ev.deviceId !== 'unknown' ? ev.deviceId : null;
+                return (
+                  <li key={ev.id} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '16px',
+                    padding: '12px 0', borderBottom: '1px solid var(--border-subtle)',
+                  }}>
+                    <div style={{
+                      marginTop: '6px', width: '10px', height: '10px', borderRadius: '50%',
+                      background: isCheckin ? 'var(--success)' : 'var(--warning)',
+                      boxShadow: isCheckin ? '0 0 8px var(--success)' : 'none',
+                      flexShrink: 0,
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                        {label}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        {when}{source ? ` · ${source}` : ''}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      {when}{source ? ` · ${source}` : ''}
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                  </li>
+                );
+              })}
+            </ul>
+          )
         )}
       </div>
 
