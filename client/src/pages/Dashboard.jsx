@@ -7,7 +7,7 @@ import Modal from '../components/Modal';
 import {
   Users, UserCheck, UserX, LayoutDashboard, History, RefreshCw,
   MessageCircle, Mail, Copy, Phone, ChevronDown, ChevronUp,
-  Plus, Upload, Trash2, Check, CornerUpLeft, Send, AlertCircle, X,
+  Plus, Upload, Trash2, Check, CornerUpLeft, Send, AlertCircle, X, Search,
 } from 'lucide-react';
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink, buildShareMessage } from '../utils/share';
 import GroupMembersEditor, { emptyMember, validateMembers } from '../components/GroupMembersEditor';
@@ -43,6 +43,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
   const [toast, setToast] = useState('');
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [showAdd, setShowAdd] = useState(false);
@@ -85,7 +86,8 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
 
   // Clear selection on filter change, trip change, or agency switch.
   useEffect(() => { setSelectedIds(new Set()); }, [filter]);
-  useEffect(() => { setSelectedIds(new Set()); }, [tripId]);
+  useEffect(() => { setSelectedIds(new Set()); }, [search]);
+  useEffect(() => { setSelectedIds(new Set()); setSearch(''); }, [tripId]);
   useEffect(() => {
     const off = onActiveAgencyChange(() => setSelectedIds(new Set()));
     return off;
@@ -104,10 +106,18 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
   };
 
   const filteredTravelers = useMemo(() => {
-    if (filter === 'remaining') return travelers.filter(t => t.status === 'not_checked_in');
-    if (filter === 'checked_in') return travelers.filter(t => t.status === 'checked_in');
-    return travelers;
-  }, [travelers, filter]);
+    let list = travelers;
+    if (filter === 'remaining') list = list.filter(t => t.status === 'not_checked_in');
+    else if (filter === 'checked_in') list = list.filter(t => t.status === 'checked_in');
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(t =>
+        (t.displayName || '').toLowerCase().includes(q) ||
+        (t.referenceCode || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [travelers, filter, search]);
 
   const visibleIds = useMemo(() => filteredTravelers.map(t => t.id), [filteredTravelers]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
@@ -378,6 +388,42 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
           </div>
         </div>
 
+        {/* Search */}
+        <div style={{ marginBottom: '12px', position: 'relative' }}>
+          <Search
+            size={16}
+            style={{
+              position: 'absolute', left: '10px', top: '50%',
+              transform: 'translateY(-50%)', color: 'var(--text-muted)',
+              pointerEvents: 'none',
+            }}
+          />
+          <input
+            type="search"
+            className="form-input"
+            placeholder="Rechercher par nom ou code…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Rechercher un voyageur"
+            style={{ paddingLeft: '34px', paddingRight: search ? '34px' : undefined, width: '100%' }}
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              aria-label="Effacer la recherche"
+              style={{
+                position: 'absolute', right: '6px', top: '50%',
+                transform: 'translateY(-50%)', background: 'transparent',
+                border: 'none', color: 'var(--text-muted)', cursor: 'pointer',
+                padding: '4px', display: 'flex', alignItems: 'center',
+              }}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
         {/* Selection bar */}
         {selectionCount > 0 && (
           <SelectionBar
@@ -393,6 +439,13 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
         )}
 
         {filteredTravelers.length === 0 ? (
+          search.trim() ? (
+            <EmptyState
+              icon={Search}
+              title="Aucun voyageur trouvé"
+              description={`Aucun résultat pour « ${search.trim()} ».`}
+            />
+          ) : (
           <EmptyState
             icon={current.icon}
             title={filter === 'remaining' ? 'Tout le monde est là !' : filter === 'checked_in' ? 'Aucun embarquement' : 'Aucun voyageur'}
@@ -403,7 +456,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
                   ? "Personne n'a encore embarqué."
                   : 'Cliquez sur « Ajouter des voyageurs » pour commencer.'
             }
-          />
+          />)
         ) : isMobile ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0 12px' }}>
