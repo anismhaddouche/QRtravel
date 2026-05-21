@@ -216,6 +216,79 @@ test('agency_admin cannot create traveler under another agency trip', async () =
   });
 });
 
+// ─── /api/travelers/:id — detail endpoint scope ────────────────────
+test('agency_admin GET /api/travelers/:id own agency → 200 with tripName + agencyName', async () => {
+  const traveler = {
+    id: 'trv-1', referenceCode: 'TRV-1', displayName: 'Alice',
+    type: 'person', peopleCount: 1, phone: null, email: null, notes: '',
+    status: 'not_checked_in', checkedInAt: null,
+    tripId: 'trip-1', agencyId: 'agency-A',
+  };
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM travelers WHERE id = \$1$/.test(sql)) return traveler;
+      if (/JOIN trips/.test(sql)) return { ...traveler, tripName: 'Voyage A', tripDate: '2026-06-01', agencyName: 'Agence A' };
+      return null;
+    },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/trv-1`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.id, 'trv-1');
+    assert.equal(body.tripName, 'Voyage A');
+    assert.equal(body.agencyName, 'Agence A');
+  });
+});
+
+test('agency_admin GET /api/travelers/:id cross-agency → 404', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM travelers WHERE id = \$1$/.test(sql)) {
+        return { id: 'trv-1', referenceCode: 'TRV-1', agencyId: 'agency-OTHER', tripId: 'trip-X' };
+      }
+      return null;
+    },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/trv-1`);
+    assert.equal(res.status, 404, 'cross-agency traveler must be invisible to agency_admin');
+  });
+});
+
+test('super_admin GET /api/travelers/:id any agency → 200', async () => {
+  const traveler = {
+    id: 'trv-2', referenceCode: 'TRV-2', displayName: 'Bob',
+    type: 'person', peopleCount: 1, agencyId: 'agency-B', tripId: 'trip-2',
+    status: 'checked_in', checkedInAt: '2026-05-21T10:00:00Z',
+  };
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM travelers WHERE id = \$1$/.test(sql)) return traveler;
+      if (/JOIN trips/.test(sql)) return { ...traveler, tripName: 'Voyage B', agencyName: 'Agence B' };
+      return null;
+    },
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/trv-2`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.agencyName, 'Agence B');
+  });
+});
+
+test('GET /api/travelers/:id not found → 404', async () => {
+  setDbStubs({ get: async () => null });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/does-not-exist`);
+    assert.equal(res.status, 404);
+  });
+});
+
 // ─── /api/checkin ──────────────────────────────────────────────────
 test('checkin: another-agency trip → 403 FORBIDDEN_AGENCY_SCOPE', async () => {
   setDbStubs({

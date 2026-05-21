@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
 import { SkeletonStats, SkeletonTable } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import { Users, UserCheck, UserX, LayoutDashboard, History, RefreshCw, MessageCircle, Mail, Copy } from 'lucide-react';
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink } from '../utils/share';
 
+// Order matters — rendered left-to-right.
+const FILTER_ORDER = ['all', 'checked_in', 'remaining'];
 const FILTERS = {
-  remaining: { label: 'Restants', color: 'var(--warning-light)', icon: UserX },
-  checked_in: { label: 'Embarqués', color: 'var(--success-light)', icon: UserCheck },
   all: { label: 'Toutes les personnes', color: 'var(--text-primary)', icon: Users },
+  checked_in: { label: 'Embarqués', color: 'var(--success-light)', icon: UserCheck },
+  remaining: { label: 'Restants', color: 'var(--warning-light)', icon: UserX },
 };
 
 function useIsMobile(breakpoint = 768) {
@@ -29,9 +32,10 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState('remaining');
+  const [filter, setFilter] = useState('all');
   const [toast, setToast] = useState('');
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (!tripId) return;
@@ -117,8 +121,13 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
     const qrLink = getTravelerQrLink(t.referenceCode);
     const wa = buildWhatsAppLink({ traveler: t, trip, qrLink, agencyName });
     const mt = buildMailtoLink({ traveler: t, trip, qrLink, agencyName });
+    // Stop click propagation so action buttons don't trigger the row navigation.
+    const stop = (e) => e.stopPropagation();
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'flex-end' }}>
+      <div
+        style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'flex-end' }}
+        onClick={stop}
+      >
         {wa && (
           <a
             className="btn btn-sm btn-outline"
@@ -127,6 +136,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             rel="noopener noreferrer"
             title="Envoyer par WhatsApp"
             aria-label={`Envoyer le QR à ${t.displayName} par WhatsApp`}
+            onClick={stop}
           >
             <MessageCircle size={14} />
           </a>
@@ -137,6 +147,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             href={mt}
             title="Envoyer par email"
             aria-label={`Envoyer le QR à ${t.displayName} par email`}
+            onClick={stop}
           >
             <Mail size={14} />
           </a>
@@ -144,7 +155,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
         <button
           type="button"
           className="btn btn-sm btn-outline"
-          onClick={() => copyText(qrLink || t.referenceCode, `Lien QR de ${t.displayName} copié`)}
+          onClick={(e) => { stop(e); copyText(qrLink || t.referenceCode, `Lien QR de ${t.displayName} copié`); }}
           title="Copier le lien du QR code"
           aria-label={`Copier le lien QR de ${t.displayName}`}
         >
@@ -152,6 +163,11 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
         </button>
       </div>
     );
+  };
+
+  const goToTraveler = (id) => navigate(`/travelers/${id}`);
+  const rowKeyDown = (e, id) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToTraveler(id); }
   };
 
   return (
@@ -224,7 +240,8 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
                 flexWrap: 'wrap',
               }}
             >
-              {Object.entries(FILTERS).map(([key, f]) => {
+              {FILTER_ORDER.map((key) => {
+                const f = FILTERS[key];
                 const active = filter === key;
                 return (
                   <button
@@ -266,6 +283,10 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
               {filteredTravelers.map(t => (
                 <li
                   key={t.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => goToTraveler(t.id)}
+                  onKeyDown={(e) => rowKeyDown(e, t.id)}
                   style={{
                     padding: '12px',
                     border: '1px solid var(--border-subtle)',
@@ -274,6 +295,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '8px',
+                    cursor: 'pointer',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
@@ -301,7 +323,14 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
                 </thead>
                 <tbody>
                   {filteredTravelers.map(t => (
-                    <tr key={t.id}>
+                    <tr
+                      key={t.id}
+                      onClick={() => goToTraveler(t.id)}
+                      onKeyDown={(e) => rowKeyDown(e, t.id)}
+                      tabIndex={0}
+                      role="button"
+                      style={{ cursor: 'pointer' }}
+                    >
                       <td>
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t.displayName}</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t.referenceCode}</div>

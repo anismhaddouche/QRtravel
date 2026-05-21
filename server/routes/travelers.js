@@ -236,8 +236,19 @@ router.get('/:id', async (req, res) => {
   try {
     const traveler = await fetchScopedTraveler(req.user, req.params.id);
     if (!traveler) return res.status(404).json({ error: 'Traveler not found' });
-    res.json(traveler);
+    // Enrich with trip + agency name so the detail page doesn't have to do
+    // extra round-trips. Scope was already enforced above.
+    const enriched = await get(
+      `SELECT t.*, tr.name AS "tripName", tr.date AS "tripDate", a.name AS "agencyName"
+         FROM travelers t
+         LEFT JOIN trips tr ON tr.id = t."tripId"
+         LEFT JOIN agencies a ON a.id = t."agencyId"
+        WHERE t.id = $1`,
+      [req.params.id]
+    );
+    res.json(enriched || traveler);
   } catch (err) {
+    console.error('[travelers.GET/:id] error', err && err.message);
     res.status(500).json({ error: 'Failed to fetch traveler' });
   }
 });

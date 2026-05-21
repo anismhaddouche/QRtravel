@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Scanner from './pages/Scanner';
 import TravelerList from './pages/TravelerList';
+import TravelerDetails from './pages/TravelerDetails';
 import QRCodes from './pages/QRCodes';
 import Trips from './pages/Trips';
 import Users from './pages/Users';
@@ -146,6 +147,11 @@ function AuthenticatedApp({ username, role, onLogout }) {
               needsAgencySelection
                 ? <AgencyPrompt />
                 : <TravelerList tripId={tripCtx.selectedTripId} lastMessage={lastMessage} trip={tripCtx.selectedTrip} />
+            } />
+            <Route path="/travelers/:id" element={
+              needsAgencySelection
+                ? <AgencyPrompt />
+                : <TravelerDetails role={role} />
             } />
             <Route path="/qrcodes" element={
               needsAgencySelection
