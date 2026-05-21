@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, ScanLine, MoreHorizontal,
-  Building2, QrCode, Map, Shield, LogOut, X, Plane,
+  LayoutDashboard, ScanLine, MoreHorizontal,
+  Building2, Map, Shield, LogOut, X, Plane,
 } from 'lucide-react';
 import { api, getActiveAgencyId, setActiveAgencyId, onActiveAgencyChange } from '../utils/api';
 
@@ -31,7 +31,6 @@ export default function BottomNav({ role, username, onLogout }) {
       >
         <NavItem to="/" icon={<LayoutDashboard size={22} />} label="Accueil" end />
         <NavItem to="/scanner" icon={<ScanLine size={22} />} label="Scanner" />
-        <NavItem to="/travelers" icon={<Users size={22} />} label="Voyageurs" />
         <NavItem to="/trips" icon={<Map size={22} />} label="Voyages" />
         <button
           onClick={() => setMenuOpen(true)}
@@ -161,8 +160,6 @@ function MobileMenu({ isSuperAdmin, isAgencyAdmin, username, role, onClose, onLo
             <button style={itemStyle} onClick={() => go('/agencies')}><Building2 size={20} /> Agences</button>
           )}
           <button style={itemStyle} onClick={() => go('/trips')}><Map size={20} /> Voyages</button>
-          <button style={itemStyle} onClick={() => go('/travelers')}><Users size={20} /> Voyageurs</button>
-          <button style={itemStyle} onClick={() => go('/qrcodes')}><QrCode size={20} /> Codes QR</button>
           <button style={itemStyle} onClick={() => go('/scanner')}><ScanLine size={20} /> Scanner</button>
           {/* Personnel is super_admin only — agency_admin cannot manage users. */}
           {isSuperAdmin && (

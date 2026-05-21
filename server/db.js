@@ -219,6 +219,10 @@ async function initDb() {
       // Contact fields on travelers (optional)
       `ALTER TABLE travelers   ADD COLUMN IF NOT EXISTS phone TEXT`,
       `ALTER TABLE travelers   ADD COLUMN IF NOT EXISTS email TEXT`,
+      // Collapse legacy types: 'couple' and 'family' are no longer
+      // accepted by the API. Existing rows are migrated to 'group' so
+      // the UI/labels stay consistent. Idempotent.
+      `UPDATE travelers SET type = 'group' WHERE type IN ('couple', 'family')`,
     ];
     for (const sql of migrations) {
       try {

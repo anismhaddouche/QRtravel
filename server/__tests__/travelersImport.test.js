@@ -412,6 +412,105 @@ test('CSV import: missing column on every row → per-line message names it', as
   });
 });
 
+test('POST /travelers: type=person accepted', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
+      if (/FROM travelers WHERE id/.test(sql)) return { id: 'new', type: 'person' };
+      return null;
+    },
+    run: async () => {},
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referenceCode: 'TRV-A', displayName: 'X', type: 'person', tripId: 'trip-1' }),
+    });
+    assert.equal(res.status, 201);
+  });
+});
+
+test('POST /travelers: type=group accepted', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
+      if (/FROM travelers WHERE id/.test(sql)) return { id: 'new', type: 'group' };
+      return null;
+    },
+    run: async () => {},
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referenceCode: 'TRV-B', displayName: 'X', type: 'group', tripId: 'trip-1' }),
+    });
+    assert.equal(res.status, 201);
+  });
+});
+
+test('POST /travelers: type=couple rejected (400 with clear message)', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      return null;
+    },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referenceCode: 'TRV-C', displayName: 'X', type: 'couple', tripId: 'trip-1' }),
+    });
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.code, 'VALIDATION');
+    assert.match(body.error, /Individuel.*Groupe/);
+  });
+});
+
+test('POST /travelers: type=family rejected (400)', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      return null;
+    },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referenceCode: 'TRV-D', displayName: 'X', type: 'family', tripId: 'trip-1' }),
+    });
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /Individuel.*Groupe/);
+  });
+});
+
+test('CSV import: Couple/Famille rows rejected with clear per-line error', async () => {
+  setDbStubs(stubsForImport());
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const csv = 'type,nom,prenom\nCouple,Doe,Jane\nFamille,Smith,John\nIndividuel,Roe,Sam\n';
+    const res = await postCsv(base, 'trip-1', csv);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.created, 1);
+    assert.equal(body.failed, 2);
+    for (const err of body.errors) {
+      assert.match(err.error, /Individuel.*Groupe/);
+    }
+  });
+});
+
 test('CSV import: empty body → 400 VALIDATION', async () => {
   setDbStubs(stubsForImport());
   const app = buildApp('agency_admin', 'agency-A');

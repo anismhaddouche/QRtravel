@@ -66,7 +66,11 @@ function generateUniqueRefCode(existing) {
   return `TRV-${uuidv4().slice(0, 8).toUpperCase()}`;
 }
 
-const TYPES = ['person', 'couple', 'family', 'group'];
+// Only two types are supported. Legacy values 'couple' / 'family' that
+// may still exist in old databases are migrated to 'group' on startup
+// (see db.js migrations) and are rejected by validateType.
+const TYPES = ['person', 'group'];
+const TYPE_ERROR = 'Type invalide. Valeurs acceptées : Individuel, Groupe';
 const TRAVELER_STATUSES = ['not_checked_in', 'checked_in'];
 const REF_CODE_RE = /^[A-Za-z0-9_\-]{1,64}$/;
 const MAX_NAME = 200;
@@ -80,8 +84,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Maps a free-form CSV "type" cell to one of the internal TYPES.
 const TYPE_ALIASES = {
   individuel: 'person', individual: 'person', person: 'person', personne: 'person', solo: 'person',
-  couple: 'couple', duo: 'couple',
-  famille: 'family', family: 'family',
   groupe: 'group', group: 'group',
 };
 function mapType(raw) {
@@ -111,7 +113,7 @@ function validateType(v, { required = false } = {}) {
     return null;
   }
   if (!TYPES.includes(v)) {
-    const err = new Error(`type must be one of: ${TYPES.join(', ')}`);
+    const err = new Error(TYPE_ERROR);
     err.statusCode = 400; throw err;
   }
   return v;
@@ -283,7 +285,7 @@ router.post('/', async (req, res) => {
 
     const id = uuidv4();
     const now = new Date().toISOString();
-    const count = peopleCount ?? (type === 'person' ? 1 : type === 'couple' ? 2 : 3);
+    const count = peopleCount ?? (type === 'person' ? 1 : 2);
 
     await run(
       `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, phone, email, "tripId", "agencyId", "createdAt", "updatedAt")
@@ -523,7 +525,7 @@ router.post(
         const displayName = (prenom ? `${prenom} ${nom}` : nom).slice(0, MAX_NAME);
         const type = rawType ? mapType(rawType) : 'person';
         if (!type) {
-          errors.push({ line: lineNo, error: `Type invalide: "${rawType}"` });
+          errors.push({ line: lineNo, error: TYPE_ERROR });
           continue;
         }
 

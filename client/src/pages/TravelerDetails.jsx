@@ -5,13 +5,17 @@ import { LoadingState } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import StatusBadge from '../components/StatusBadge';
 import {
-  ArrowLeft, User, Users, Users2, Phone, Mail, MessageCircle, Copy,
+  ArrowLeft, User, Users, Phone, Mail, MessageCircle, Copy,
   QrCode, Hash, MapPin, Building2, FileText, AlertCircle,
 } from 'lucide-react';
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink } from '../utils/share';
 
-const TYPE_ICONS = { person: User, couple: Users, family: Users2, group: Users };
-const TYPE_LABELS = { person: 'Individuel', couple: 'Couple', family: 'Famille', group: 'Groupe' };
+// Only two types are supported now. Legacy 'couple' / 'family' rows are
+// rendered as Groupe (a DB migration also converts them on init).
+const TYPE_ICONS = { person: User, group: Users };
+const TYPE_LABELS = { person: 'Individuel', group: 'Groupe' };
+function typeLabelOf(t) { return TYPE_LABELS[t] || (t === 'couple' || t === 'family' ? 'Groupe' : t); }
+function typeIconOf(t) { return TYPE_ICONS[t] || (t === 'couple' || t === 'family' ? Users : User); }
 
 export default function TravelerDetails({ role }) {
   const { id } = useParams();
@@ -82,8 +86,8 @@ export default function TravelerDetails({ role }) {
   const qrLink = getTravelerQrLink(traveler.referenceCode);
   const wa = buildWhatsAppLink({ traveler, trip, qrLink, agencyName });
   const mt = buildMailtoLink({ traveler, trip, qrLink, agencyName });
-  const TypeIcon = TYPE_ICONS[traveler.type] || User;
-  const typeLabel = TYPE_LABELS[traveler.type] || traveler.type;
+  const TypeIcon = typeIconOf(traveler.type);
+  const typeLabel = typeLabelOf(traveler.type);
   const isSuperAdmin = role === 'super_admin';
 
   const checkedAt = traveler.checkedInAt
@@ -104,9 +108,6 @@ export default function TravelerDetails({ role }) {
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button className="btn btn-outline" onClick={() => navigate('/')}>
             <ArrowLeft size={16} /> Tableau de bord
-          </button>
-          <button className="btn btn-outline" onClick={() => navigate('/travelers')}>
-            Voyageurs
           </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, ScanLine, QrCode, Map, LogOut, Plane, Shield, Building2 } from 'lucide-react';
+import { LayoutDashboard, ScanLine, Map, LogOut, Plane, Shield, Building2 } from 'lucide-react';
 import { api, getActiveAgencyId, setActiveAgencyId, onActiveAgencyChange } from '../utils/api';
 
 export default function Sidebar({ isOnline, queueLength, syncStatus, trips, selectedTrip, onSelectTrip, username, role, onLogout }) {
@@ -76,8 +76,6 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
         <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Tableau de bord" end />
         {isSuperAdmin && <NavItem to="/agencies" icon={<Building2 size={20} />} label="Agences" />}
         <NavItem to="/scanner" icon={<ScanLine size={20} />} label="Scanner" />
-        <NavItem to="/travelers" icon={<Users size={20} />} label="Voyageurs" />
-        <NavItem to="/qrcodes" icon={<QrCode size={20} />} label="Codes QR" />
         <NavItem to="/trips" icon={<Map size={20} />} label="Voyages" />
         {/* Personnel is super_admin only — agency_admin cannot manage users. */}
         {isSuperAdmin && (
