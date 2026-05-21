@@ -18,10 +18,17 @@ export default function BottomNav({ role, username, onLogout }) {
 
   return (
     <>
-      <nav className="bottom-nav bottom-nav-floating" aria-label="Navigation principale">
+      <nav className="bottom-nav bottom-nav-floating bottom-nav-floating--has-cta" aria-label="Navigation principale">
         <NavItem to="/" icon={<LayoutDashboard size={22} />} label="Accueil" end />
-        <NavItem to="/scanner" icon={<ScanLine size={22} />} label="Scanner" />
         <NavItem to="/trips" icon={<Map size={22} />} label="Voyages" />
+        <NavLink
+          to="/scanner"
+          className={({ isActive }) => `nav-tab nav-tab--cta${isActive ? ' nav-tab--active' : ''}`}
+          aria-label="Ouvrir le scanner"
+        >
+          <span className="nav-tab__cta-bubble"><ScanLine size={22} /></span>
+          <span>Scanner</span>
+        </NavLink>
         <button
           onClick={() => setMenuOpen(true)}
           aria-label="Ouvrir le menu"

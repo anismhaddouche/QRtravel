@@ -6,8 +6,9 @@ import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
 import {
   Users, UserCheck, UserX, LayoutDashboard, History, RefreshCw,
-  MessageCircle, Mail, Copy, Phone, ChevronDown, ChevronUp,
+  MessageCircle, Mail, Copy, Phone, ChevronDown, ChevronUp, MoreHorizontal,
   Plus, Upload, Trash2, Check, CornerUpLeft, Send, AlertCircle, X, Search,
+  Plane, Calendar,
 } from 'lucide-react';
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink, buildShareMessage } from '../utils/share';
 import GroupMembersEditor, { emptyMember, validateMembers } from '../components/GroupMembersEditor';
@@ -250,120 +251,25 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
   const agencyName = trip?.agencyName;
   const selectionCount = selectedIds.size;
 
-  const renderRowActions = (t) => {
-    const qrLink = getTravelerQrLink(t.referenceCode);
-    const wa = buildWhatsAppLink({ traveler: t, trip, qrLink, agencyName });
-    const mt = buildMailtoLink({ traveler: t, trip, qrLink, agencyName });
-    const isCheckedIn = t.status === 'checked_in';
-    const stop = (e) => e.stopPropagation();
-    return (
-      <div className="traveler-row__actions" onClick={stop}>
-        {isCheckedIn ? (
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={(e) => { stop(e); handleUndo(t); }}
-            title="Désembarquer"
-            aria-label={`Désembarquer ${t.displayName}`}
-          >
-            <CornerUpLeft size={16} />
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="icon-btn icon-btn--success"
-            onClick={(e) => { stop(e); handleCheckIn(t); }}
-            title="Embarquer"
-            aria-label={`Embarquer ${t.displayName}`}
-          >
-            <Check size={16} />
-          </button>
-        )}
-        {wa && (
-          <a className="icon-btn" href={wa} target="_blank" rel="noopener noreferrer" onClick={stop} title="WhatsApp" aria-label={`WhatsApp ${t.displayName}`}>
-            <MessageCircle size={16} />
-          </a>
-        )}
-        {mt && (
-          <a className="icon-btn" href={mt} onClick={stop} title="Email" aria-label={`Email ${t.displayName}`}>
-            <Mail size={16} />
-          </a>
-        )}
-        {t.phone && (
-          <a className="icon-btn" href={`tel:${t.phone}`} onClick={stop} title="Appeler" aria-label={`Appeler ${t.displayName}`}>
-            <Phone size={16} />
-          </a>
-        )}
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={(e) => { stop(e); copyText(qrLink || t.referenceCode, `Lien QR de ${t.displayName} copié`); }}
-          title="Copier le lien du QR code"
-          aria-label={`Copier le lien QR de ${t.displayName}`}
-        >
-          <Copy size={16} />
-        </button>
-      </div>
-    );
-  };
-
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title"><LayoutDashboard size={28} style={{ color: 'var(--accent)' }} /> Tableau de bord</h1>
-          <p className="page-subtitle">
-            {trip ? trip.name : 'Voyage'} {trip?.date ? `— ${trip.date}` : ''}
-          </p>
-        </div>
-        <button
-          className="btn btn-outline"
-          onClick={() => fetchData(true)}
-          disabled={refreshing}
-        >
-          <RefreshCw size={16} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
-          Actualiser
-        </button>
-      </div>
-
+      {/* Trip Hero — boarding-pass-style active trip card */}
       {stats && (
-        <div className="stat-grid">
-          <div className="stat-card stat-card--accent">
-            <div className="stat-card__head">
-              <div className="stat-card__label">Total Unités</div>
-              <span className="stat-card__icon"><Users size={18} /></span>
-            </div>
-            <div className="stat-card__num">{stats.totalUnits}</div>
-            <div className="stat-card__foot">{stats.totalPeople} personnes</div>
-          </div>
-          <div className="stat-card stat-card--success">
-            <div className="stat-card__head">
-              <div className="stat-card__label">Embarqués</div>
-              <span className="stat-card__icon"><UserCheck size={18} /></span>
-            </div>
-            <div className="stat-card__num">{stats.checkedInUnits}</div>
-            <div className="stat-card__foot">{stats.checkedInPeople} personnes</div>
-          </div>
-          <div className="stat-card stat-card--warning">
-            <div className="stat-card__head">
-              <div className="stat-card__label">Restants</div>
-              <span className="stat-card__icon"><UserX size={18} /></span>
-            </div>
-            <div className="stat-card__num">{stats.missingUnits}</div>
-            <div className="stat-card__foot">{stats.missingPeople} personnes</div>
-          </div>
-        </div>
+        <TripHero
+          trip={trip}
+          stats={stats}
+          refreshing={refreshing}
+          onRefresh={() => fetchData(true)}
+        />
       )}
 
       {/* Travelers list */}
       <div className="surface-card" style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-            <span className="stat-card__icon" style={{ width: '32px', height: '32px', borderRadius: '10px' }}>
-              <CurrentIcon size={16} />
-            </span>
+        <div className="section-head">
+          <h2 className="section-head__title">
+            <CurrentIcon size={16} style={{ color: 'var(--accent)' }} />
             {current.label}
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>· {filteredTravelers.length}</span>
+            <span className="section-head__count">· {filteredTravelers.length}</span>
           </h2>
           <button
             type="button"
@@ -371,6 +277,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             onClick={() => setShowAdd(true)}
             disabled={!tripId}
             title={tripId ? 'Ajouter des voyageurs' : 'Sélectionnez d\'abord un voyage'}
+            style={{ display: isMobile ? 'none' : 'inline-flex' }}
           >
             <Plus size={16} /> Ajouter
           </button>
@@ -424,6 +331,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             onShareEmail={() => setShareMode('email')}
             onBulkCheckIn={handleBulkCheckIn}
             onBulkUndo={handleBulkUndo}
+            isMobile={isMobile}
           />
         )}
 
@@ -460,48 +368,21 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
                 {allVisibleSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
               </label>
             </div>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {filteredTravelers.map(t => {
-                const checked = selectedIds.has(t.id);
-                const isCheckedIn = t.status === 'checked_in';
-                const initials = (t.displayName || '?')
-                  .split(/\s+/).filter(Boolean).slice(0, 2)
-                  .map(w => w[0]).join('') || '?';
-                return (
-                  <li
-                    key={t.id}
-                    className={`traveler-row${checked ? ' traveler-row--selected' : ''}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => goToTraveler(t.id)}
-                    onKeyDown={(e) => rowKeyDown(e, t.id)}
-                  >
-                    <input
-                      className="traveler-row__check"
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleSelect(t.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label={`Sélectionner ${t.displayName}`}
-                    />
-                    <span className={`avatar avatar--md ${isCheckedIn ? 'avatar--success' : 'avatar--neutral'}`}>
-                      {initials}
-                    </span>
-                    <div className="traveler-row__main">
-                      <div className="traveler-row__name">{t.displayName}</div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px', flexWrap: 'wrap' }}>
-                        <span className="traveler-row__meta">{t.referenceCode}</span>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>· {t.peopleCount} pers.</span>
-                        <span className={`traveler-row__chip ${isCheckedIn ? 'chip-success' : 'chip-warning'}`}>
-                          {isCheckedIn ? <Check size={11} /> : <UserX size={11} />}
-                          {isCheckedIn ? 'Embarqué' : 'Restant'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="traveler-row__actions">{renderRowActions(t)}</div>
-                  </li>
-                );
-              })}
+            <ul className="board-list">
+              {filteredTravelers.map(t => (
+                <BoardRow
+                  key={t.id}
+                  traveler={t}
+                  trip={trip}
+                  agencyName={agencyName}
+                  checked={selectedIds.has(t.id)}
+                  onSelect={() => toggleSelect(t.id)}
+                  onOpen={() => goToTraveler(t.id)}
+                  onCheckIn={() => handleCheckIn(t)}
+                  onUndo={() => handleUndo(t)}
+                  onCopy={(text, label) => copyText(text, label)}
+                />
+              ))}
             </ul>
           </>
         )}
@@ -631,70 +512,315 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
           {toast}
         </div>
       )}
+
+      {/* Mobile FAB — primary CTA always reachable */}
+      {isMobile && tripId && (
+        <button
+          type="button"
+          className="fab"
+          aria-label="Ajouter des voyageurs"
+          onClick={() => setShowAdd(true)}
+        >
+          <Plus size={26} />
+        </button>
+      )}
     </div>
   );
 }
 
+// ─── Trip Hero (boarding-pass header) ──────────────────────────────
+function TripHero({ trip, stats, refreshing, onRefresh }) {
+  const total = stats.totalPeople || 0;
+  const done = stats.checkedInPeople || 0;
+  const left = stats.missingPeople || 0;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return (
+    <section className="trip-hero" aria-label="Voyage actif">
+      <div className="trip-hero__body">
+        <div className="trip-hero__left">
+          <span className="trip-hero__eyebrow"><Plane size={11} /> Voyage actif</span>
+          <div className="trip-hero__title">{trip?.name || 'Voyage'}</div>
+          <div className="trip-hero__meta">
+            {trip?.date && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <Calendar size={12} /> {trip.date}
+              </span>
+            )}
+            {trip?.agencyName && (
+              <>
+                <span className="dot" aria-hidden />
+                <span>{trip.agencyName}</span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="trip-hero__right">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={onRefresh}
+            disabled={refreshing}
+            aria-label="Actualiser"
+          >
+            <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+            <span className="label-long" style={{ marginLeft: 4 }}>Actualiser</span>
+          </button>
+        </div>
+      </div>
+      <div className="trip-hero__perf" aria-hidden />
+      <div className="trip-hero__progress">
+        <div className="trip-hero__bar-wrap">
+          <div className="trip-hero__bar-label">
+            <span>Embarquement</span>
+            <span><strong>{done}</strong> / {total} <span style={{ color: 'var(--text-muted)' }}>· {pct}%</span></span>
+          </div>
+          <div className="trip-hero__bar" role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total}>
+            <div className="trip-hero__bar-fill" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+        <div className="trip-hero__pills">
+          <span className="trip-hero__pill trip-hero__pill--success">
+            <UserCheck size={12} /> {stats.checkedInUnits} unités
+          </span>
+          <span className="trip-hero__pill trip-hero__pill--warning">
+            <UserX size={12} /> {left} restants
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Boarding-style traveler row ───────────────────────────────────
+function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, onCheckIn, onUndo, onCopy }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const rootRef = useRef(null);
+  const qrLink = getTravelerQrLink(t.referenceCode);
+  const wa = buildWhatsAppLink({ traveler: t, trip, qrLink, agencyName });
+  const mt = buildMailtoLink({ traveler: t, trip, qrLink, agencyName });
+  const isCheckedIn = t.status === 'checked_in';
+  const initials = (t.displayName || '?')
+    .split(/\s+/).filter(Boolean).slice(0, 2)
+    .map(w => w[0]).join('') || '?';
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e) => {
+      if (!rootRef.current?.contains(e.target)) setMenuOpen(false);
+    };
+    const onEsc = (e) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [menuOpen]);
+
+  const stop = (e) => e.stopPropagation();
+  return (
+    <li
+      ref={rootRef}
+      className={`board-row${checked ? ' board-row--selected' : ''}`}
+      data-status={t.status}
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onOpen(); } }}
+    >
+      <div className="board-row__check" onClick={stop}>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onSelect}
+          aria-label={`Sélectionner ${t.displayName}`}
+        />
+      </div>
+      <span className={`avatar avatar--md ${isCheckedIn ? 'avatar--success' : 'avatar--neutral'}`}>
+        {initials}
+      </span>
+      <div className="board-row__main">
+        <div className="board-row__name">{t.displayName}</div>
+        <div className="board-row__sub">
+          <span className="board-row__ref">{t.referenceCode}</span>
+          {t.peopleCount > 1 && (
+            <span className="board-row__people"><Users size={10} /> {t.peopleCount}</span>
+          )}
+        </div>
+      </div>
+      {isCheckedIn ? (
+        <button
+          type="button"
+          className="board-row__primary board-row__primary--undo"
+          onClick={(e) => { stop(e); onUndo(); }}
+          aria-label={`Désembarquer ${t.displayName}`}
+        >
+          <CornerUpLeft size={14} />
+          <span className="label-long">Désembarquer</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="board-row__primary"
+          onClick={(e) => { stop(e); onCheckIn(); }}
+          aria-label={`Embarquer ${t.displayName}`}
+        >
+          <Check size={14} />
+          <span>Embarquer</span>
+        </button>
+      )}
+      <div style={{ position: 'relative' }} onClick={stop}>
+        <button
+          type="button"
+          className="board-row__more"
+          onClick={(e) => { stop(e); setMenuOpen(v => !v); }}
+          aria-label={`Plus d'actions pour ${t.displayName}`}
+          aria-expanded={menuOpen}
+        >
+          <MoreHorizontal size={16} />
+        </button>
+        {menuOpen && (
+          <div className="popover" role="menu">
+            {wa && (
+              <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)}>
+                <MessageCircle size={15} /> WhatsApp
+              </a>
+            )}
+            {mt && (
+              <a href={mt} onClick={() => setMenuOpen(false)}>
+                <Mail size={15} /> Email
+              </a>
+            )}
+            {t.phone && (
+              <a href={`tel:${t.phone}`} onClick={() => setMenuOpen(false)}>
+                <Phone size={15} /> Appeler
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => { setMenuOpen(false); onCopy(qrLink || t.referenceCode, `Lien QR de ${t.displayName} copié`); }}
+            >
+              <Copy size={15} /> Copier le lien QR
+            </button>
+            <div className="popover__divider" />
+            <button
+              type="button"
+              onClick={() => { setMenuOpen(false); onOpen(); }}
+            >
+              <LayoutDashboard size={15} /> Voir la fiche
+            </button>
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
 // ─── Selection bar ─────────────────────────────────────────────────
-function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhatsApp, onShareEmail, onBulkCheckIn, onBulkUndo }) {
+function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhatsApp, onShareEmail, onBulkCheckIn, onBulkUndo, isMobile }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef(null);
   const hasPhone = selectedTravelers.some(t => t.phone);
   const hasEmail = selectedTravelers.some(t => t.email);
   const hasRemaining = selectedTravelers.some(t => t.status === 'not_checked_in');
   const hasCheckedIn = selectedTravelers.some(t => t.status === 'checked_in');
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDoc = (e) => { if (!moreRef.current?.contains(e.target)) setMoreOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [moreOpen]);
+
   return (
-    <div className="selection-bar">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <span className="avatar avatar--sm">{count}</span>
-        <strong style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>sélectionné(s)</strong>
-        <button type="button" className="icon-btn" onClick={onClear} title="Tout désélectionner" aria-label="Tout désélectionner">
+    <div className="selection-bar--v2">
+      <div className="sel-count">
+        <span className="badge-num">{count}</span>
+        <span>{isMobile ? 'sélection' : 'sélectionné(s)'}</span>
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={onClear}
+          aria-label="Tout désélectionner"
+          style={{ width: 28, height: 28 }}
+        >
           <X size={14} />
         </button>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         <button
           type="button"
           className="btn btn-sm btn-success"
           onClick={onBulkCheckIn}
           disabled={!hasRemaining}
-          title={hasRemaining ? 'Embarquer la sélection' : 'Aucun voyageur restant dans la sélection'}
         >
           <Check size={14} /> Embarquer
         </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline"
-          onClick={onBulkUndo}
-          disabled={!hasCheckedIn}
-          title={hasCheckedIn ? 'Désembarquer la sélection' : 'Aucun voyageur embarqué dans la sélection'}
-        >
-          <CornerUpLeft size={14} /> Désembarquer
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline"
-          onClick={onShareWhatsApp}
-          disabled={!hasPhone}
-          title={hasPhone ? 'Envoyer le QR par WhatsApp' : 'Aucun téléphone dans la sélection'}
-        >
-          <MessageCircle size={14} /> WhatsApp
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline"
-          onClick={onShareEmail}
-          disabled={!hasEmail}
-          title={hasEmail ? 'Envoyer le QR par email' : 'Aucun email dans la sélection'}
-        >
-          <Mail size={14} /> Email
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-danger"
-          onClick={onDelete}
-          title="Supprimer la sélection"
-        >
-          <Trash2 size={14} /> Supprimer
-        </button>
+        {!isMobile && (
+          <>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              onClick={onBulkUndo}
+              disabled={!hasCheckedIn}
+            >
+              <CornerUpLeft size={14} /> Désembarquer
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              onClick={onShareWhatsApp}
+              disabled={!hasPhone}
+            >
+              <MessageCircle size={14} /> WhatsApp
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              onClick={onShareEmail}
+              disabled={!hasEmail}
+            >
+              <Mail size={14} /> Email
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-danger-outline"
+              onClick={onDelete}
+            >
+              <Trash2 size={14} /> Supprimer
+            </button>
+          </>
+        )}
+        {isMobile && (
+          <div ref={moreRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              onClick={() => setMoreOpen(v => !v)}
+              aria-haspopup="menu"
+              aria-expanded={moreOpen}
+            >
+              <MoreHorizontal size={14} /> Plus
+            </button>
+            {moreOpen && (
+              <div className="popover" style={{ right: 0, top: 'calc(100% + 6px)' }} role="menu">
+                <button type="button" disabled={!hasCheckedIn} onClick={() => { setMoreOpen(false); onBulkUndo(); }}>
+                  <CornerUpLeft size={15} /> Désembarquer
+                </button>
+                <button type="button" disabled={!hasPhone} onClick={() => { setMoreOpen(false); onShareWhatsApp(); }}>
+                  <MessageCircle size={15} /> WhatsApp
+                </button>
+                <button type="button" disabled={!hasEmail} onClick={() => { setMoreOpen(false); onShareEmail(); }}>
+                  <Mail size={15} /> Email
+                </button>
+                <div className="popover__divider" />
+                <button type="button" className="popover__danger" onClick={() => { setMoreOpen(false); onDelete(); }}>
+                  <Trash2 size={15} /> Supprimer
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
