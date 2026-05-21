@@ -399,7 +399,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             }}
           />
           <input
-            type="search"
+            type="text"
             className="form-input"
             placeholder="Rechercher par nom ou code…"
             value={search}
