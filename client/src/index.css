@@ -1678,4 +1678,124 @@
    /* When raised CTA is present, taller nav bar */
    .bottom-nav-floating--has-cta { padding-top: 6px; }
 
+   /* ============================================================
+      v4 — Compact dashboard (no progress bar, icon-only actions)
+      ============================================================ */
+
+   /* Trip hero compact — drops the progress bar, keeps essentials */
+   .trip-hero--compact { margin-bottom: 14px; }
+   .trip-hero--compact .trip-hero__body {
+     padding: 14px 16px 10px;
+   }
+   .trip-hero--compact .trip-hero__title { font-size: 1.1rem; }
+
+   /* Capsule row replaces the progress bar */
+   .capsule-row {
+     display: flex;
+     gap: 8px;
+     padding: 0 16px 14px;
+     flex-wrap: wrap;
+   }
+   .capsule {
+     display: inline-flex;
+     align-items: baseline;
+     gap: 6px;
+     padding: 6px 12px;
+     border-radius: 999px;
+     background: var(--surface-2);
+     border: 1px solid var(--border-subtle);
+     font-size: 0.78rem;
+     color: var(--text-secondary);
+     line-height: 1.2;
+   }
+   .capsule__label {
+     font-weight: 500;
+     letter-spacing: 0.01em;
+   }
+   .capsule__value {
+     font-weight: 700;
+     color: var(--text-primary);
+     font-variant-numeric: tabular-nums;
+     font-size: 0.92rem;
+   }
+   .capsule--success {
+     background: var(--success-bg);
+     border-color: rgba(4, 120, 87, 0.16);
+     color: var(--success);
+   }
+   .capsule--success .capsule__value { color: var(--success); }
+   .capsule--warning {
+     background: var(--warning-bg);
+     border-color: rgba(180, 83, 9, 0.16);
+     color: var(--warning);
+   }
+   .capsule--warning .capsule__value { color: var(--warning); }
+   :root[data-theme="dark"] .capsule--success { color: var(--success-light); }
+   :root[data-theme="dark"] .capsule--success .capsule__value { color: var(--success-light); }
+   :root[data-theme="dark"] .capsule--warning { color: var(--warning-light); }
+   :root[data-theme="dark"] .capsule--warning .capsule__value { color: var(--warning-light); }
+
+   /* Drop the perforation dots on the compact variant — no body/progress split */
+   .trip-hero--compact .trip-hero__perf { display: none; }
+   .trip-hero--compact .trip-hero__progress { display: none; }
+
+   /* Icon-only action button on the board row — 44x44, accessible. */
+   .board-row__action {
+     width: 44px;
+     height: 44px;
+     border-radius: 12px;
+     border: 1px solid transparent;
+     display: inline-flex;
+     align-items: center;
+     justify-content: center;
+     cursor: pointer;
+     transition: background 160ms ease, color 160ms ease, border-color 160ms ease, transform 120ms ease;
+   }
+   .board-row__action:active { transform: scale(0.96); }
+   .board-row__action--checkin {
+     background: var(--success);
+     color: #ffffff;
+     box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+   }
+   .board-row__action--checkin:hover { background: #036848; }
+   .board-row__action--undo {
+     background: var(--surface-1);
+     color: var(--text-secondary);
+     border-color: var(--border);
+   }
+   .board-row__action--undo:hover {
+     background: var(--surface-2);
+     color: var(--text-primary);
+     border-color: var(--border-light);
+   }
+   :root[data-theme="dark"] .board-row__action--checkin { background: var(--success); color: #fff; }
+   :root[data-theme="dark"] .board-row__action--checkin:hover { background: #0e9f70; }
+
+   /* Lighter list container — no big card around the list */
+   .list-shell {
+     background: transparent;
+     padding: 0;
+     border: none;
+     box-shadow: none;
+     margin-bottom: 16px;
+   }
+
+   /* Tighter board-row on all sizes (was a bit too padded) */
+   .board-row {
+     padding: 10px 10px 10px 16px;
+     border-radius: 14px;
+   }
+
+   @media (max-width: 640px) {
+     .trip-hero--compact .trip-hero__body { padding: 12px 14px 8px; }
+     .trip-hero--compact .trip-hero__title { font-size: 1.02rem; }
+     .capsule-row { padding: 0 14px 12px; gap: 6px; }
+     .capsule { padding: 5px 10px; font-size: 0.74rem; }
+     .capsule__value { font-size: 0.88rem; }
+     .board-row { padding: 10px 8px 10px 14px; gap: 8px; }
+     .board-row__action { width: 44px; height: 44px; border-radius: 12px; }
+     .board-row__more { width: 44px; height: 44px; border-radius: 12px; }
+     .main-content { padding: 12px 12px 100px; }
+   }
+
    

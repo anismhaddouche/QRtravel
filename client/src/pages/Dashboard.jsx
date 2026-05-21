@@ -264,7 +264,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
       )}
 
       {/* Travelers list */}
-      <div className="surface-card" style={{ marginBottom: '20px' }}>
+      <div className="list-shell">
         <div className="section-head">
           <h2 className="section-head__title">
             <CurrentIcon size={16} style={{ color: 'var(--accent)' }} />
@@ -528,14 +528,13 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
   );
 }
 
-// ─── Trip Hero (boarding-pass header) ──────────────────────────────
+// ─── Trip Hero (compact header — no progress bar) ──────────────────
 function TripHero({ trip, stats, refreshing, onRefresh }) {
   const total = stats.totalPeople || 0;
   const done = stats.checkedInPeople || 0;
   const left = stats.missingPeople || 0;
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   return (
-    <section className="trip-hero" aria-label="Voyage actif">
+    <section className="trip-hero trip-hero--compact" aria-label="Voyage actif">
       <div className="trip-hero__body">
         <div className="trip-hero__left">
           <span className="trip-hero__eyebrow"><Plane size={11} /> Voyage actif</span>
@@ -554,38 +553,30 @@ function TripHero({ trip, stats, refreshing, onRefresh }) {
             )}
           </div>
         </div>
-        <div className="trip-hero__right">
-          <button
-            type="button"
-            className="btn btn-outline btn-sm"
-            onClick={onRefresh}
-            disabled={refreshing}
-            aria-label="Actualiser"
-          >
-            <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
-            <span className="label-long" style={{ marginLeft: 4 }}>Actualiser</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={onRefresh}
+          disabled={refreshing}
+          aria-label="Actualiser"
+          title="Actualiser"
+        >
+          <RefreshCw size={16} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+        </button>
       </div>
-      <div className="trip-hero__perf" aria-hidden />
-      <div className="trip-hero__progress">
-        <div className="trip-hero__bar-wrap">
-          <div className="trip-hero__bar-label">
-            <span>Embarquement</span>
-            <span><strong>{done}</strong> / {total} <span style={{ color: 'var(--text-muted)' }}>· {pct}%</span></span>
-          </div>
-          <div className="trip-hero__bar" role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total}>
-            <div className="trip-hero__bar-fill" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-        <div className="trip-hero__pills">
-          <span className="trip-hero__pill trip-hero__pill--success">
-            <UserCheck size={12} /> {stats.checkedInUnits} unités
-          </span>
-          <span className="trip-hero__pill trip-hero__pill--warning">
-            <UserX size={12} /> {left} restants
-          </span>
-        </div>
+      <div className="capsule-row" role="group" aria-label="Statistiques voyage">
+        <span className="capsule">
+          <span className="capsule__label">Total</span>
+          <span className="capsule__value">{total}</span>
+        </span>
+        <span className="capsule capsule--success">
+          <span className="capsule__label">Embarqués</span>
+          <span className="capsule__value">{done}</span>
+        </span>
+        <span className="capsule capsule--warning">
+          <span className="capsule__label">Restants</span>
+          <span className="capsule__value">{left}</span>
+        </span>
       </div>
     </section>
   );
@@ -651,22 +642,22 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
       {isCheckedIn ? (
         <button
           type="button"
-          className="board-row__primary board-row__primary--undo"
+          className="board-row__action board-row__action--undo"
           onClick={(e) => { stop(e); onUndo(); }}
           aria-label={`Désembarquer ${t.displayName}`}
+          title={`Désembarquer ${t.displayName}`}
         >
-          <CornerUpLeft size={14} />
-          <span className="label-long">Désembarquer</span>
+          <CornerUpLeft size={18} />
         </button>
       ) : (
         <button
           type="button"
-          className="board-row__primary"
+          className="board-row__action board-row__action--checkin"
           onClick={(e) => { stop(e); onCheckIn(); }}
           aria-label={`Embarquer ${t.displayName}`}
+          title={`Embarquer ${t.displayName}`}
         >
-          <Check size={14} />
-          <span>Embarquer</span>
+          <Check size={18} />
         </button>
       )}
       <div style={{ position: 'relative' }} onClick={stop}>
