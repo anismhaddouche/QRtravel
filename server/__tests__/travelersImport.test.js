@@ -509,6 +509,189 @@ test('CSV import: type=Groupe row gets peopleCount=2', async () => {
   });
 });
 
+test('POST /travelers: type=group with 4 members → stored as JSON', async () => {
+  let inserted = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
+      if (/FROM travelers WHERE id/.test(sql)) return { id: 'new', type: 'group' };
+      return null;
+    },
+    run: async (sql, params) => { if (/INSERT INTO travelers/.test(sql)) inserted = params; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const members = [
+      { firstName: 'A', lastName: 'A1', phone: '', email: '' },
+      { firstName: 'B', lastName: 'B1', phone: '0550000000', email: '' },
+      { firstName: 'C', lastName: 'C1', phone: '', email: 'c@example.com' },
+      { firstName: 'D', lastName: 'D1', phone: '', email: '' },
+    ];
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referenceCode: 'TRV-GM', displayName: 'Groupe X', type: 'group',
+        peopleCount: 4, groupMembers: members, tripId: 'trip-1',
+      }),
+    });
+    assert.equal(res.status, 201);
+    // INSERT params order: ..., now, now, groupMembers (last)
+    const stored = inserted[inserted.length - 1];
+    assert.equal(typeof stored, 'string', 'groupMembers must be JSON-stringified for JSONB');
+    const parsed = JSON.parse(stored);
+    assert.equal(parsed.length, 4);
+    assert.equal(parsed[2].email, 'c@example.com');
+  });
+});
+
+test('POST /travelers: person ignores groupMembers and stores NULL', async () => {
+  let inserted = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
+      if (/FROM travelers WHERE id/.test(sql)) return { id: 'new', type: 'person' };
+      return null;
+    },
+    run: async (sql, params) => { if (/INSERT INTO travelers/.test(sql)) inserted = params; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referenceCode: 'TRV-PM', displayName: 'X', type: 'person',
+        peopleCount: 5, groupMembers: [{ firstName: 'X', lastName: 'Y' }],
+        tripId: 'trip-1',
+      }),
+    });
+    assert.equal(res.status, 201);
+    assert.equal(inserted[4], 1, 'person → peopleCount=1');
+    assert.equal(inserted[inserted.length - 1], null, 'person → groupMembers NULL');
+  });
+});
+
+test('POST /travelers: group with invalid member email → 400 VALIDATION', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
+      return null;
+    },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referenceCode: 'TRV-GE', displayName: 'G', type: 'group',
+        peopleCount: 2,
+        groupMembers: [
+          { firstName: 'A', lastName: 'A' },
+          { firstName: 'B', lastName: 'B', email: 'not-an-email' },
+        ],
+        tripId: 'trip-1',
+      }),
+    });
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.code, 'VALIDATION');
+    assert.match(body.error, /groupMembers\[1\]\.email/);
+  });
+});
+
+test('POST /travelers: group groupMembers length != peopleCount → 400', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
+      return null;
+    },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referenceCode: 'TRV-GL', displayName: 'G', type: 'group',
+        peopleCount: 3,
+        groupMembers: [{ firstName: 'A', lastName: 'A' }, { firstName: 'B', lastName: 'B' }],
+        tripId: 'trip-1',
+      }),
+    });
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /peopleCount/);
+  });
+});
+
+test('PUT /travelers/:id: switching group → person clears groupMembers', async () => {
+  let updateParams = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM travelers WHERE id/.test(sql)) {
+        return { id: 'trv-1', type: 'group', peopleCount: 3, agencyId: 'agency-A', tripId: 'trip-1' };
+      }
+      return null;
+    },
+    run: async (sql, params) => { if (/UPDATE travelers/.test(sql)) updateParams = params; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/trv-1`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'person' }),
+    });
+    assert.equal(res.status, 200);
+    // params layout: ..., (req.params.id at $11), then groupMembersAction (boolean), groupMembersValue.
+    // We assert that the last value is `null` and the preceding boolean is true (SET).
+    const lastIdx = updateParams.length - 1;
+    assert.equal(updateParams[lastIdx], null, 'groupMembers must be set to NULL');
+    assert.equal(updateParams[lastIdx - 1], true, 'groupMembers update must be applied');
+  });
+});
+
+test('PUT /travelers/:id: group updates groupMembers JSON', async () => {
+  let updateParams = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM travelers WHERE id/.test(sql)) {
+        return { id: 'trv-1', type: 'group', peopleCount: 2, agencyId: 'agency-A', tripId: 'trip-1' };
+      }
+      return null;
+    },
+    run: async (sql, params) => { if (/UPDATE travelers/.test(sql)) updateParams = params; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/trv-1`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'group',
+        peopleCount: 2,
+        groupMembers: [
+          { firstName: 'A', lastName: 'A' },
+          { firstName: 'B', lastName: 'B' },
+        ],
+      }),
+    });
+    assert.equal(res.status, 200);
+    const lastIdx = updateParams.length - 1;
+    const stored = updateParams[lastIdx];
+    assert.equal(typeof stored, 'string');
+    const parsed = JSON.parse(stored);
+    assert.equal(parsed.length, 2);
+    assert.equal(parsed[0].firstName, 'A');
+  });
+});
+
 test('POST /travelers: type=group accepts peopleCount=4', async () => {
   let inserted = null;
   setDbStubs({

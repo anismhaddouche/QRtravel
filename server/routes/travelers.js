@@ -158,6 +158,49 @@ function validateEmail(v, { throwOnError = true } = {}) {
   return s;
 }
 
+const MAX_GROUP_MEMBERS = 100;
+const MAX_MEMBER_NAME = 120;
+
+// Normalize and validate a list of group members. Returns:
+//   - `null` if input is null/undefined (caller decides what to store)
+//   - an array of clean objects on success
+// Throws { statusCode: 400 } on validation errors so the route can
+// turn them into a clean 400 response.
+function validateGroupMembers(raw, { expectedCount } = {}) {
+  if (raw === undefined || raw === null) return null;
+  if (!Array.isArray(raw)) {
+    const err = new Error('groupMembers must be an array'); err.statusCode = 400; throw err;
+  }
+  if (raw.length > MAX_GROUP_MEMBERS) {
+    const err = new Error(`groupMembers cannot exceed ${MAX_GROUP_MEMBERS} entries`);
+    err.statusCode = 400; throw err;
+  }
+  if (typeof expectedCount === 'number' && raw.length > 0 && raw.length !== expectedCount) {
+    const err = new Error(`groupMembers length (${raw.length}) must equal peopleCount (${expectedCount})`);
+    err.statusCode = 400; throw err;
+  }
+  const out = [];
+  for (let i = 0; i < raw.length; i++) {
+    const m = raw[i] || {};
+    if (typeof m !== 'object' || Array.isArray(m)) {
+      const err = new Error(`groupMembers[${i}] must be an object`); err.statusCode = 400; throw err;
+    }
+    const firstName = cleanStr(m.firstName, MAX_MEMBER_NAME);
+    const lastName = cleanStr(m.lastName, MAX_MEMBER_NAME);
+    if (!firstName && !lastName) {
+      const err = new Error(`groupMembers[${i}]: firstName or lastName is required`);
+      err.statusCode = 400; throw err;
+    }
+    let phone = null, email = null;
+    try { phone = validatePhone(m.phone); }
+    catch (e) { const err = new Error(`groupMembers[${i}].phone: ${e.message}`); err.statusCode = 400; throw err; }
+    try { email = validateEmail(m.email); }
+    catch (e) { const err = new Error(`groupMembers[${i}].email: ${e.message}`); err.statusCode = 400; throw err; }
+    out.push({ firstName: firstName || '', lastName: lastName || '', phone: phone || '', email: email || '' });
+  }
+  return out;
+}
+
 function validatePeopleCount(v) {
   if (v === undefined || v === null || v === '') return null;
   const n = Number(v);
@@ -304,10 +347,21 @@ router.post('/', async (req, res) => {
       ? 1
       : Math.max(2, peopleCount ?? 2);
 
+    // groupMembers is only meaningful for type='group'. We validate
+    // against the final coerced `count` so length === peopleCount.
+    let groupMembers = null;
+    if (type === 'group') {
+      groupMembers = validateGroupMembers(body.groupMembers, { expectedCount: count }) || [];
+    } else {
+      // Individuel: ignore any client-supplied members entirely.
+      groupMembers = null;
+    }
+
     await run(
-      `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, phone, email, "tripId", "agencyId", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-      [id, referenceCode, displayName, type, count, notes, phone, email, tripId, trip.agencyId, now, now]
+      `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, phone, email, "tripId", "agencyId", "createdAt", "updatedAt", "groupMembers")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [id, referenceCode, displayName, type, count, notes, phone, email, tripId, trip.agencyId, now, now,
+        groupMembers === null ? null : JSON.stringify(groupMembers)]
     );
 
     const traveler = await get('SELECT * FROM travelers WHERE id = $1', [id]);
@@ -357,6 +411,23 @@ router.put('/:id', async (req, res) => {
     if (body.email === undefined) email = undefined;
     else if (body.email === null || body.email === '') email = null;
     else email = validateEmail(body.email);
+
+    // groupMembers handling:
+    //   - effectiveType = 'person'  → force NULL (clear any stale data).
+    //   - effectiveType = 'group':
+    //       * client sent groupMembers → validate against peopleCount.
+    //       * client did not send → leave column unchanged.
+    let groupMembersAction = 'leave';
+    let groupMembersValue = null;
+    if (effectiveType === 'person') {
+      groupMembersAction = 'set';
+      groupMembersValue = null;
+    } else if (body.groupMembers !== undefined) {
+      const validated = validateGroupMembers(body.groupMembers, { expectedCount: peopleCount });
+      groupMembersAction = 'set';
+      groupMembersValue = validated === null ? null : JSON.stringify(validated);
+    }
+
     const now = new Date().toISOString();
 
     await run(
@@ -368,6 +439,7 @@ router.put('/:id', async (req, res) => {
            status = COALESCE($5, status),
            phone = CASE WHEN $7::boolean THEN $8 ELSE phone END,
            email = CASE WHEN $9::boolean THEN $10 ELSE email END,
+           "groupMembers" = CASE WHEN $12::boolean THEN $13::jsonb ELSE "groupMembers" END,
            "updatedAt" = $6
        WHERE id = $11`,
       [
@@ -375,6 +447,7 @@ router.put('/:id', async (req, res) => {
         phone !== undefined, phone ?? null,
         email !== undefined, email ?? null,
         req.params.id,
+        groupMembersAction === 'set', groupMembersValue,
       ]
     );
 

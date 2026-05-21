@@ -10,6 +10,7 @@ import {
   Plus, Upload, Trash2, Check, CornerUpLeft, Send, AlertCircle, X,
 } from 'lucide-react';
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink, buildShareMessage } from '../utils/share';
+import GroupMembersEditor, { emptyMember, validateMembers } from '../components/GroupMembersEditor';
 
 const FILTERS = {
   all: { label: 'Toutes les personnes', color: 'var(--text-primary)', icon: Users },
@@ -32,6 +33,7 @@ function useIsMobile(breakpoint = 768) {
 const EMPTY_FORM = {
   referenceCode: '', displayName: '', type: 'person',
   peopleCount: 1, notes: '', phone: '', email: '',
+  groupMembers: [],
 };
 
 export default function Dashboard({ tripId, lastMessage, trip }) {
@@ -748,15 +750,22 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
   const submitManual = async (e) => {
     e.preventDefault();
     setError('');
+    const isGroup = form.type === 'group';
+    const peopleCount = isGroup ? Math.max(2, Number(form.peopleCount) || 2) : 1;
+    if (isGroup) {
+      const memberErr = validateMembers(form.groupMembers, peopleCount);
+      if (memberErr) { setError(memberErr); return; }
+    }
     setSubmitting(true);
     try {
       const payload = {
         ...form,
         tripId,
-        peopleCount: Number(form.peopleCount) || 1,
+        peopleCount,
         phone: form.phone || undefined,
         email: form.email || undefined,
         notes: form.notes || undefined,
+        groupMembers: isGroup ? form.groupMembers : undefined,
       };
       await api.createTraveler(payload);
       onDone(`${form.displayName} ajouté(e)`);
@@ -838,9 +847,15 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
                 value={form.type}
                 onChange={(e) => {
                   const type = e.target.value;
-                  // Individuel = 1, Groupe min = 2.
+                  // Individuel = 1 + members cleared; Groupe min = 2 + at
+                  // least 2 empty rows pre-filled.
                   const peopleCount = type === 'person' ? 1 : Math.max(2, form.peopleCount || 0);
-                  setForm({ ...form, type, peopleCount });
+                  const groupMembers = type === 'group'
+                    ? (form.groupMembers?.length === peopleCount
+                        ? form.groupMembers
+                        : Array.from({ length: peopleCount }, () => emptyMember()))
+                    : [];
+                  setForm({ ...form, type, peopleCount, groupMembers });
                 }}
               >
                 <option value="person">Individuel</option>
@@ -853,14 +868,24 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
                 <input
                   type="number"
                   min="2"
-                  max="200"
+                  max="100"
                   className="form-input"
                   value={form.peopleCount}
-                  onChange={(e) => setForm({ ...form, peopleCount: Math.max(2, parseInt(e.target.value) || 2) })}
+                  onChange={(e) => {
+                    const peopleCount = Math.max(2, Math.min(100, parseInt(e.target.value) || 2));
+                    setForm({ ...form, peopleCount });
+                  }}
                 />
               </div>
             )}
           </div>
+          {form.type === 'group' && (
+            <GroupMembersEditor
+              peopleCount={form.peopleCount}
+              value={form.groupMembers}
+              onChange={(groupMembers) => setForm((f) => ({ ...f, groupMembers }))}
+            />
+          )}
           <div className="form-group">
             <label className="form-label">Téléphone</label>
             <input

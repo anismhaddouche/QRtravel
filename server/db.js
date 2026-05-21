@@ -226,6 +226,9 @@ async function initDb() {
       // Business rule: a Groupe is at least 2 people. Correct any
       // legacy group row with a sub-2 count. Idempotent.
       `UPDATE travelers SET "peopleCount" = 2 WHERE type = 'group' AND "peopleCount" < 2`,
+      // Optional per-member details for Groupe travelers. NULL for
+      // Individuel and for older groups created before this column.
+      `ALTER TABLE travelers ADD COLUMN IF NOT EXISTS "groupMembers" JSONB`,
     ];
     for (const sql of migrations) {
       try {

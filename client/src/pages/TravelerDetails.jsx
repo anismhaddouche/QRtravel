@@ -11,6 +11,7 @@ import {
   Edit2, Trash2, Save, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink } from '../utils/share';
+import GroupMembersEditor, { emptyMember, validateMembers } from '../components/GroupMembersEditor';
 
 // Only two types are supported now. Legacy 'couple' / 'family' rows are
 // rendered as Groupe (a DB migration also converts them on init).
@@ -253,6 +254,58 @@ export default function TravelerDetails({ role }) {
         </div>
       </div>
 
+      {/* Membres du groupe — uniquement pour les groupes */}
+      {traveler.type === 'group' && (
+        <div className="glass-card" style={{ marginTop: '24px' }}>
+          <div className="glass-card-header">
+            <h2 className="glass-card-title">
+              <Users size={20} /> Membres du groupe
+              {Array.isArray(traveler.groupMembers) && traveler.groupMembers.length
+                ? ` (${traveler.groupMembers.length})`
+                : ''}
+            </h2>
+          </div>
+          {!Array.isArray(traveler.groupMembers) || traveler.groupMembers.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="Aucun détail membre renseigné"
+              description="Vous pouvez ajouter les noms des membres en cliquant sur Modifier."
+            />
+          ) : (
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              {traveler.groupMembers.map((m, i) => {
+                const fullName = [m.firstName, m.lastName].filter(Boolean).join(' ') || `Membre ${i + 1}`;
+                return (
+                  <li
+                    key={i}
+                    style={{
+                      padding: '10px 0',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                      justifyContent: 'space-between',
+                      alignItems: 'baseline',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 500, marginRight: '8px' }}>
+                        {i + 1}.
+                      </span>
+                      {fullName}
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      {m.phone && <span><Phone size={12} style={{ verticalAlign: 'middle' }} /> {m.phone}</span>}
+                      {m.email && <span><Mail size={12} style={{ verticalAlign: 'middle' }} /> {m.email}</span>}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
       {/* Activité du voyageur — pliable */}
       <div className="glass-card" style={{ marginTop: '24px' }}>
         <button
@@ -376,6 +429,11 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
   const initialCount = initialType === 'person'
     ? 1
     : Math.max(2, traveler?.peopleCount || 2);
+  const initialMembers = initialType === 'group'
+    ? (Array.isArray(traveler?.groupMembers) && traveler.groupMembers.length === initialCount
+        ? traveler.groupMembers
+        : Array.from({ length: initialCount }, (_, i) => (traveler?.groupMembers?.[i] || emptyMember())))
+    : [];
   const [form, setForm] = useState({
     displayName: traveler?.displayName || '',
     type: initialType,
@@ -383,6 +441,7 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
     phone: traveler?.phone || '',
     email: traveler?.email || '',
     notes: traveler?.notes || '',
+    groupMembers: initialMembers,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -390,13 +449,20 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
   useEffect(() => {
     if (isOpen && traveler) {
       const t = (traveler.type === 'couple' || traveler.type === 'family') ? 'group' : (traveler.type || 'person');
+      const count = t === 'person' ? 1 : Math.max(2, traveler.peopleCount || 2);
+      const members = t === 'group'
+        ? Array.from({ length: count }, (_, i) =>
+            (Array.isArray(traveler.groupMembers) ? traveler.groupMembers[i] : null) || emptyMember()
+          )
+        : [];
       setForm({
         displayName: traveler.displayName || '',
         type: t,
-        peopleCount: t === 'person' ? 1 : Math.max(2, traveler.peopleCount || 2),
+        peopleCount: count,
         phone: traveler.phone || '',
         email: traveler.email || '',
         notes: traveler.notes || '',
+        groupMembers: members,
       });
       setError('');
     }
@@ -411,6 +477,10 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
       const peopleCount = form.type === 'person'
         ? 1
         : Math.max(2, Number(form.peopleCount) || 2);
+      if (form.type === 'group') {
+        const memberErr = validateMembers(form.groupMembers, peopleCount);
+        if (memberErr) { setError(memberErr); setSaving(false); return; }
+      }
       await onSave({
         displayName: form.displayName,
         type: form.type,
@@ -418,6 +488,8 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
         phone: form.phone,
         email: form.email,
         notes: form.notes,
+        // Always send the field so backend clears it on person, replaces on group.
+        groupMembers: form.type === 'group' ? form.groupMembers : null,
       });
     } catch (e) {
       setError(e.message || 'Erreur lors de la sauvegarde');
@@ -458,7 +530,12 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               onChange={(e) => {
                 const type = e.target.value;
                 const peopleCount = type === 'person' ? 1 : Math.max(2, form.peopleCount || 0);
-                setForm({ ...form, type, peopleCount });
+                const groupMembers = type === 'group'
+                  ? (form.groupMembers?.length === peopleCount
+                      ? form.groupMembers
+                      : Array.from({ length: peopleCount }, () => emptyMember()))
+                  : [];
+                setForm({ ...form, type, peopleCount, groupMembers });
               }}
             >
               <option value="person">Individuel</option>
@@ -471,14 +548,24 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               <input
                 type="number"
                 min="2"
-                max="200"
+                max="100"
                 className="form-input"
                 value={form.peopleCount}
-                onChange={(e) => setForm({ ...form, peopleCount: Math.max(2, parseInt(e.target.value) || 2) })}
+                onChange={(e) => {
+                  const peopleCount = Math.max(2, Math.min(100, parseInt(e.target.value) || 2));
+                  setForm({ ...form, peopleCount });
+                }}
               />
             </div>
           )}
         </div>
+        {form.type === 'group' && (
+          <GroupMembersEditor
+            peopleCount={form.peopleCount}
+            value={form.groupMembers}
+            onChange={(groupMembers) => setForm((f) => ({ ...f, groupMembers }))}
+          />
+        )}
         <div className="form-group">
           <label className="form-label">Téléphone</label>
           <input
