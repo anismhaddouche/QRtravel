@@ -248,7 +248,18 @@ router.get('/:id', async (req, res) => {
         WHERE t.id = $1`,
       [req.params.id]
     );
-    res.json(enriched || traveler);
+    // Activity feed for this traveler. Scope is already enforced by
+    // fetchScopedTraveler above; we filter scan_events on the same
+    // referenceCode (and tripId for safety against legacy duplicates).
+    const activity = await all(
+      `SELECT id, action, timestamp, "deviceId", "tripId"
+         FROM scan_events
+        WHERE "referenceCode" = $1 AND "tripId" = $2
+        ORDER BY timestamp DESC
+        LIMIT 50`,
+      [traveler.referenceCode, traveler.tripId]
+    );
+    res.json({ ...(enriched || traveler), activity });
   } catch (err) {
     console.error('[travelers.GET/:id] error', err && err.message);
     res.status(500).json({ error: 'Failed to fetch traveler' });
@@ -285,10 +296,13 @@ router.post('/', async (req, res) => {
 
     const id = uuidv4();
     const now = new Date().toISOString();
-    // Business rule: an "Individuel" is always exactly 1 person. The
-    // backend is the source of truth — any client-supplied peopleCount
-    // is ignored when type === 'person'.
-    const count = type === 'person' ? 1 : (peopleCount ?? 2);
+    // Business rule: Individuel = 1 person, Groupe = at least 2.
+    // Backend is the source of truth; client-supplied counts that
+    // violate these are silently coerced rather than rejected so a
+    // small UI glitch never blocks the user.
+    const count = type === 'person'
+      ? 1
+      : Math.max(2, peopleCount ?? 2);
 
     await run(
       `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, phone, email, "tripId", "agencyId", "createdAt", "updatedAt")
@@ -323,10 +337,15 @@ router.put('/:id', async (req, res) => {
     const displayName = body.displayName === undefined ? null : cleanStr(body.displayName, MAX_NAME);
     const type = validateType(body.type);
     let peopleCount = validatePeopleCount(body.peopleCount);
-    // Enforce "Individuel = 1" regardless of what the client sent.
     // Effective type = incoming type or, if unchanged, the existing one.
+    // Apply the same Individuel/Groupe count rules as POST.
     const effectiveType = type ?? traveler.type;
-    if (effectiveType === 'person') peopleCount = 1;
+    if (effectiveType === 'person') {
+      peopleCount = 1;
+    } else if (effectiveType === 'group') {
+      const base = peopleCount ?? traveler.peopleCount ?? 2;
+      peopleCount = Math.max(2, base);
+    }
     const status = validateStatus(body.status);
     const notes = body.notes === undefined ? null : (cleanStr(body.notes, MAX_NOTES) || '');
     // For phone/email, `undefined` = leave unchanged. Empty string = explicit clear.
@@ -556,7 +575,7 @@ router.post(
           await run(
             `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, phone, email, "tripId", "agencyId", "createdAt", "updatedAt")
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-            [id, referenceCode, displayName, type, 1, '', phone, email, tripId, trip.agencyId, now, now]
+            [id, referenceCode, displayName, type, type === 'person' ? 1 : 2, '', phone, email, tripId, trip.agencyId, now, now]
           );
           created++;
         } catch (e) {

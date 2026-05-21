@@ -223,6 +223,9 @@ async function initDb() {
       // accepted by the API. Existing rows are migrated to 'group' so
       // the UI/labels stay consistent. Idempotent.
       `UPDATE travelers SET type = 'group' WHERE type IN ('couple', 'family')`,
+      // Business rule: a Groupe is at least 2 people. Correct any
+      // legacy group row with a sub-2 count. Idempotent.
+      `UPDATE travelers SET "peopleCount" = 2 WHERE type = 'group' AND "peopleCount" < 2`,
     ];
     for (const sql of migrations) {
       try {

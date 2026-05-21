@@ -58,8 +58,11 @@ export default function TravelerDetails({ role }) {
   };
 
   const handleSaveEdit = async (patch) => {
-    const updated = await api.updateTraveler(id, patch);
-    setTraveler(updated);
+    await api.updateTraveler(id, patch);
+    // Re-fetch so we keep the enriched fields (tripName, agencyName,
+    // activity) that the PUT response doesn't include.
+    const fresh = await api.getTraveler(id);
+    setTraveler(fresh);
     setShowEdit(false);
     showToast('Voyageur mis à jour');
   };
@@ -247,6 +250,52 @@ export default function TravelerDetails({ role }) {
         </div>
       </div>
 
+      {/* Activité du voyageur */}
+      <div className="glass-card" style={{ marginTop: '24px' }}>
+        <div className="glass-card-header">
+          <h2 className="glass-card-title">
+            <FileText size={20} /> Activité du voyageur {traveler.activity?.length ? `(${traveler.activity.length})` : ''}
+          </h2>
+        </div>
+        {!traveler.activity || traveler.activity.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="Aucune activité pour ce voyageur"
+            description="Les embarquements et désembarquements apparaîtront ici."
+          />
+        ) : (
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+            {traveler.activity.map((ev) => {
+              const isCheckin = ev.action === 'check_in';
+              const label = isCheckin ? 'Embarqué' : ev.action === 'undo_check_in' ? 'Désembarqué' : ev.action;
+              const when = new Date(ev.timestamp).toLocaleString('fr-FR');
+              const source = ev.deviceId && ev.deviceId !== 'unknown' ? ev.deviceId : null;
+              return (
+                <li key={ev.id} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '16px',
+                  padding: '12px 0', borderBottom: '1px solid var(--border-subtle)',
+                }}>
+                  <div style={{
+                    marginTop: '6px', width: '10px', height: '10px', borderRadius: '50%',
+                    background: isCheckin ? 'var(--success)' : 'var(--warning)',
+                    boxShadow: isCheckin ? '0 0 8px var(--success)' : 'none',
+                    flexShrink: 0,
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                      {label}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      {when}{source ? ` · ${source}` : ''}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
       <EditTravelerModal
         isOpen={showEdit}
         onClose={() => setShowEdit(false)}
@@ -300,10 +349,13 @@ export default function TravelerDetails({ role }) {
 
 function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
   const initialType = (traveler?.type === 'couple' || traveler?.type === 'family') ? 'group' : (traveler?.type || 'person');
+  const initialCount = initialType === 'person'
+    ? 1
+    : Math.max(2, traveler?.peopleCount || 2);
   const [form, setForm] = useState({
     displayName: traveler?.displayName || '',
     type: initialType,
-    peopleCount: traveler?.peopleCount || 1,
+    peopleCount: initialCount,
     phone: traveler?.phone || '',
     email: traveler?.email || '',
     notes: traveler?.notes || '',
@@ -317,7 +369,7 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
       setForm({
         displayName: traveler.displayName || '',
         type: t,
-        peopleCount: traveler.peopleCount || 1,
+        peopleCount: t === 'person' ? 1 : Math.max(2, traveler.peopleCount || 2),
         phone: traveler.phone || '',
         email: traveler.email || '',
         notes: traveler.notes || '',
@@ -331,8 +383,10 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
     setError('');
     setSaving(true);
     try {
-      // Backend enforces "person = 1"; we still send a clean value.
-      const peopleCount = form.type === 'person' ? 1 : (Number(form.peopleCount) || 1);
+      // Backend enforces "person = 1" and "group >= 2"; we still send a clean value.
+      const peopleCount = form.type === 'person'
+        ? 1
+        : Math.max(2, Number(form.peopleCount) || 2);
       await onSave({
         displayName: form.displayName,
         type: form.type,
@@ -379,7 +433,8 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               value={form.type}
               onChange={(e) => {
                 const type = e.target.value;
-                setForm({ ...form, type, peopleCount: type === 'person' ? 1 : form.peopleCount });
+                const peopleCount = type === 'person' ? 1 : Math.max(2, form.peopleCount || 0);
+                setForm({ ...form, type, peopleCount });
               }}
             >
               <option value="person">Individuel</option>
@@ -391,11 +446,11 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               <label className="form-label">Nombre de personnes</label>
               <input
                 type="number"
-                min="1"
+                min="2"
                 max="200"
                 className="form-input"
                 value={form.peopleCount}
-                onChange={(e) => setForm({ ...form, peopleCount: parseInt(e.target.value) || 1 })}
+                onChange={(e) => setForm({ ...form, peopleCount: Math.max(2, parseInt(e.target.value) || 2) })}
               />
             </div>
           )}
@@ -406,6 +461,7 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
             className="form-input"
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            placeholder="05....."
           />
         </div>
         <div className="form-group">

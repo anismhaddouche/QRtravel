@@ -838,9 +838,9 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
                 value={form.type}
                 onChange={(e) => {
                   const type = e.target.value;
-                  // Switching to Individuel always resets to 1; switching to
-                  // Groupe keeps the current value (default 1, user-editable).
-                  setForm({ ...form, type, peopleCount: type === 'person' ? 1 : form.peopleCount });
+                  // Individuel = 1, Groupe min = 2.
+                  const peopleCount = type === 'person' ? 1 : Math.max(2, form.peopleCount || 0);
+                  setForm({ ...form, type, peopleCount });
                 }}
               >
                 <option value="person">Individuel</option>
@@ -852,11 +852,11 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
                 <label className="form-label">Nombre de personnes</label>
                 <input
                   type="number"
-                  min="1"
+                  min="2"
                   max="200"
                   className="form-input"
                   value={form.peopleCount}
-                  onChange={(e) => setForm({ ...form, peopleCount: parseInt(e.target.value) || 1 })}
+                  onChange={(e) => setForm({ ...form, peopleCount: Math.max(2, parseInt(e.target.value) || 2) })}
                 />
               </div>
             )}
@@ -867,7 +867,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
               className="form-input"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              placeholder="+33 ..."
+              placeholder="05....."
             />
           </div>
           <div className="form-group">

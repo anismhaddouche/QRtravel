@@ -440,6 +440,75 @@ test('POST /travelers: type=person forces peopleCount=1 even if client sends 5',
   });
 });
 
+test('POST /travelers: type=group with peopleCount=1 is coerced to 2', async () => {
+  let inserted = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
+      if (/FROM travelers WHERE id/.test(sql)) return { id: 'new', type: 'group', peopleCount: 2 };
+      return null;
+    },
+    run: async (sql, params) => { if (/INSERT INTO travelers/.test(sql)) inserted = params; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referenceCode: 'TRV-G2', displayName: 'X', type: 'group',
+        peopleCount: 1, tripId: 'trip-1',
+      }),
+    });
+    assert.equal(res.status, 201);
+    assert.equal(inserted[3], 'group');
+    assert.equal(inserted[4], 2, 'group must be at least 2');
+  });
+});
+
+test('PUT /travelers/:id: group with peopleCount=1 is coerced to 2', async () => {
+  let updateParams = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM travelers WHERE id/.test(sql)) {
+        return { id: 'trv-1', type: 'group', peopleCount: 4, agencyId: 'agency-A', tripId: 'trip-1' };
+      }
+      return null;
+    },
+    run: async (sql, params) => { if (/UPDATE travelers/.test(sql)) updateParams = params; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/trv-1`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'group', peopleCount: 1 }),
+    });
+    assert.equal(res.status, 200);
+    assert.equal(updateParams[1], 'group');
+    assert.equal(updateParams[2], 2);
+  });
+});
+
+test('CSV import: type=Groupe row gets peopleCount=2', async () => {
+  const inserts = [];
+  setDbStubs(stubsForImport({ insertSink: inserts }));
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const csv = 'type,nom,prenom\nIndividuel,Doe,Jane\nGroupe,Smith,John\n';
+    const res = await postCsv(base, 'trip-1', csv);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.created, 2);
+    // INSERT params order: (id, refCode, displayName, type, peopleCount, ...)
+    const ind = inserts.find(p => p[3] === 'person');
+    const grp = inserts.find(p => p[3] === 'group');
+    assert.equal(ind[4], 1, 'Individuel CSV → peopleCount=1');
+    assert.equal(grp[4], 2, 'Groupe CSV → peopleCount=2');
+  });
+});
+
 test('POST /travelers: type=group accepts peopleCount=4', async () => {
   let inserted = null;
   setDbStubs({

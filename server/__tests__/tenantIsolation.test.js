@@ -217,18 +217,28 @@ test('agency_admin cannot create traveler under another agency trip', async () =
 });
 
 // ─── /api/travelers/:id — detail endpoint scope ────────────────────
-test('agency_admin GET /api/travelers/:id own agency → 200 with tripName + agencyName', async () => {
+test('agency_admin GET /api/travelers/:id own agency → 200 with tripName + agencyName + activity', async () => {
   const traveler = {
     id: 'trv-1', referenceCode: 'TRV-1', displayName: 'Alice',
     type: 'person', peopleCount: 1, phone: null, email: null, notes: '',
     status: 'not_checked_in', checkedInAt: null,
     tripId: 'trip-1', agencyId: 'agency-A',
   };
+  let activityParams = null;
   setDbStubs({
     get: async (sql) => {
       if (/FROM travelers WHERE id = \$1$/.test(sql)) return traveler;
       if (/JOIN trips/.test(sql)) return { ...traveler, tripName: 'Voyage A', tripDate: '2026-06-01', agencyName: 'Agence A' };
       return null;
+    },
+    all: async (sql, params) => {
+      if (/FROM scan_events/.test(sql)) {
+        activityParams = params;
+        return [
+          { id: 'e1', action: 'check_in', timestamp: '2026-05-21T08:00:00Z', deviceId: 'scanner-1', tripId: 'trip-1' },
+        ];
+      }
+      return [];
     },
   });
   const app = buildApp('agency_admin', 'agency-A');
@@ -239,6 +249,54 @@ test('agency_admin GET /api/travelers/:id own agency → 200 with tripName + age
     assert.equal(body.id, 'trv-1');
     assert.equal(body.tripName, 'Voyage A');
     assert.equal(body.agencyName, 'Agence A');
+    assert.equal(Array.isArray(body.activity), true);
+    assert.equal(body.activity.length, 1);
+    assert.equal(body.activity[0].action, 'check_in');
+    // Must be filtered by this traveler's referenceCode + tripId
+    assert.deepEqual(activityParams, ['TRV-1', 'trip-1']);
+  });
+});
+
+test('GET /api/travelers/:id with no events → activity: []', async () => {
+  const traveler = {
+    id: 'trv-2', referenceCode: 'TRV-2', tripId: 'trip-1', agencyId: 'agency-A',
+  };
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM travelers WHERE id = \$1$/.test(sql)) return traveler;
+      if (/JOIN trips/.test(sql)) return { ...traveler, tripName: 'X', agencyName: 'Y' };
+      return null;
+    },
+    all: async () => [],
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/trv-2`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.deepEqual(body.activity, []);
+  });
+});
+
+test('agency_admin GET /api/travelers/:id activity: cross-agency → 404 (no leak)', async () => {
+  let scanEventsHit = false;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM travelers WHERE id = \$1$/.test(sql)) {
+        return { id: 'trv-X', referenceCode: 'TRV-X', tripId: 'trip-X', agencyId: 'agency-OTHER' };
+      }
+      return null;
+    },
+    all: async (sql) => {
+      if (/FROM scan_events/.test(sql)) scanEventsHit = true;
+      return [];
+    },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/trv-X`);
+    assert.equal(res.status, 404);
+    assert.equal(scanEventsHit, false, 'scan_events must not be queried for cross-agency travelers');
   });
 });
 
