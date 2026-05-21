@@ -33,7 +33,8 @@ function useIsMobile(breakpoint = 768) {
 
 const EMPTY_FORM = {
   referenceCode: '', displayName: '', type: 'person',
-  peopleCount: 1, notes: '', phone: '', email: '',
+  peopleCount: 1, peopleCountInput: '1',
+  notes: '', phone: '', email: '',
   groupMembers: [],
 };
 
@@ -940,15 +941,20 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
                 value={form.type}
                 onChange={(e) => {
                   const type = e.target.value;
-                  // Individuel = 1 + members cleared; Groupe min = 2 + at
-                  // least 2 empty rows pre-filled.
-                  const peopleCount = type === 'person' ? 1 : Math.max(2, form.peopleCount || 0);
+                  // Individuel = 1; Groupe min = 2 (with 2 empty rows pre-filled).
+                  const peopleCount = type === 'person' ? 1 : Math.max(2, form.peopleCount || 2);
                   const groupMembers = type === 'group'
                     ? (form.groupMembers?.length === peopleCount
                         ? form.groupMembers
                         : Array.from({ length: peopleCount }, () => emptyMember()))
                     : [];
-                  setForm({ ...form, type, peopleCount, groupMembers });
+                  setForm({
+                    ...form,
+                    type,
+                    peopleCount,
+                    peopleCountInput: String(peopleCount),
+                    groupMembers,
+                  });
                 }}
               >
                 <option value="person">Individuel</option>
@@ -963,10 +969,35 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
                   min="2"
                   max="100"
                   className="form-input"
-                  value={form.peopleCount}
+                  value={form.peopleCountInput}
                   onChange={(e) => {
-                    const peopleCount = Math.max(2, Math.min(100, parseInt(e.target.value) || 2));
-                    setForm({ ...form, peopleCount });
+                    const raw = e.target.value;
+                    setForm((f) => {
+                      const parsed = parseInt(raw, 10);
+                      const valid = Number.isFinite(parsed) && parsed >= 2 && parsed <= 100;
+                      const peopleCount = valid ? parsed : f.peopleCount;
+                      const groupMembers = valid && parsed !== f.groupMembers.length
+                        ? Array.from({ length: parsed }, (_, i) => f.groupMembers[i] || emptyMember())
+                        : f.groupMembers;
+                      return { ...f, peopleCountInput: raw, peopleCount, groupMembers };
+                    });
+                  }}
+                  onBlur={() => {
+                    setForm((f) => {
+                      const parsed = parseInt(f.peopleCountInput, 10);
+                      const norm = Number.isFinite(parsed) && parsed >= 2
+                        ? Math.min(100, parsed)
+                        : 2;
+                      const groupMembers = norm !== f.groupMembers.length
+                        ? Array.from({ length: norm }, (_, i) => f.groupMembers[i] || emptyMember())
+                        : f.groupMembers;
+                      return {
+                        ...f,
+                        peopleCount: norm,
+                        peopleCountInput: String(norm),
+                        groupMembers,
+                      };
+                    });
                   }}
                 />
               </div>
