@@ -289,6 +289,87 @@ test('GET /api/travelers/:id not found → 404', async () => {
   });
 });
 
+// ─── /api/checkin/manual + /undo (used from Dashboard) ─────────────
+test('agency_admin POST /api/checkin/manual own agency → 200', async () => {
+  let travelerFetches = 0;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE id/.test(sql)) {
+        travelerFetches += 1;
+        return {
+          id: 'trv-1', referenceCode: 'TRV-1', displayName: 'Alice',
+          tripId: 'trip-1', agencyId: 'agency-A',
+          status: travelerFetches === 1 ? 'not_checked_in' : 'checked_in',
+        };
+      }
+      return null;
+    },
+    run: async () => {},
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/checkin/manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ travelerId: 'trv-1', tripId: 'trip-1' }),
+    });
+    assert.equal(res.status, 200);
+  });
+});
+
+test('agency_admin POST /api/checkin/manual cross-agency trip → 403', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-OTHER' };
+      return null;
+    },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/checkin/manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ travelerId: 'trv-1', tripId: 'trip-1' }),
+    });
+    assert.equal(res.status, 403);
+  });
+});
+
+test('agency_admin POST /api/checkin/undo own agency → 200', async () => {
+  let refFetches = 0;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) {
+        refFetches += 1;
+        return {
+          id: 'trv-1', referenceCode: 'TRV-1', displayName: 'Alice',
+          tripId: 'trip-1', agencyId: 'agency-A', status: 'checked_in',
+        };
+      }
+      if (/FROM travelers WHERE id/.test(sql)) {
+        return {
+          id: 'trv-1', referenceCode: 'TRV-1', displayName: 'Alice',
+          tripId: 'trip-1', agencyId: 'agency-A', status: 'not_checked_in',
+        };
+      }
+      return null;
+    },
+    run: async () => {},
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/checkin/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referenceCode: 'TRV-1', tripId: 'trip-1' }),
+    });
+    assert.equal(res.status, 200);
+    assert.equal(refFetches >= 1, true);
+  });
+});
+
 // ─── /api/checkin ──────────────────────────────────────────────────
 test('checkin: another-agency trip → 403 FORBIDDEN_AGENCY_SCOPE', async () => {
   setDbStubs({
