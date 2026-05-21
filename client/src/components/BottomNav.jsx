@@ -5,6 +5,7 @@ import {
   Building2, Map, Shield, LogOut, X, Plane,
 } from 'lucide-react';
 import { api, getActiveAgencyId, setActiveAgencyId, onActiveAgencyChange } from '../utils/api';
+import ThemeToggle from './ThemeToggle';
 
 export default function BottomNav({ role, username, onLogout }) {
   const isSuperAdmin = role === 'super_admin';
@@ -21,7 +22,7 @@ export default function BottomNav({ role, username, onLogout }) {
         className="bottom-nav"
         style={{
           position: 'fixed', bottom: 0, left: 0, right: 0,
-          background: 'rgba(10, 15, 30, 0.92)',
+          background: 'var(--nav-bg)',
           backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
           borderTop: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-around',
@@ -110,7 +111,7 @@ function MobileMenu({ isSuperAdmin, isAgencyAdmin, username, role, onClose, onLo
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 100,
-        background: 'rgba(10,15,30,0.7)',
+        background: 'var(--scrim)',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         display: 'flex', alignItems: 'flex-end',
       }}
@@ -166,6 +167,7 @@ function MobileMenu({ isSuperAdmin, isAgencyAdmin, username, role, onClose, onLo
             <button style={itemStyle} onClick={() => go('/users')}><Shield size={20} /> Personnel</button>
           )}
           <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '8px 0' }} />
+          <ThemeToggle variant="menu-item" />
           <button
             style={{ ...itemStyle, color: 'var(--danger-light)' }}
             onClick={() => { onClose(); onLogout(); }}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, ScanLine, Map, LogOut, Plane, Shield, Building2 } from 'lucide-react';
 import { api, getActiveAgencyId, setActiveAgencyId, onActiveAgencyChange } from '../utils/api';
+import ThemeToggle from './ThemeToggle';
 
 export default function Sidebar({ isOnline, queueLength, syncStatus, trips, selectedTrip, onSelectTrip, username, role, onLogout }) {
   const isSuperAdmin = role === 'super_admin';
@@ -113,18 +114,21 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
           </div>
         )}
 
-        <button
-          onClick={onLogout}
-          className="btn"
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: '8px', color: 'var(--danger-light)', borderColor: 'var(--danger-light)',
-            background: 'transparent',
-          }}
-        >
-          <LogOut size={18} />
-          <span>Se déconnecter</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={onLogout}
+            className="btn"
+            style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: '8px', color: 'var(--danger-light)', borderColor: 'var(--danger-light)',
+              background: 'transparent',
+            }}
+          >
+            <LogOut size={18} />
+            <span>Se déconnecter</span>
+          </button>
+          <ThemeToggle />
+        </div>
       </div>
     </aside>
   );

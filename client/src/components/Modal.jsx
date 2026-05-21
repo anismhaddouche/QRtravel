@@ -32,7 +32,7 @@ export default function Modal({ isOpen, onClose, title, children }) {
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(10, 15, 30, 0.7)',
+        backgroundColor: 'var(--scrim)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
         display: 'flex',
