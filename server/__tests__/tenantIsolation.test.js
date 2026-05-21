@@ -289,6 +289,124 @@ test('GET /api/travelers/:id not found → 404', async () => {
   });
 });
 
+// ─── /api/checkin/manual/bulk + /undo/bulk ─────────────────────────
+test('POST /api/checkin/manual/bulk: updates remaining, skips already checked-in', async () => {
+  let updatedSql = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      return null;
+    },
+    all: async (sql) => {
+      if (/FROM travelers\s+WHERE id IN/.test(sql)) {
+        return [
+          { id: 'a', referenceCode: 'A', status: 'not_checked_in', agencyId: 'agency-A', tripId: 'trip-1' },
+          { id: 'b', referenceCode: 'B', status: 'not_checked_in', agencyId: 'agency-A', tripId: 'trip-1' },
+          { id: 'c', referenceCode: 'C', status: 'checked_in', agencyId: 'agency-A', tripId: 'trip-1' },
+        ];
+      }
+      return [];
+    },
+    run: async (sql) => { if (/UPDATE travelers/.test(sql)) updatedSql = sql; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/checkin/manual/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tripId: 'trip-1', travelerIds: ['a', 'b', 'c'] }),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.updated, 2);
+    assert.equal(body.skipped, 1);
+    assert.match(updatedSql, /status = 'checked_in'/);
+  });
+});
+
+test('POST /api/checkin/undo/bulk: updates checked-in, skips already remaining', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      return null;
+    },
+    all: async (sql) => {
+      if (/FROM travelers\s+WHERE id IN/.test(sql)) {
+        return [
+          { id: 'a', referenceCode: 'A', status: 'checked_in', agencyId: 'agency-A', tripId: 'trip-1' },
+          { id: 'b', referenceCode: 'B', status: 'not_checked_in', agencyId: 'agency-A', tripId: 'trip-1' },
+        ];
+      }
+      return [];
+    },
+    run: async () => {},
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/checkin/undo/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tripId: 'trip-1', travelerIds: ['a', 'b'] }),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.updated, 1);
+    assert.equal(body.skipped, 1);
+  });
+});
+
+test('agency_admin POST /api/checkin/manual/bulk cross-agency trip → 403', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-OTHER' };
+      return null;
+    },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/checkin/manual/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tripId: 'trip-1', travelerIds: ['a'] }),
+    });
+    assert.equal(res.status, 403);
+  });
+});
+
+test('agency_admin POST /api/checkin/manual/bulk: cross-agency travelerIds are silently skipped', async () => {
+  let queryParams = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      return null;
+    },
+    all: async (sql, params) => {
+      if (/FROM travelers\s+WHERE id IN/.test(sql)) {
+        queryParams = params;
+        // Only own-agency rows come back because the SQL filter includes
+        // "agencyId" = $N for non-super_admins.
+        return [{ id: 'a', referenceCode: 'A', status: 'not_checked_in', agencyId: 'agency-A', tripId: 'trip-1' }];
+      }
+      return [];
+    },
+    run: async () => {},
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/checkin/manual/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tripId: 'trip-1', travelerIds: ['a', 'b-other-agency'] }),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.updated, 1);
+    assert.equal(body.skipped, 1);
+    // The agency filter must be in the SELECT params.
+    assert.equal(queryParams.includes('agency-A'), true);
+  });
+});
+
 // ─── /api/checkin/manual + /undo (used from Dashboard) ─────────────
 test('agency_admin POST /api/checkin/manual own agency → 200', async () => {
   let travelerFetches = 0;

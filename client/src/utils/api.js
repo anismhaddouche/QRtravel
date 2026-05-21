@@ -142,6 +142,10 @@ export const api = {
     request('/checkin/undo', { method: 'POST', body: { referenceCode, tripId } }),
   manualCheckIn: (travelerId, tripId) =>
     request('/checkin/manual', { method: 'POST', body: { travelerId, tripId } }),
+  bulkManualCheckIn: (travelerIds, tripId) =>
+    request('/checkin/manual/bulk', { method: 'POST', body: { travelerIds, tripId } }),
+  bulkUndoCheckIn: (travelerIds, tripId) =>
+    request('/checkin/undo/bulk', { method: 'POST', body: { travelerIds, tripId } }),
   getEvents: (limit = 20, tripId) =>
     request(`/checkin/events?limit=${limit}${tripId ? `&tripId=${encodeURIComponent(tripId)}` : ''}`),
   syncEvents: (events, tripId) =>

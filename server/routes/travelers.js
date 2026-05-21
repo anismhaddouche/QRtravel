@@ -285,7 +285,10 @@ router.post('/', async (req, res) => {
 
     const id = uuidv4();
     const now = new Date().toISOString();
-    const count = peopleCount ?? (type === 'person' ? 1 : 2);
+    // Business rule: an "Individuel" is always exactly 1 person. The
+    // backend is the source of truth — any client-supplied peopleCount
+    // is ignored when type === 'person'.
+    const count = type === 'person' ? 1 : (peopleCount ?? 2);
 
     await run(
       `INSERT INTO travelers (id, "referenceCode", "displayName", type, "peopleCount", notes, phone, email, "tripId", "agencyId", "createdAt", "updatedAt")
@@ -319,7 +322,11 @@ router.put('/:id', async (req, res) => {
     const body = req.body || {};
     const displayName = body.displayName === undefined ? null : cleanStr(body.displayName, MAX_NAME);
     const type = validateType(body.type);
-    const peopleCount = validatePeopleCount(body.peopleCount);
+    let peopleCount = validatePeopleCount(body.peopleCount);
+    // Enforce "Individuel = 1" regardless of what the client sent.
+    // Effective type = incoming type or, if unchanged, the existing one.
+    const effectiveType = type ?? traveler.type;
+    if (effectiveType === 'person') peopleCount = 1;
     const status = validateStatus(body.status);
     const notes = body.notes === undefined ? null : (cleanStr(body.notes, MAX_NOTES) || '');
     // For phone/email, `undefined` = leave unchanged. Empty string = explicit clear.

@@ -225,6 +225,103 @@ router.post('/manual', async (req, res) => {
   }
 });
 
+// Shared helper for bulk check-in / undo. `action` is 'check_in' or
+// 'undo_check_in'. Tenant scope and current-status checks decide
+// whether each traveler is updated or silently skipped — the response
+// reports both counts so the UI can show "3 updated, 1 ignored".
+async function bulkSetStatus(req, res, action) {
+  try {
+    const body = req.body || {};
+    const tripId = normalizeId(body.tripId);
+    if (!tripId) return badRequest(res, 'tripId is required', 'tripId');
+
+    const ids = Array.isArray(body.travelerIds) ? body.travelerIds : null;
+    if (!ids) return badRequest(res, 'travelerIds must be an array', 'travelerIds');
+    if (ids.length === 0) return badRequest(res, 'travelerIds must not be empty', 'travelerIds');
+    if (ids.length > 500) return res.status(413).json({ error: 'Too many ids (max 500)', code: 'TOO_MANY_IDS' });
+
+    const cleanIds = [];
+    for (const v of ids) {
+      const s = normalizeId(v);
+      if (s) cleanIds.push(s);
+    }
+    if (cleanIds.length === 0) return badRequest(res, 'No valid ids', 'travelerIds');
+
+    const trip = await get('SELECT id, "agencyId" FROM trips WHERE id = $1', [tripId]);
+    if (!trip) return res.status(404).json({ error: 'Trip not found', code: 'UNKNOWN_TRIP' });
+    if (!inUserScope(req.user, trip.agencyId)) return forbidScope(res);
+
+    // Fetch all candidate travelers in scope (same trip, same agency).
+    const placeholders = cleanIds.map((_, i) => `$${i + 1}`).join(',');
+    const params = [...cleanIds, tripId];
+    let sql = `SELECT id, "referenceCode", status, "agencyId", "tripId"
+                 FROM travelers
+                WHERE id IN (${placeholders})
+                  AND "tripId" = $${params.length}`;
+    if (!isSuperAdmin(req.user)) {
+      params.push(effectiveAgencyId(req.user));
+      sql += ` AND "agencyId" = $${params.length}`;
+    }
+    const visible = await all(sql, params);
+
+    const targetStatus = action === 'check_in' ? 'checked_in' : 'not_checked_in';
+    const fromStatus   = action === 'check_in' ? 'not_checked_in' : 'checked_in';
+    const toUpdate = visible.filter(t => t.status === fromStatus);
+    const skipped = cleanIds.length - toUpdate.length;
+
+    if (toUpdate.length === 0) {
+      return res.json({ updated: 0, skipped, errors: [] });
+    }
+
+    const now = new Date().toISOString();
+    const updateIds = toUpdate.map(t => t.id);
+    const updPlaceholders = updateIds.map((_, i) => `$${i + 1}`).join(',');
+
+    if (action === 'check_in') {
+      await run(
+        `UPDATE travelers SET status = 'checked_in', "checkedInAt" = $${updateIds.length + 1}
+          WHERE id IN (${updPlaceholders})`,
+        [...updateIds, now]
+      );
+    } else {
+      await run(
+        `UPDATE travelers SET status = 'not_checked_in', "checkedInAt" = NULL
+          WHERE id IN (${updPlaceholders})`,
+        updateIds
+      );
+    }
+
+    // One scan_event per traveler so the activity feed reflects the bulk action.
+    const deviceId = normalizeDeviceId(body.deviceId, action === 'check_in' ? 'manual-bulk' : 'undo-bulk');
+    for (const t of toUpdate) {
+      try {
+        await run(
+          `INSERT INTO scan_events (id, "referenceCode", action, timestamp, "deviceId", synced, "tripId", "agencyId")
+           VALUES ($1, $2, $3, $4, $5, 1, $6, $7)`,
+          [uuidv4(), t.referenceCode, action, now, deviceId, t.tripId, t.agencyId]
+        );
+      } catch (e) {
+        // Don't fail the whole batch on a single event-insert error.
+        console.error('[CHECKIN.bulk] event insert failed', { ref: t.referenceCode, msg: e.message });
+      }
+    }
+
+    res.json({ updated: toUpdate.length, skipped, errors: [], targetStatus });
+  } catch (err) {
+    console.error(`[CHECKIN.bulk:${action}] error`, err.message);
+    res.status(500).json({ error: 'Bulk check-in failed' });
+  }
+}
+
+// POST /api/checkin/manual/bulk { tripId, travelerIds[] }
+// Marks every selected not_checked_in traveler as checked_in. Already
+// checked-in travelers and cross-tenant ids are silently skipped.
+router.post('/manual/bulk', (req, res) => bulkSetStatus(req, res, 'check_in'));
+
+// POST /api/checkin/undo/bulk { tripId, travelerIds[] }
+// Reverses the previous endpoint.
+router.post('/undo/bulk', (req, res) => bulkSetStatus(req, res, 'undo_check_in'));
+
 router.get('/events', async (req, res) => {
   try {
     const rawLimit = parseInt(req.query.limit, 10);

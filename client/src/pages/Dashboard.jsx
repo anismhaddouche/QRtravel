@@ -144,6 +144,38 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
     }
   };
 
+  // ─── Bulk check-in / undo ───────────────────────────────────────
+  const handleBulkCheckIn = async () => {
+    const ids = selectedTravelers.filter(t => t.status === 'not_checked_in').map(t => t.id);
+    if (ids.length === 0) return;
+    try {
+      const r = await api.bulkManualCheckIn(ids, tripId);
+      const skipped = selectedIds.size - r.updated;
+      showToast(skipped > 0
+        ? `${r.updated} voyageur(s) embarqué(s), ${skipped} ignoré(s)`
+        : `${r.updated} voyageur(s) embarqué(s)`);
+      clearSelection();
+      fetchData(true);
+    } catch (e) {
+      showToast(e.message || 'Erreur lors de l\'embarquement');
+    }
+  };
+  const handleBulkUndo = async () => {
+    const ids = selectedTravelers.filter(t => t.status === 'checked_in').map(t => t.id);
+    if (ids.length === 0) return;
+    try {
+      const r = await api.bulkUndoCheckIn(ids, tripId);
+      const skipped = selectedIds.size - r.updated;
+      showToast(skipped > 0
+        ? `${r.updated} voyageur(s) désembarqué(s), ${skipped} ignoré(s)`
+        : `${r.updated} voyageur(s) désembarqué(s)`);
+      clearSelection();
+      fetchData(true);
+    } catch (e) {
+      showToast(e.message || 'Erreur lors du désembarquement');
+    }
+  };
+
   // ─── Bulk delete ────────────────────────────────────────────────
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedIds);
@@ -353,6 +385,8 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             onDelete={() => setShowDeleteConfirm(true)}
             onShareWhatsApp={() => setShareMode('whatsapp')}
             onShareEmail={() => setShareMode('email')}
+            onBulkCheckIn={handleBulkCheckIn}
+            onBulkUndo={handleBulkUndo}
           />
         )}
 
@@ -609,9 +643,11 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
 }
 
 // ─── Selection bar ─────────────────────────────────────────────────
-function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhatsApp, onShareEmail }) {
+function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhatsApp, onShareEmail, onBulkCheckIn, onBulkUndo }) {
   const hasPhone = selectedTravelers.some(t => t.phone);
   const hasEmail = selectedTravelers.some(t => t.email);
+  const hasRemaining = selectedTravelers.some(t => t.status === 'not_checked_in');
+  const hasCheckedIn = selectedTravelers.some(t => t.status === 'checked_in');
   return (
     <div
       style={{
@@ -637,6 +673,24 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
         </button>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+        <button
+          type="button"
+          className="btn btn-sm btn-success"
+          onClick={onBulkCheckIn}
+          disabled={!hasRemaining}
+          title={hasRemaining ? 'Embarquer la sélection' : 'Aucun voyageur restant dans la sélection'}
+        >
+          <Check size={14} /> Embarquer
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline"
+          onClick={onBulkUndo}
+          disabled={!hasCheckedIn}
+          title={hasCheckedIn ? 'Désembarquer la sélection' : 'Aucun voyageur embarqué dans la sélection'}
+        >
+          <CornerUpLeft size={14} /> Désembarquer
+        </button>
         <button
           type="button"
           className="btn btn-sm btn-outline"
@@ -784,24 +838,28 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
                 value={form.type}
                 onChange={(e) => {
                   const type = e.target.value;
-                  setForm({ ...form, type, peopleCount: type === 'person' ? 1 : Math.max(2, form.peopleCount) });
+                  // Switching to Individuel always resets to 1; switching to
+                  // Groupe keeps the current value (default 1, user-editable).
+                  setForm({ ...form, type, peopleCount: type === 'person' ? 1 : form.peopleCount });
                 }}
               >
                 <option value="person">Individuel</option>
                 <option value="group">Groupe</option>
               </select>
             </div>
-            <div className="form-group">
-              <label className="form-label">Nombre de personnes</label>
-              <input
-                type="number"
-                min="1"
-                max="200"
-                className="form-input"
-                value={form.peopleCount}
-                onChange={(e) => setForm({ ...form, peopleCount: parseInt(e.target.value) || 1 })}
-              />
-            </div>
+            {form.type === 'group' && (
+              <div className="form-group">
+                <label className="form-label">Nombre de personnes</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="200"
+                  className="form-input"
+                  value={form.peopleCount}
+                  onChange={(e) => setForm({ ...form, peopleCount: parseInt(e.target.value) || 1 })}
+                />
+              </div>
+            )}
           </div>
           <div className="form-group">
             <label className="form-label">Téléphone</label>

@@ -412,6 +412,109 @@ test('CSV import: missing column on every row → per-line message names it', as
   });
 });
 
+test('POST /travelers: type=person forces peopleCount=1 even if client sends 5', async () => {
+  let inserted = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
+      if (/FROM travelers WHERE id/.test(sql)) return { id: 'new', type: 'person', peopleCount: 1 };
+      return null;
+    },
+    run: async (sql, params) => { if (/INSERT INTO travelers/.test(sql)) inserted = params; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referenceCode: 'TRV-P1', displayName: 'X', type: 'person',
+        peopleCount: 5, tripId: 'trip-1',
+      }),
+    });
+    assert.equal(res.status, 201);
+    // INSERT params: (id, refCode, displayName, type, peopleCount, ...)
+    assert.equal(inserted[3], 'person');
+    assert.equal(inserted[4], 1, 'person must be forced to peopleCount=1');
+  });
+});
+
+test('POST /travelers: type=group accepts peopleCount=4', async () => {
+  let inserted = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
+      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
+      if (/FROM travelers WHERE id/.test(sql)) return { id: 'new', type: 'group', peopleCount: 4 };
+      return null;
+    },
+    run: async (sql, params) => { if (/INSERT INTO travelers/.test(sql)) inserted = params; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referenceCode: 'TRV-G1', displayName: 'X', type: 'group',
+        peopleCount: 4, tripId: 'trip-1',
+      }),
+    });
+    assert.equal(res.status, 201);
+    assert.equal(inserted[3], 'group');
+    assert.equal(inserted[4], 4);
+  });
+});
+
+test('PUT /travelers/:id: switching to person forces peopleCount=1', async () => {
+  let updateParams = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM travelers WHERE id/.test(sql)) {
+        return { id: 'trv-1', type: 'group', peopleCount: 4, agencyId: 'agency-A', tripId: 'trip-1' };
+      }
+      return null;
+    },
+    run: async (sql, params) => { if (/UPDATE travelers/.test(sql)) updateParams = params; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/trv-1`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'person', peopleCount: 7 }),
+    });
+    assert.equal(res.status, 200);
+    // UPDATE params: (displayName, type, peopleCount, notes, status, now, ...)
+    assert.equal(updateParams[1], 'person');
+    assert.equal(updateParams[2], 1, 'PUT must force peopleCount=1 when type=person');
+  });
+});
+
+test('PUT /travelers/:id: existing person keeps peopleCount=1 even if client sends 9', async () => {
+  let updateParams = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM travelers WHERE id/.test(sql)) {
+        return { id: 'trv-1', type: 'person', peopleCount: 1, agencyId: 'agency-A', tripId: 'trip-1' };
+      }
+      return null;
+    },
+    run: async (sql, params) => { if (/UPDATE travelers/.test(sql)) updateParams = params; },
+  });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers/trv-1`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ peopleCount: 9 }),
+    });
+    assert.equal(res.status, 200);
+    assert.equal(updateParams[2], 1);
+  });
+});
+
 test('POST /travelers: type=person accepted', async () => {
   setDbStubs({
     get: async (sql) => {

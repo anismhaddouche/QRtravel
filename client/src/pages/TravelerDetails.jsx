@@ -4,9 +4,11 @@ import { api } from '../utils/api';
 import { LoadingState } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import StatusBadge from '../components/StatusBadge';
+import Modal from '../components/Modal';
 import {
   ArrowLeft, User, Users, Phone, Mail, MessageCircle, Copy,
   QrCode, Hash, MapPin, Building2, FileText, AlertCircle,
+  Edit2, Trash2, Save,
 } from 'lucide-react';
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink } from '../utils/share';
 
@@ -24,6 +26,9 @@ export default function TravelerDetails({ role }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +55,24 @@ export default function TravelerDetails({ role }) {
       if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
       showToast(label || 'Copié');
     } catch { showToast('Copie impossible'); }
+  };
+
+  const handleSaveEdit = async (patch) => {
+    const updated = await api.updateTraveler(id, patch);
+    setTraveler(updated);
+    setShowEdit(false);
+    showToast('Voyageur mis à jour');
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await api.deleteTraveler(id);
+      navigate('/', { replace: true });
+    } catch (e) {
+      setDeleting(false);
+      showToast(e.message || 'Erreur lors de la suppression');
+    }
   };
 
   if (loading) {
@@ -108,6 +131,12 @@ export default function TravelerDetails({ role }) {
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button className="btn btn-outline" onClick={() => navigate('/')}>
             <ArrowLeft size={16} /> Tableau de bord
+          </button>
+          <button className="btn btn-outline" onClick={() => setShowEdit(true)}>
+            <Edit2 size={16} /> Modifier
+          </button>
+          <button className="btn btn-danger" onClick={() => setShowDelete(true)}>
+            <Trash2 size={16} /> Supprimer
           </button>
         </div>
       </div>
@@ -218,6 +247,31 @@ export default function TravelerDetails({ role }) {
         </div>
       </div>
 
+      <EditTravelerModal
+        isOpen={showEdit}
+        onClose={() => setShowEdit(false)}
+        traveler={traveler}
+        onSave={handleSaveEdit}
+      />
+
+      <Modal
+        isOpen={showDelete}
+        onClose={() => !deleting && setShowDelete(false)}
+        title="Supprimer ce voyageur ?"
+      >
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+          Cette action est irréversible. <strong>{traveler.displayName}</strong> et ses scans seront supprimés.
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <button type="button" className="btn btn-outline" onClick={() => setShowDelete(false)} disabled={deleting}>
+            Annuler
+          </button>
+          <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
+            <Trash2 size={16} /> {deleting ? 'Suppression...' : 'Supprimer'}
+          </button>
+        </div>
+      </Modal>
+
       {toast && (
         <div
           role="status"
@@ -241,6 +295,150 @@ export default function TravelerDetails({ role }) {
         </div>
       )}
     </div>
+  );
+}
+
+function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
+  const initialType = (traveler?.type === 'couple' || traveler?.type === 'family') ? 'group' : (traveler?.type || 'person');
+  const [form, setForm] = useState({
+    displayName: traveler?.displayName || '',
+    type: initialType,
+    peopleCount: traveler?.peopleCount || 1,
+    phone: traveler?.phone || '',
+    email: traveler?.email || '',
+    notes: traveler?.notes || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen && traveler) {
+      const t = (traveler.type === 'couple' || traveler.type === 'family') ? 'group' : (traveler.type || 'person');
+      setForm({
+        displayName: traveler.displayName || '',
+        type: t,
+        peopleCount: traveler.peopleCount || 1,
+        phone: traveler.phone || '',
+        email: traveler.email || '',
+        notes: traveler.notes || '',
+      });
+      setError('');
+    }
+  }, [isOpen, traveler]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSaving(true);
+    try {
+      // Backend enforces "person = 1"; we still send a clean value.
+      const peopleCount = form.type === 'person' ? 1 : (Number(form.peopleCount) || 1);
+      await onSave({
+        displayName: form.displayName,
+        type: form.type,
+        peopleCount,
+        phone: form.phone,
+        email: form.email,
+        notes: form.notes,
+      });
+    } catch (e) {
+      setError(e.message || 'Erreur lors de la sauvegarde');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!traveler) return null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={() => !saving && onClose()} title="Modifier le voyageur">
+      <form onSubmit={submit}>
+        <div className="form-group">
+          <label className="form-label">Nom d'affichage</label>
+          <input
+            required
+            className="form-input"
+            value={form.displayName}
+            onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Code de référence</label>
+          <input
+            className="form-input"
+            value={traveler.referenceCode}
+            disabled
+            title="Le code de référence ne peut pas être modifié"
+          />
+        </div>
+        <div className="form-grid-2">
+          <div className="form-group">
+            <label className="form-label">Type</label>
+            <select
+              className="form-input"
+              value={form.type}
+              onChange={(e) => {
+                const type = e.target.value;
+                setForm({ ...form, type, peopleCount: type === 'person' ? 1 : form.peopleCount });
+              }}
+            >
+              <option value="person">Individuel</option>
+              <option value="group">Groupe</option>
+            </select>
+          </div>
+          {form.type === 'group' && (
+            <div className="form-group">
+              <label className="form-label">Nombre de personnes</label>
+              <input
+                type="number"
+                min="1"
+                max="200"
+                className="form-input"
+                value={form.peopleCount}
+                onChange={(e) => setForm({ ...form, peopleCount: parseInt(e.target.value) || 1 })}
+              />
+            </div>
+          )}
+        </div>
+        <div className="form-group">
+          <label className="form-label">Téléphone</label>
+          <input
+            className="form-input"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Email</label>
+          <input
+            type="email"
+            className="form-input"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Notes</label>
+          <textarea
+            className="form-input"
+            rows={3}
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          />
+        </div>
+        {error && (
+          <div style={{ color: 'var(--danger-light)', fontSize: '0.85rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <AlertCircle size={14} /> {error}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <button type="button" className="btn btn-outline" onClick={onClose} disabled={saving}>Annuler</button>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            <Save size={16} /> {saving ? 'Sauvegarde...' : 'Enregistrer'}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
