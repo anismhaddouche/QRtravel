@@ -15,6 +15,8 @@ function readInitialTheme() {
 function applyTheme(theme) {
   if (typeof document === 'undefined') return;
   document.documentElement.setAttribute('data-theme', theme);
+  // shadcn's dark variant keys on a `.dark` class — keep it in sync.
+  document.documentElement.classList.toggle('dark', theme === 'dark');
   // Helps the browser pick the right native scrollbars / form controls.
   document.documentElement.style.colorScheme = theme;
 }
