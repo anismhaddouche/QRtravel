@@ -4,13 +4,12 @@ const STORAGE_KEY = 'voyagecheck.theme';
 const THEMES = ['dark', 'light'];
 
 function readInitialTheme() {
-  if (typeof window === 'undefined') return 'dark';
+  if (typeof window === 'undefined') return 'light';
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (saved && THEMES.includes(saved)) return saved;
   } catch { /* ignore */ }
-  // Default to dark — matches the original design language.
-  return 'dark';
+  return 'light';
 }
 
 function applyTheme(theme) {
@@ -37,7 +36,7 @@ export function useTheme() {
   }, []);
 
   const toggle = useCallback(() => {
-    setThemeState((t) => (t === 'dark' ? 'light' : 'dark'));
+    setThemeState((t) => (t === 'light' ? 'dark' : 'light'));
   }, []);
 
   return { theme, setTheme, toggle };

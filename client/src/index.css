@@ -5,127 +5,129 @@
    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
    /* ============================================================
-      VoyageCheck — Travel Ops palette (teal + slate)
+      VoyageCheck — Travel Desk palette (LIGHT by default)
       ============================================================
-      Default = dark slate. No more indigo/violet, no more grid
-      pattern, no more heavy glassmorphism. Solid surfaces with
-      hairline borders + small calm accent. */
+      Identity: airline check-in / travel ops desk.
+      Page = warm ivory. Surfaces = white. Accent = travel blue.
+      Text = deep navy.
+      ============================================================ */
    :root {
-     /* Backgrounds — solid, calm, no grid */
-     --navy:         #0b1220;          /* legacy alias, kept */
-     --navy-light:   #131b2e;
-     --navy-surface: #131b2e;
-     --bg-page:      #0b1220;
+     /* Backgrounds — ivory page, white surfaces */
+     --navy:         #ffffff;
+     --navy-light:   #ffffff;
+     --navy-surface: #ffffff;
+     --bg-page:      #F7F3EA;          /* warm ivory */
      --bg-grid:      transparent;
-     --surface-1:    #131b2e;          /* card / row hover */
-     --surface-2:    #1a2540;          /* deeper inset */
-     --nav-bg:       rgba(11, 18, 32, 0.92);
-     --scrim:        rgba(11, 18, 32, 0.65);
+     --surface-1:    #ffffff;
+     --surface-2:    #FAF6EC;          /* soft ivory inset */
+     --nav-bg:       #ffffff;
+     --scrim:        rgba(23, 32, 51, 0.45);
 
-     /* Glass — now opaque solids so the “AI dashboard” look is gone */
-     --glass:        #131b2e;
-     --glass-hover:  #1a2540;
-     --glass-active: #1f2c4d;
+     --glass:        #ffffff;
+     --glass-hover:  #FAF6EC;
+     --glass-active: #F3EEDF;
 
-     /* Borders — hairline */
-     --border:         rgba(255, 255, 255, 0.08);
-     --border-light:   rgba(255, 255, 255, 0.14);
-     --border-subtle:  rgba(255, 255, 255, 0.05);
-     --border-strong:  rgba(255, 255, 255, 0.18);
+     /* Borders — hairline navy */
+     --border:         rgba(23, 32, 51, 0.10);
+     --border-light:   rgba(23, 32, 51, 0.16);
+     --border-subtle:  rgba(23, 32, 51, 0.06);
+     --border-strong:  rgba(23, 32, 51, 0.22);
 
-     /* Accent — teal/petrol (travel ops, not gaming) */
-     --accent:       #0d9488;          /* teal-600 */
-     --accent-light: #2dd4bf;          /* teal-400 for icons / chips */
-     --accent-dark:  #0f766e;          /* teal-700 */
-     --accent-glow:  rgba(13, 148, 136, 0.18);
-     --accent-bg:    rgba(13, 148, 136, 0.12);
+     /* Accent — travel blue (Air France / Booking feel) */
+     --accent:        #2563EB;         /* blue-600 */
+     --accent-light:  #3B82F6;         /* blue-500 */
+     --accent-dark:   #1D4ED8;         /* blue-700 */
+     --accent-glow:   rgba(37, 99, 235, 0.16);
+     --accent-bg:     rgba(37, 99, 235, 0.08);
 
-     /* Semantic */
-     --success:       #10b981;
-     --success-light: #34d399;
-     --success-bg:    rgba(16, 185, 129, 0.12);
+     /* Semantic — calm, accessible */
+     --success:       #047857;         /* emerald-700 */
+     --success-light: #059669;
+     --success-bg:    rgba(4, 120, 87, 0.10);
 
-     --warning:       #d97706;
-     --warning-light: #f59e0b;
-     --warning-bg:    rgba(217, 119, 6, 0.12);
+     --warning:       #B45309;         /* amber-700 */
+     --warning-light: #D97706;
+     --warning-bg:    rgba(180, 83, 9, 0.10);
 
-     --danger:        #dc2626;
-     --danger-light:  #f87171;
-     --danger-bg:     rgba(220, 38, 38, 0.12);
+     --danger:        #B91C1C;         /* red-700 */
+     --danger-light:  #DC2626;
+     --danger-bg:     rgba(185, 28, 28, 0.08);
 
-     /* Text */
+     /* Text — deep navy on ivory */
      --white:          #ffffff;
-     --text-primary:   #e6ecf3;
-     --text-secondary: #9aa6b8;
-     --text-muted:     #6b7894;
+     --text-primary:   #172033;        /* deep navy */
+     --text-secondary: #475569;
+     --text-muted:     #64748B;
 
      /* Typography */
      --font:      'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
      --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 
-     /* Radius — tighter, more SaaS, less futuristic */
-     --radius-sm: 6px;
-     --radius-md: 8px;
-     --radius-lg: 10px;
-     --radius-xl: 12px;
-     --radius-2xl: 16px;
+     /* Radius — generous, modern */
+     --radius-sm: 8px;
+     --radius-md: 12px;
+     --radius-lg: 16px;
+     --radius-xl: 20px;
+     --radius-2xl: 24px;
 
-     /* Shadows — natural, not glowy */
-     --shadow-sm:   0 1px 2px rgba(0, 0, 0, 0.25);
-     --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.30);
-     --shadow-lg:   0 12px 32px rgba(0, 0, 0, 0.35);
+     /* Shadows — very soft, never heavy */
+     --shadow-sm:  0 1px 2px rgba(23, 32, 51, 0.04);
+     --shadow-md:  0 1px 3px rgba(23, 32, 51, 0.04), 0 6px 16px rgba(23, 32, 51, 0.06);
+     --shadow-lg:  0 12px 32px rgba(23, 32, 51, 0.10);
      --shadow-glow: 0 0 0 3px var(--accent-glow);
    }
 
-   /* Light theme — sober travel-SaaS, no brutal white.
-      Surface = pure white, page = warm-cool off-white. */
+   /* Dark theme — secondary. Clean navy, never the default. */
+   :root[data-theme="dark"] {
+     --navy:         #0F1424;
+     --navy-light:   #161C2E;
+     --navy-surface: #161C2E;
+     --bg-page:      #0F1424;
+     --surface-1:    #161C2E;
+     --surface-2:    #1E2540;
+     --nav-bg:       #161C2E;
+     --scrim:        rgba(15, 20, 36, 0.65);
+
+     --glass:        #161C2E;
+     --glass-hover:  #1E2540;
+     --glass-active: #25305A;
+
+     --border:        rgba(255, 255, 255, 0.08);
+     --border-light:  rgba(255, 255, 255, 0.14);
+     --border-subtle: rgba(255, 255, 255, 0.05);
+     --border-strong: rgba(255, 255, 255, 0.20);
+
+     --accent:        #60A5FA;
+     --accent-light:  #93C5FD;
+     --accent-dark:   #3B82F6;
+     --accent-glow:   rgba(96, 165, 250, 0.20);
+     --accent-bg:     rgba(96, 165, 250, 0.14);
+
+     --success:       #10B981;
+     --success-light: #34D399;
+     --success-bg:    rgba(16, 185, 129, 0.14);
+
+     --warning:       #F59E0B;
+     --warning-light: #FBBF24;
+     --warning-bg:    rgba(245, 158, 11, 0.14);
+
+     --danger:        #EF4444;
+     --danger-light:  #F87171;
+     --danger-bg:     rgba(239, 68, 68, 0.14);
+
+     --text-primary:   #E5EAF2;
+     --text-secondary: #A0AAC0;
+     --text-muted:     #6E7A93;
+
+     --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.25);
+     --shadow-md:  0 4px 14px rgba(0, 0, 0, 0.30);
+     --shadow-lg:  0 14px 36px rgba(0, 0, 0, 0.36);
+   }
+
+   /* Backwards-compat alias for any rule that still keys on [data-theme="light"]. */
    :root[data-theme="light"] {
-     --navy:         #ffffff;
-     --navy-light:   #f8fafc;
-     --navy-surface: #ffffff;
-     --bg-page:      #f7f8fa;
-     --bg-grid:      transparent;
-     --surface-1:    #ffffff;
-     --surface-2:    #f1f5f9;
-
-     --glass:        #ffffff;
-     --glass-hover:  #f8fafc;
-     --glass-active: #f1f5f9;
-
-     --border:        rgba(15, 23, 42, 0.10);
-     --border-light:  rgba(15, 23, 42, 0.18);
-     --border-subtle: rgba(15, 23, 42, 0.06);
-     --border-strong: rgba(15, 23, 42, 0.20);
-
-     --accent:        #0f766e;        /* teal-700 — better contrast on white */
-     --accent-light:  #0d9488;
-     --accent-dark:   #115e59;
-     --accent-glow:   rgba(15, 118, 110, 0.18);
-     --accent-bg:     rgba(15, 118, 110, 0.08);
-
-     --success:       #047857;
-     --success-light: #059669;
-     --success-bg:    rgba(4, 120, 87, 0.10);
-
-     --warning:       #b45309;
-     --warning-light: #d97706;
-     --warning-bg:    rgba(180, 83, 9, 0.10);
-
-     --danger:        #b91c1c;
-     --danger-light:  #dc2626;
-     --danger-bg:     rgba(185, 28, 28, 0.08);
-
-     --text-primary:   #0f172a;
-     --text-secondary: #475569;
-     --text-muted:     #64748b;
-
-     --shadow-sm:  0 1px 2px rgba(15, 23, 42, 0.04);
-     --shadow-md:  0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.06);
-     --shadow-lg:  0 8px 24px rgba(15, 23, 42, 0.10);
-     --shadow-glow: 0 0 0 3px var(--accent-glow);
-
-     --nav-bg: #ffffff;
-     --scrim:  rgba(15, 23, 42, 0.45);
+     /* No-op — :root is already the light theme. Kept so existing
+        `:root[data-theme="light"] selector` rules below still match. */
    }
    
    /* ========== Reset & Base ========== */
@@ -393,9 +395,9 @@
      transition: all 200ms ease;
    }
 
-   :root:not([data-theme="light"]) .form-input,
-   :root:not([data-theme="light"]) .form-select {
-     background: rgba(0, 0, 0, 0.2);
+   :root[data-theme="dark"] .form-input,
+   :root[data-theme="dark"] .form-select {
+     background: rgba(255, 255, 255, 0.04);
    }
 
    :root[data-theme="light"] .form-input,
@@ -414,9 +416,9 @@
      box-shadow: 0 0 0 3px var(--accent-glow);
    }
 
-   :root:not([data-theme="light"]) .form-input:focus,
-   :root:not([data-theme="light"]) .form-select:focus {
-     background: rgba(0, 0, 0, 0.3);
+   :root[data-theme="dark"] .form-input:focus,
+   :root[data-theme="dark"] .form-select:focus {
+     background: rgba(255, 255, 255, 0.06);
    }
    
    .form-select {
