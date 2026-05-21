@@ -18,33 +18,18 @@ export default function BottomNav({ role, username, onLogout }) {
 
   return (
     <>
-      <nav
-        className="bottom-nav"
-        style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0,
-          background: 'var(--nav-bg)',
-          backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-          borderTop: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-around',
-          padding: '8px 4px calc(8px + env(safe-area-inset-bottom)) 4px',
-          zIndex: 50,
-        }}
-      >
+      <nav className="bottom-nav bottom-nav-floating" aria-label="Navigation principale">
         <NavItem to="/" icon={<LayoutDashboard size={22} />} label="Accueil" end />
         <NavItem to="/scanner" icon={<ScanLine size={22} />} label="Scanner" />
         <NavItem to="/trips" icon={<Map size={22} />} label="Voyages" />
         <button
           onClick={() => setMenuOpen(true)}
           aria-label="Ouvrir le menu"
-          style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: '4px', padding: '8px 12px',
-            color: 'var(--text-secondary)', background: 'none', border: 'none',
-            cursor: 'pointer', minWidth: '64px',
-          }}
+          className="nav-tab"
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
         >
           <MoreHorizontal size={22} />
-          <span style={{ fontSize: '0.7rem', fontWeight: 500 }}>Plus</span>
+          <span>Plus</span>
         </button>
       </nav>
 
@@ -65,17 +50,12 @@ export default function BottomNav({ role, username, onLogout }) {
 function NavItem({ to, icon, label, end }) {
   return (
     <NavLink
-      to={to} end={end}
-      style={({ isActive }) => ({
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', gap: '4px', padding: '8px 12px',
-        color: isActive ? 'var(--accent-light)' : 'var(--text-secondary)',
-        textDecoration: 'none', transition: 'color 200ms ease',
-        minWidth: '64px',
-      })}
+      to={to}
+      end={end}
+      className={({ isActive }) => `nav-tab${isActive ? ' nav-tab--active' : ''}`}
     >
       {icon}
-      <span style={{ fontSize: '0.7rem', fontWeight: 500 }}>{label}</span>
+      <span>{label}</span>
     </NavLink>
   );
 }

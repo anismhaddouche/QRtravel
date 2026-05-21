@@ -24,29 +24,25 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
 
   return (
     <aside className="sidebar glass-card" style={{
-      position: 'fixed', top: '24px', bottom: '24px', left: '24px', width: '260px',
-      display: 'flex', flexDirection: 'column', padding: '24px', zIndex: 50,
-      border: '1px solid var(--border)',
+      position: 'fixed', top: '20px', bottom: '20px', left: '20px', width: '264px',
+      display: 'flex', flexDirection: 'column', padding: '20px', zIndex: 50,
+      border: '1px solid var(--border-subtle)', borderRadius: '20px',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-        <div style={{
-          background: 'var(--accent)', color: 'white', padding: '8px', borderRadius: '12px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: 'var(--shadow-glow)'
-        }}>
-          <Plane size={24} />
+      <div className="brand" style={{ marginBottom: '20px' }}>
+        <span className="brand__mark"><Plane size={22} /></span>
+        <div>
+          <div className="brand__name">VoyageCheck</div>
+          <div className="brand__sub">Check-in QR</div>
         </div>
-        <h1 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>VoyageCheck</h1>
       </div>
 
       {isSuperAdmin && (
-        <div style={{ marginBottom: '16px' }}>
-          <label className="form-label" style={{ fontSize: '0.75rem', paddingLeft: '8px' }}>AGENCE ACTIVE</label>
+        <div style={{ marginBottom: '12px' }}>
+          <div className="nav-section-label">Agence active</div>
           <select
             className="form-select"
             value={activeAgencyId || ''}
             onChange={e => handleAgencyChange(e.target.value)}
-            style={{ background: 'var(--navy-surface)', border: '1px solid var(--border)' }}
           >
             <option value="">— Toutes / Aucune —</option>
             {agencies.map(a => (
@@ -56,13 +52,12 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
         </div>
       )}
 
-      <div style={{ marginBottom: '24px' }}>
-        <label className="form-label" style={{ fontSize: '0.75rem', paddingLeft: '8px' }}>VOYAGE ACTIF</label>
+      <div style={{ marginBottom: '6px' }}>
+        <div className="nav-section-label">Voyage actif</div>
         <select
           className="form-select"
           value={selectedTrip?.id || ''}
           onChange={e => onSelectTrip(e.target.value)}
-          style={{ background: 'var(--navy-surface)', border: '1px solid var(--border)' }}
         >
           {!selectedTrip && <option value="" disabled>— Sélectionner —</option>}
           {trips.map(t => (
@@ -73,14 +68,15 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
         </select>
       </div>
 
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Tableau de bord" end />
-        {isSuperAdmin && <NavItem to="/agencies" icon={<Building2 size={20} />} label="Agences" />}
-        <NavItem to="/scanner" icon={<ScanLine size={20} />} label="Scanner" />
-        <NavItem to="/trips" icon={<Map size={20} />} label="Voyages" />
+      <div className="nav-section-label">Menu</div>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <NavItem to="/" icon={<LayoutDashboard size={18} />} label="Tableau de bord" end />
+        <NavItem to="/scanner" icon={<ScanLine size={18} />} label="Scanner" />
+        <NavItem to="/trips" icon={<Map size={18} />} label="Voyages" />
+        {isSuperAdmin && <NavItem to="/agencies" icon={<Building2 size={18} />} label="Agences" />}
         {/* Personnel is super_admin only — agency_admin cannot manage users. */}
         {isSuperAdmin && (
-          <NavItem to="/users" icon={<Shield size={20} />} label="Personnel" />
+          <NavItem to="/users" icon={<Shield size={18} />} label="Personnel" />
         )}
       </nav>
 
@@ -92,7 +88,7 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
               background: isOnline ? 'var(--success)' : 'var(--danger)',
               boxShadow: isOnline ? '0 0 8px var(--success)' : 'none'
             }} />
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
               {isOnline ? 'En direct' : 'Hors ligne'}
             </span>
           </div>
@@ -104,12 +100,21 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
         </div>
 
         {username && (
-          <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: 'var(--radius-md)', marginBottom: '8px' }}>
-            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {username}
-            </div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-              {role === 'super_admin' ? 'Super administrateur' : (role === 'agency_admin' || role === 'admin') ? 'Administrateur d’agence' : role}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '10px', borderRadius: '14px',
+            background: 'var(--surface-1)',
+            border: '1px solid var(--border-subtle)',
+            marginBottom: '10px',
+          }}>
+            <span className="avatar avatar--sm">{(username || '?').slice(0, 1)}</span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {username}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                {role === 'super_admin' ? 'Super administrateur' : (role === 'agency_admin' || role === 'admin') ? 'Administrateur d’agence' : role}
+              </div>
             </div>
           </div>
         )}
@@ -117,15 +122,11 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button
             onClick={onLogout}
-            className="btn"
-            style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: '8px', color: 'var(--danger-light)', borderColor: 'var(--danger-light)',
-              background: 'transparent',
-            }}
+            className="btn btn-danger-outline"
+            style={{ flex: 1 }}
           >
-            <LogOut size={18} />
-            <span>Se déconnecter</span>
+            <LogOut size={16} />
+            <span>Déconnexion</span>
           </button>
           <ThemeToggle />
         </div>
@@ -139,15 +140,7 @@ function NavItem({ to, icon, label, end }) {
     <NavLink
       to={to}
       end={end}
-      style={({ isActive }) => ({
-        display: 'flex', alignItems: 'center', gap: '12px',
-        padding: '12px 16px', borderRadius: 'var(--radius-md)',
-        color: isActive ? 'var(--white)' : 'var(--text-secondary)',
-        background: isActive ? 'var(--accent)' : 'transparent',
-        textDecoration: 'none', fontWeight: isActive ? 600 : 500,
-        transition: 'all 200ms ease',
-        boxShadow: isActive ? 'var(--shadow-glow)' : 'none',
-      })}
+      className={({ isActive }) => `nav-item${isActive ? ' nav-item--active' : ''}`}
     >
       {icon}
       <span>{label}</span>

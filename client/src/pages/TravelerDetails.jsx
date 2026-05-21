@@ -124,29 +124,44 @@ export default function TravelerDetails({ role }) {
     ? new Date(traveler.checkedInAt).toLocaleString('fr-FR')
     : null;
 
+  const isCheckedIn = traveler.status === 'checked_in';
+  const initials = (traveler.displayName || '?')
+    .split(/\s+/).filter(Boolean).slice(0, 2)
+    .map(w => w[0]).join('') || '?';
+
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">
-            <User size={28} style={{ color: 'var(--accent)' }} /> {traveler.displayName}
-          </h1>
-          <p className="page-subtitle" style={{ fontFamily: 'var(--font-mono)' }}>
-            {traveler.referenceCode}
-          </p>
+      <button
+        className="btn btn-outline btn-sm"
+        onClick={() => navigate('/')}
+        style={{ marginBottom: '12px' }}
+      >
+        <ArrowLeft size={14} /> Retour au tableau de bord
+      </button>
+
+      <section className="detail-hero">
+        <span className={`avatar avatar--lg ${isCheckedIn ? 'avatar--success' : 'avatar--neutral'}`}>
+          {initials}
+        </span>
+        <div className="detail-hero__body">
+          <div className="detail-hero__name">{traveler.displayName}</div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
+            <StatusBadge status={traveler.status} />
+            <span className={`traveler-row__chip ${typeLabel === 'Groupe' ? 'chip-success' : 'chip-warning'}`} style={{ background: 'var(--surface-1)', color: 'var(--text-secondary)' }}>
+              <TypeIcon size={11} /> {typeLabel} · {traveler.peopleCount} pers.
+            </span>
+          </div>
+          <div className="detail-hero__ref">{traveler.referenceCode}</div>
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button className="btn btn-outline" onClick={() => navigate('/')}>
-            <ArrowLeft size={16} /> Tableau de bord
-          </button>
+        <div className="detail-hero__actions">
           <button className="btn btn-outline" onClick={() => setShowEdit(true)}>
             <Edit2 size={16} /> Modifier
           </button>
-          <button className="btn btn-danger" onClick={() => setShowDelete(true)}>
+          <button className="btn btn-danger-outline" onClick={() => setShowDelete(true)}>
             <Trash2 size={16} /> Supprimer
           </button>
         </div>
-      </div>
+      </section>
 
       <div className="form-grid-2">
         {/* Infos voyageur */}
@@ -223,29 +238,24 @@ export default function TravelerDetails({ role }) {
           <div className="glass-card-header">
             <h2 className="glass-card-title"><QrCode size={20} /> QR code</h2>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-            <img
-              src={qrLink}
-              alt={`QR code de ${traveler.displayName}`}
-              style={{
-                maxWidth: '100%',
-                width: '260px',
-                height: 'auto',
-                background: 'var(--white)',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-subtle)',
-              }}
-            />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+            <div className="qr-frame">
+              <img
+                src={qrLink}
+                alt={`QR code de ${traveler.displayName}`}
+                style={{ display: 'block', maxWidth: '100%', width: '240px', height: 'auto' }}
+              />
+            </div>
             <a
               href={qrLink}
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 color: 'var(--text-muted)',
                 wordBreak: 'break-all',
                 textAlign: 'center',
+                fontFamily: 'var(--font-mono)',
               }}
             >
               {qrLink}
@@ -275,28 +285,18 @@ export default function TravelerDetails({ role }) {
             <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
               {traveler.groupMembers.map((m, i) => {
                 const fullName = [m.firstName, m.lastName].filter(Boolean).join(' ') || `Membre ${i + 1}`;
+                const memberInit = (fullName || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('') || (i + 1);
                 return (
-                  <li
-                    key={i}
-                    style={{
-                      padding: '10px 0',
-                      borderBottom: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '8px',
-                      justifyContent: 'space-between',
-                      alignItems: 'baseline',
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 500, marginRight: '8px' }}>
-                        {i + 1}.
-                      </span>
-                      {fullName}
-                    </div>
-                    <div style={{ display: 'flex', gap: '12px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      {m.phone && <span><Phone size={12} style={{ verticalAlign: 'middle' }} /> {m.phone}</span>}
-                      {m.email && <span><Mail size={12} style={{ verticalAlign: 'middle' }} /> {m.email}</span>}
+                  <li key={i} className="member-card">
+                    <span className="avatar avatar--sm avatar--neutral">{memberInit}</span>
+                    <div className="member-card__body">
+                      <div className="member-card__name">{fullName}</div>
+                      {(m.phone || m.email) && (
+                        <div className="member-card__contacts">
+                          {m.phone && <span><Phone size={12} /> {m.phone}</span>}
+                          {m.email && <span><Mail size={12} /> {m.email}</span>}
+                        </div>
+                      )}
                     </div>
                   </li>
                 );
@@ -340,35 +340,21 @@ export default function TravelerDetails({ role }) {
               />
             </div>
           ) : (
-            <ul style={{ listStyle: 'none', margin: '12px 0 0', padding: 0 }}>
+            <ol className="timeline" style={{ listStyle: 'none' }}>
               {traveler.activity.map((ev) => {
                 const isCheckin = ev.action === 'check_in';
                 const label = isCheckin ? 'Embarqué' : ev.action === 'undo_check_in' ? 'Désembarqué' : ev.action;
                 const when = new Date(ev.timestamp).toLocaleString('fr-FR');
                 const source = ev.deviceId && ev.deviceId !== 'unknown' ? ev.deviceId : null;
                 return (
-                  <li key={ev.id} style={{
-                    display: 'flex', alignItems: 'flex-start', gap: '16px',
-                    padding: '12px 0', borderBottom: '1px solid var(--border-subtle)',
-                  }}>
-                    <div style={{
-                      marginTop: '6px', width: '10px', height: '10px', borderRadius: '50%',
-                      background: isCheckin ? 'var(--success)' : 'var(--warning)',
-                      boxShadow: isCheckin ? '0 0 8px var(--success)' : 'none',
-                      flexShrink: 0,
-                    }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>
-                        {label}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        {when}{source ? ` · ${source}` : ''}
-                      </div>
-                    </div>
+                  <li key={ev.id} className="timeline__item">
+                    <span className={`timeline__dot ${isCheckin ? 'timeline__dot--success' : 'timeline__dot--warning'}`} />
+                    <div className="timeline__title">{label}</div>
+                    <div className="timeline__meta">{when}{source ? ` · ${source}` : ''}</div>
                   </li>
                 );
               })}
-            </ul>
+            </ol>
           )
         )}
       </div>

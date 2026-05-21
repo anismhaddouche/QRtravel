@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 
-export default function Modal({ isOpen, onClose, title, children }) {
+export default function Modal({ isOpen, onClose, title, children, footer }) {
   // Prevent scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -42,51 +42,39 @@ export default function Modal({ isOpen, onClose, title, children }) {
         animation: 'fadeIn 200ms ease',
       }}
     >
-      <div 
-        className="glass-card modal-content" 
+      <div
+        className="glass-card modal-content modal-shell"
         onClick={e => e.stopPropagation()}
         style={{
-          width: '90%',
-          maxWidth: '500px',
-          maxHeight: '90vh',
+          width: '92%',
+          maxWidth: '540px',
+          maxHeight: '92vh',
           overflowY: 'auto',
           animation: 'slideUp 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-          padding: '32px'
+          borderRadius: '20px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>{title}</h3>
-          <button 
+        <div className="modal-shell__header">
+          <h3 className="modal-shell__title">{title}</h3>
+          <button
             onClick={onClose}
-            className="btn-icon"
-            style={{ 
-              background: 'transparent', 
-              border: 'none', 
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '50%',
-              padding: '6px',
-              transition: 'all 200ms ease'
-            }}
-            onMouseOver={e => {
-              e.currentTarget.style.backgroundColor = 'var(--glass-hover)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseOut={e => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
+            aria-label="Fermer"
+            className="icon-btn"
+            style={{ width: '36px', height: '36px' }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
-        
-        <div className="modal-body">
+
+        <div className="modal-shell__body">
           {children}
         </div>
+
+        {footer && (
+          <div className="modal-shell__footer">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

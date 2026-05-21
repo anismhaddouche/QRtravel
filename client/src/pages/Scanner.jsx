@@ -333,12 +333,14 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
             width: '100%',
             // ~94 vw on phones, capped at 480 px on tablet/desktop.
             maxWidth: 'min(94vw, 480px)',
-            margin: '0 auto 24px',
-            borderRadius: 'var(--radius-lg)',
+            margin: '0 auto 20px',
+            borderRadius: '24px',
             overflow: 'hidden',
             border: '1px solid var(--border)',
-            boxShadow: 'var(--shadow-md)',
-            background: 'var(--navy-surface)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.04)',
+            // Always dark — camera viewport reads better with a dark inset
+            // even in light theme. Intentional design choice.
+            background: '#0b1224',
             aspectRatio: '1/1'
           }}>
             <div id="qr-reader" style={{ width: '100%', height: '100%' }}></div>

@@ -257,53 +257,51 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
     const isCheckedIn = t.status === 'checked_in';
     const stop = (e) => e.stopPropagation();
     return (
-      <div
-        style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'flex-end' }}
-        onClick={stop}
-      >
+      <div className="traveler-row__actions" onClick={stop}>
         {isCheckedIn ? (
           <button
             type="button"
-            className="btn btn-sm btn-outline"
+            className="icon-btn"
             onClick={(e) => { stop(e); handleUndo(t); }}
             title="Désembarquer"
             aria-label={`Désembarquer ${t.displayName}`}
           >
-            <CornerUpLeft size={14} />
+            <CornerUpLeft size={16} />
           </button>
         ) : (
           <button
             type="button"
-            className="btn btn-sm btn-success"
+            className="icon-btn icon-btn--success"
             onClick={(e) => { stop(e); handleCheckIn(t); }}
             title="Embarquer"
             aria-label={`Embarquer ${t.displayName}`}
           >
-            <Check size={14} />
+            <Check size={16} />
           </button>
         )}
-        {t.phone && (
-          <a className="btn btn-sm btn-outline" href={`tel:${t.phone}`} onClick={stop} title="Appeler">
-            <Phone size={14} />
-          </a>
-        )}
         {wa && (
-          <a className="btn btn-sm btn-outline" href={wa} target="_blank" rel="noopener noreferrer" onClick={stop} title="WhatsApp">
-            <MessageCircle size={14} />
+          <a className="icon-btn" href={wa} target="_blank" rel="noopener noreferrer" onClick={stop} title="WhatsApp" aria-label={`WhatsApp ${t.displayName}`}>
+            <MessageCircle size={16} />
           </a>
         )}
         {mt && (
-          <a className="btn btn-sm btn-outline" href={mt} onClick={stop} title="Email">
-            <Mail size={14} />
+          <a className="icon-btn" href={mt} onClick={stop} title="Email" aria-label={`Email ${t.displayName}`}>
+            <Mail size={16} />
+          </a>
+        )}
+        {t.phone && (
+          <a className="icon-btn" href={`tel:${t.phone}`} onClick={stop} title="Appeler" aria-label={`Appeler ${t.displayName}`}>
+            <Phone size={16} />
           </a>
         )}
         <button
           type="button"
-          className="btn btn-sm btn-outline"
+          className="icon-btn"
           onClick={(e) => { stop(e); copyText(qrLink || t.referenceCode, `Lien QR de ${t.displayName} copié`); }}
           title="Copier le lien du QR code"
+          aria-label={`Copier le lien QR de ${t.displayName}`}
         >
-          <Copy size={14} />
+          <Copy size={16} />
         </button>
       </div>
     );
@@ -329,99 +327,90 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
       </div>
 
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-          <div className="glass-card" style={{ borderTop: '4px solid var(--accent)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Unités</div>
-              <Users size={20} style={{ color: 'var(--accent-light)' }} />
+        <div className="stat-grid">
+          <div className="stat-card stat-card--accent">
+            <div className="stat-card__head">
+              <div className="stat-card__label">Total Unités</div>
+              <span className="stat-card__icon"><Users size={18} /></span>
             </div>
-            <div style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1, marginBottom: '8px', color: 'var(--white)' }}>{stats.totalUnits}</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{stats.totalPeople} personnes</div>
+            <div className="stat-card__num">{stats.totalUnits}</div>
+            <div className="stat-card__foot">{stats.totalPeople} personnes</div>
           </div>
-          <div className="glass-card" style={{ borderTop: '4px solid var(--success)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Embarqués</div>
-              <UserCheck size={20} style={{ color: 'var(--success-light)' }} />
+          <div className="stat-card stat-card--success">
+            <div className="stat-card__head">
+              <div className="stat-card__label">Embarqués</div>
+              <span className="stat-card__icon"><UserCheck size={18} /></span>
             </div>
-            <div style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1, marginBottom: '8px', color: 'var(--success)' }}>{stats.checkedInUnits}</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{stats.checkedInPeople} personnes</div>
+            <div className="stat-card__num">{stats.checkedInUnits}</div>
+            <div className="stat-card__foot">{stats.checkedInPeople} personnes</div>
           </div>
-          <div className="glass-card" style={{ borderTop: '4px solid var(--warning)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Restants</div>
-              <UserX size={20} style={{ color: 'var(--warning-light)' }} />
+          <div className="stat-card stat-card--warning">
+            <div className="stat-card__head">
+              <div className="stat-card__label">Restants</div>
+              <span className="stat-card__icon"><UserX size={18} /></span>
             </div>
-            <div style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1, marginBottom: '8px', color: 'var(--warning)' }}>{stats.missingUnits}</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{stats.missingPeople} personnes</div>
+            <div className="stat-card__num">{stats.missingUnits}</div>
+            <div className="stat-card__foot">{stats.missingPeople} personnes</div>
           </div>
         </div>
       )}
 
       {/* Travelers list */}
-      <div className="glass-card" style={{ marginBottom: '24px' }}>
-        <div className="glass-card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
-          <h2 className="glass-card-title" style={{ color: current.color }}>
-            <CurrentIcon size={20} /> {current.label} ({filteredTravelers.length})
+      <div className="surface-card" style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            <span className="stat-card__icon" style={{ width: '32px', height: '32px', borderRadius: '10px' }}>
+              <CurrentIcon size={16} />
+            </span>
+            {current.label}
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>· {filteredTravelers.length}</span>
           </h2>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-            <label htmlFor="dashboard-filter" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Filtrer</label>
-            <select
-              id="dashboard-filter"
-              className="form-input"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              style={{ padding: '6px 10px', fontSize: '0.9rem', minWidth: '180px' }}
-            >
-              {Object.entries(FILTERS).map(([k, f]) => (
-                <option key={k} value={k}>{f.label}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => setShowAdd(true)}
-              disabled={!tripId}
-              title={tripId ? 'Ajouter des voyageurs' : 'Sélectionnez d\'abord un voyage'}
-            >
-              <Plus size={14} /> Ajouter des voyageurs
-            </button>
-          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setShowAdd(true)}
+            disabled={!tripId}
+            title={tripId ? 'Ajouter des voyageurs' : 'Sélectionnez d\'abord un voyage'}
+          >
+            <Plus size={16} /> Ajouter
+          </button>
         </div>
 
-        {/* Search */}
-        <div style={{ marginBottom: '12px', position: 'relative' }}>
-          <Search
-            size={16}
-            style={{
-              position: 'absolute', left: '10px', top: '50%',
-              transform: 'translateY(-50%)', color: 'var(--text-muted)',
-              pointerEvents: 'none',
-            }}
-          />
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Rechercher par nom ou code…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Rechercher un voyageur"
-            style={{ paddingLeft: '34px', paddingRight: search ? '34px' : undefined, width: '100%' }}
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              aria-label="Effacer la recherche"
-              style={{
-                position: 'absolute', right: '6px', top: '50%',
-                transform: 'translateY(-50%)', background: 'transparent',
-                border: 'none', color: 'var(--text-muted)', cursor: 'pointer',
-                padding: '4px', display: 'flex', alignItems: 'center',
-              }}
-            >
-              <X size={14} />
-            </button>
-          )}
+        <div className="toolbar">
+          <div className="toolbar__search">
+            <Search size={16} className="toolbar__search-icon" />
+            <input
+              type="text"
+              className="input-search"
+              placeholder="Rechercher par nom ou code…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Rechercher un voyageur"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Effacer la recherche"
+                className="toolbar__search-clear"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <div className="seg" role="tablist" aria-label="Filtrer la liste">
+            {Object.entries(FILTERS).map(([k, f]) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={filter === k}
+                onClick={() => setFilter(k)}
+              >
+                {f.label === 'Toutes les personnes' ? 'Toutes' : f.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Selection bar */}
@@ -457,115 +446,64 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
                   : 'Cliquez sur « Ajouter des voyageurs » pour commencer.'
             }
           />)
-        ) : isMobile ? (
+        ) : (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 4px 10px' }}>
               <input
+                id="dashboard-select-all"
                 type="checkbox"
                 aria-label="Tout sélectionner"
                 checked={allVisibleSelected}
                 onChange={() => allVisibleSelected ? clearSelection() : selectAllVisible()}
               />
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              <label htmlFor="dashboard-select-all" style={{ fontSize: '0.82rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 {allVisibleSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
-              </span>
+              </label>
             </div>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {filteredTravelers.map(t => {
                 const checked = selectedIds.has(t.id);
+                const isCheckedIn = t.status === 'checked_in';
+                const initials = (t.displayName || '?')
+                  .split(/\s+/).filter(Boolean).slice(0, 2)
+                  .map(w => w[0]).join('') || '?';
                 return (
                   <li
                     key={t.id}
-                    style={{
-                      padding: '12px',
-                      border: `1px solid ${checked ? 'var(--accent)' : 'var(--border-subtle)'}`,
-                      borderRadius: '8px',
-                      background: 'var(--surface-1, rgba(255,255,255,0.02))',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
+                    className={`traveler-row${checked ? ' traveler-row--selected' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => goToTraveler(t.id)}
+                    onKeyDown={(e) => rowKeyDown(e, t.id)}
                   >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => { e.stopPropagation(); toggleSelect(t.id); }}
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label={`Sélectionner ${t.displayName}`}
-                        style={{ marginTop: '4px' }}
-                      />
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => goToTraveler(t.id)}
-                        onKeyDown={(e) => rowKeyDown(e, t.id)}
-                        style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
-                      >
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>{t.displayName}</div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t.referenceCode}</div>
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                        {t.peopleCount} pers.
+                    <input
+                      className="traveler-row__check"
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleSelect(t.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Sélectionner ${t.displayName}`}
+                    />
+                    <span className={`avatar avatar--md ${isCheckedIn ? 'avatar--success' : 'avatar--neutral'}`}>
+                      {initials}
+                    </span>
+                    <div className="traveler-row__main">
+                      <div className="traveler-row__name">{t.displayName}</div>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px', flexWrap: 'wrap' }}>
+                        <span className="traveler-row__meta">{t.referenceCode}</span>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>· {t.peopleCount} pers.</span>
+                        <span className={`traveler-row__chip ${isCheckedIn ? 'chip-success' : 'chip-warning'}`}>
+                          {isCheckedIn ? <Check size={11} /> : <UserX size={11} />}
+                          {isCheckedIn ? 'Embarqué' : 'Restant'}
+                        </span>
                       </div>
                     </div>
-                    {renderRowActions(t)}
+                    <div className="traveler-row__actions">{renderRowActions(t)}</div>
                   </li>
                 );
               })}
             </ul>
           </>
-        ) : (
-          <div className="table-container">
-            <table className="glass-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '36px' }}>
-                    <input
-                      type="checkbox"
-                      aria-label="Tout sélectionner"
-                      checked={allVisibleSelected}
-                      onChange={() => allVisibleSelected ? clearSelection() : selectAllVisible()}
-                    />
-                  </th>
-                  <th>Nom</th>
-                  <th>Personnes</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTravelers.map(t => {
-                  const checked = selectedIds.has(t.id);
-                  return (
-                    <tr
-                      key={t.id}
-                      style={{
-                        cursor: 'pointer',
-                        background: checked ? 'rgba(99, 102, 241, 0.08)' : undefined,
-                      }}
-                      onClick={() => goToTraveler(t.id)}
-                      onKeyDown={(e) => rowKeyDown(e, t.id)}
-                    >
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleSelect(t.id)}
-                          aria-label={`Sélectionner ${t.displayName}`}
-                        />
-                      </td>
-                      <td>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t.displayName}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t.referenceCode}</div>
-                      </td>
-                      <td>{t.peopleCount}</td>
-                      <td style={{ textAlign: 'right' }}>{renderRowActions(t)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
         )}
       </div>
 
@@ -704,27 +642,12 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
   const hasRemaining = selectedTravelers.some(t => t.status === 'not_checked_in');
   const hasCheckedIn = selectedTravelers.some(t => t.status === 'checked_in');
   return (
-    <div
-      style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 5,
-        margin: '4px 0 12px',
-        padding: '10px 12px',
-        background: 'var(--accent-bg, rgba(99,102,241,0.15))',
-        border: '1px solid var(--accent)',
-        borderRadius: '8px',
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '8px',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <strong style={{ color: 'var(--text-primary)' }}>{count} sélectionné(s)</strong>
-        <button type="button" className="btn btn-sm btn-ghost" onClick={onClear} title="Tout désélectionner">
-          <X size={14} /> Désélectionner
+    <div className="selection-bar">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span className="avatar avatar--sm">{count}</span>
+        <strong style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>sélectionné(s)</strong>
+        <button type="button" className="icon-btn" onClick={onClear} title="Tout désélectionner" aria-label="Tout désélectionner">
+          <X size={14} />
         </button>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
