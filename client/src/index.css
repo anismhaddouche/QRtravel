@@ -130,10 +130,10 @@
      --glass-hover:  #202227;
      --glass-active: #2A2D34;
 
-     --border:        #2A2D34;
-     --border-light:  #3A3E47;
-     --border-subtle: #1F2126;
-     --border-strong: #44494F;
+     --border:        #343741;
+     --border-light:  #44494F;
+     --border-subtle: #24262C;
+     --border-strong: #5A5F68;
 
      /* Accent: discreet zinc-white for primary actions (admin neutral).
         Reserved blue for focus rings only. */
@@ -156,8 +156,8 @@
      --danger-bg:     rgba(239, 68, 68, 0.12);
 
      --text-primary:   #F5F5F6;
-     --text-secondary: #A1A1AA;
-     --text-muted:     #71717A;
+     --text-secondary: #B4B4BC;
+     --text-muted:     #8F9099;
 
      --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.40);
      --shadow-md:  0 4px 14px rgba(0, 0, 0, 0.45);
@@ -212,6 +212,27 @@
      *:focus-visible {
        outline: 2px solid var(--ring, var(--accent));
        outline-offset: 2px;
+     }
+
+     /* Text selection — readable in both themes. The native default
+        (#A6CDFC over white text) made selected text inside Inputs
+        unreadable in dark mode. */
+     ::selection {
+       background: rgba(96, 165, 250, 0.35);
+       color: var(--text-primary);
+     }
+     input::selection,
+     textarea::selection {
+       background: rgba(96, 165, 250, 0.45);
+       color: var(--text-primary);
+     }
+
+     /* Placeholder contrast: shadcn's `placeholder:text-muted-foreground`
+        on transparent inputs needs to stay readable in dark mode. */
+     input::placeholder,
+     textarea::placeholder {
+       color: var(--text-muted);
+       opacity: 1; /* Firefox would otherwise apply 0.54 */
      }
    }
 
@@ -1746,13 +1767,14 @@
      --secondary:          #202227;
      --secondary-foreground: #F5F5F6;
      --muted:              #202227;
-     --muted-foreground:   #A1A1AA;
+     --muted-foreground:   #B4B4BC;
      --accent:             #202227;
      --accent-foreground:  #F5F5F6;
      --destructive:        #DC2626;
-     --border:             #2A2D34;
-     --input:              #2A2D34;
-     --ring:               rgba(59, 130, 246, 0.55);
+     --border:             #343741;
+     --input:              #343741;
+     --popover:            #181A1F;
+     --ring:               rgba(96, 165, 250, 0.65);
      --chart-1:         oklch(0.87 0 0);
      --chart-2:         oklch(0.556 0 0);
      --chart-3:         oklch(0.439 0 0);

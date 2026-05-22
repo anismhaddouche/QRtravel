@@ -828,6 +828,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [importError, setImportError] = useState('');
+  const [fileName, setFileName] = useState('');
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -839,6 +840,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
       setImporting(false);
       setImportResult(null);
       setImportError('');
+      setFileName('');
     }
   }, [isOpen]);
 
@@ -1067,11 +1069,26 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
           <p className="text-sm text-muted-foreground">
             Colonnes attendues : <code>type, nom, prenom, tel, mail</code>. Types acceptés : Individuel, Groupe.
           </p>
-          <Input
-            ref={fileRef}
-            type="file"
-            accept=".csv,text/csv"
-          />
+          <label
+            htmlFor="csv-file-input"
+            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed border-input bg-secondary/30 px-4 py-6 text-center transition-colors hover:bg-secondary/60"
+          >
+            <Upload className="size-6 text-muted-foreground" />
+            <div className="text-sm font-medium text-foreground">
+              {fileName ? 'Changer de fichier' : 'Choisir un fichier CSV'}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {fileName || 'Aucun fichier sélectionné'}
+            </div>
+            <input
+              ref={fileRef}
+              id="csv-file-input"
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={(e) => setFileName(e.target.files?.[0]?.name || '')}
+            />
+          </label>
           {importError && (
             <div className="flex items-center gap-2 text-sm text-destructive">
               <AlertCircle size={14} /> {importError}
