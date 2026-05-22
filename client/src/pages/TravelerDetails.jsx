@@ -227,7 +227,7 @@ export default function TravelerDetails({ role }) {
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
             {traveler.phone ? (
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" className="traveler-action-button">
                 <a href={`tel:${traveler.phone}`} title="Appeler">
                   <Phone /> Appeler
                 </a>
@@ -238,7 +238,7 @@ export default function TravelerDetails({ role }) {
               </Button>
             )}
             {wa ? (
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" className="traveler-action-button">
                 <a href={wa} target="_blank" rel="noopener noreferrer" title="WhatsApp">
                   <MessageCircle /> WhatsApp
                 </a>
@@ -249,7 +249,7 @@ export default function TravelerDetails({ role }) {
               </Button>
             )}
             {mt ? (
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" className="traveler-action-button">
                 <a href={mt} title="Email">
                   <Mail /> Email
                 </a>
@@ -261,6 +261,7 @@ export default function TravelerDetails({ role }) {
             )}
             <Button
               variant="outline"
+              className="traveler-action-button"
               onClick={() => copyText(qrLink || traveler.referenceCode, 'Lien QR copié')}
               title="Copier le lien du QR code"
             >

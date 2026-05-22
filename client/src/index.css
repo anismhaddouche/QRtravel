@@ -1944,6 +1944,39 @@
      max-height: min(320px, var(--radix-select-content-available-height));
    }
 
+   /* Active outline action buttons on the traveller details page —
+      they must stay readable WITHOUT requiring hover. Default shadcn
+      outline variant in dark relies on bg-input/30 which is too subtle.
+      Light-mode equivalent kept clean and not flashy. */
+   :root[data-theme="dark"] .traveler-action-button {
+     border-color: var(--border-light) !important;
+     background: rgba(255, 255, 255, 0.055) !important;
+     color: #F5F5F6 !important;
+   }
+   :root[data-theme="dark"] .traveler-action-button svg {
+     color: #F5F5F6 !important;
+     opacity: 1 !important;
+   }
+   :root[data-theme="dark"] .traveler-action-button:hover {
+     border-color: rgba(255, 255, 255, 0.34) !important;
+     background: rgba(255, 255, 255, 0.10) !important;
+     color: #FFFFFF !important;
+   }
+   :root[data-theme="light"] .traveler-action-button {
+     border-color: rgba(15, 23, 42, 0.18) !important;
+     background: #ffffff !important;
+     color: var(--text-primary) !important;
+   }
+   :root[data-theme="light"] .traveler-action-button svg {
+     color: var(--text-primary) !important;
+     opacity: 1 !important;
+   }
+   :root[data-theme="light"] .traveler-action-button:hover {
+     border-color: rgba(15, 23, 42, 0.28) !important;
+     background: var(--surface-2) !important;
+     color: var(--text-primary) !important;
+   }
+
    /* Traveler action buttons forced into a disabled-but-readable state
       (Appeler / WhatsApp / Email when contact info is missing). */
    :root[data-theme="dark"] .traveler-action-disabled {
