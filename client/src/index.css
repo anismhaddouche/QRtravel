@@ -135,13 +135,15 @@
      --border-subtle: #24262C;
      --border-strong: #5A5F68;
 
-     /* Accent: discreet zinc-white for primary actions (admin neutral).
-        Reserved blue for focus rings only. */
-     --accent:        #F4F4F5;
-     --accent-light:  #E4E4E7;
-     --accent-dark:   #D4D4D8;
-     --accent-glow:   rgba(59, 130, 246, 0.35);
-     --accent-bg:     rgba(244, 244, 245, 0.08);
+     /* Accent: subtle gray surface for hover/highlight states
+        (compatible with shadcn semantics: SelectItem focus, DropdownMenu
+        hover, etc.). Primary actions use --primary (zinc-white) instead. */
+     --accent:           #2A2D34;
+     --accent-foreground:#F5F5F6;
+     --accent-light:     #3A3E47;
+     --accent-dark:      #1F2126;
+     --accent-glow:      rgba(96, 165, 250, 0.30);
+     --accent-bg:        rgba(255, 255, 255, 0.06);
 
      --success:       #10B981;
      --success-light: #34D399;
@@ -1090,10 +1092,10 @@
    }
    .bottom-nav-floating .nav-tab:hover { color: var(--text-primary); }
    .bottom-nav-floating .nav-tab--active {
-     color: var(--accent);
+     color: var(--primary);
      font-weight: 600;
    }
-   .bottom-nav-floating .nav-tab--active svg { color: var(--accent); }
+   .bottom-nav-floating .nav-tab--active svg { color: var(--primary); }
 
    /* ----- Search input (used in toolbar) — extend form-input ----- */
    .input-search {

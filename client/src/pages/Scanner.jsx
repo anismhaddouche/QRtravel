@@ -6,6 +6,8 @@ import { api } from '../utils/api';
 import ScanFeedback from '../components/ScanFeedback';
 import EmptyState from '../components/EmptyState';
 import { ScanLine, Camera, CameraOff, AlertTriangle, ShieldAlert, Check, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 // Minimum time between two scan submissions. The camera stays running
 // the whole time; only QR processing pauses. Tune here.
@@ -310,7 +312,7 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
               : `${offlineQueue.queueLength} scan(s) en attente`}
           </span>
           {isOnline && offlineQueue.syncStatus !== 'syncing' && (
-            <button className="btn btn-sm btn-primary" onClick={offlineQueue.syncQueue}>Synchroniser</button>
+            <Button size="sm" onClick={offlineQueue.syncQueue}>Synchroniser</Button>
           )}
         </div>
       )}
@@ -336,8 +338,8 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
             margin: '0 auto 20px',
             borderRadius: '24px',
             overflow: 'hidden',
-            border: '1px solid var(--border)',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.04)',
+            border: '1px solid var(--border-light)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.30), inset 0 0 0 1px rgba(255,255,255,0.06)',
             // Always dark — camera viewport reads better with a dark inset
             // even in light theme. Intentional design choice.
             background: '#0b1224',
@@ -430,15 +432,26 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
             )}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '32px' }}>
+          <div className="flex justify-center mb-8">
             {!scanning ? (
-              <button className="btn btn-primary btn-lg" onClick={startScanner} id="btn-start-camera" style={{ width: '100%', maxWidth: '300px' }}>
-                <Camera size={20} /> Démarrer la caméra
-              </button>
+              <Button
+                size="lg"
+                onClick={startScanner}
+                id="btn-start-camera"
+                className="w-full max-w-[320px] min-h-11 px-5 font-semibold"
+              >
+                <Camera /> Démarrer la caméra
+              </Button>
             ) : (
-              <button className="btn btn-danger btn-lg" onClick={stopScanner} id="btn-stop-camera" style={{ width: '100%', maxWidth: '300px' }}>
-                <CameraOff size={20} /> Arrêter la caméra
-              </button>
+              <Button
+                size="lg"
+                variant="destructive"
+                onClick={stopScanner}
+                id="btn-stop-camera"
+                className="w-full max-w-[320px] min-h-11 px-5 font-semibold"
+              >
+                <CameraOff /> Arrêter la caméra
+              </Button>
             )}
           </div>
         </>
@@ -450,36 +463,35 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
           Entrez le code de référence pour valider l'embarquement sans caméra.
         </p>
-        <form onSubmit={handleManualSubmit} style={{ display: 'flex', gap: '8px' }}>
-          <input
+        <form onSubmit={handleManualSubmit} className="flex flex-col gap-2 sm:flex-row">
+          <Input
             type="text"
-            className="form-input"
             placeholder="ex: TRV-001"
             value={manualCode}
             onChange={(e) => setManualCode(e.target.value)}
-            style={{ flex: 1, fontFamily: 'var(--font-mono)' }}
+            className="flex-1 font-mono min-h-11 border-input bg-background"
             id="input-manual-code"
             autoComplete="off"
             disabled={isProcessingScan}
           />
-          <button
+          <Button
             type="submit"
-            className="btn btn-success"
             disabled={!manualCode.trim() || isProcessingScan}
             id="btn-manual-checkin"
             title={isProcessingScan ? 'Traitement en cours…' : ''}
+            className="min-h-11 px-5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm"
           >
             {isProcessingScan ? (
               <>
-                <Loader2 size={16} style={{ animation: 'spin 1.4s linear infinite' }} />
+                <Loader2 className="animate-spin" />
                 {processingPhase === 'cooldown' ? `${cooldownRemainingSec}s` : '…'}
               </>
             ) : (
               <>
-                <Check size={18} /> Valider
+                <Check /> Valider
               </>
             )}
-          </button>
+          </Button>
         </form>
       </div>
 
