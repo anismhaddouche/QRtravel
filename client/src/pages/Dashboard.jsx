@@ -3,13 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { api, onActiveAgencyChange } from '../utils/api';
 import { SkeletonStats, SkeletonTable } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
-import Modal from '../components/Modal';
 import {
   Users, UserCheck, UserX, LayoutDashboard, History, RefreshCw,
   MessageCircle, Mail, Copy, Phone, ChevronDown, ChevronUp, MoreHorizontal,
   Plus, Upload, Trash2, Check, CornerUpLeft, Send, AlertCircle, X, Search,
   Plane, Calendar,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink, buildShareMessage } from '../utils/share';
 import GroupMembersEditor, { emptyMember, validateMembers } from '../components/GroupMembersEditor';
 
@@ -272,16 +280,14 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             {current.label}
             <span className="section-head__count">· {filteredTravelers.length}</span>
           </h2>
-          <button
-            type="button"
-            className="btn btn-primary"
+          <Button
             onClick={() => setShowAdd(true)}
             disabled={!tripId}
             title={tripId ? 'Ajouter des voyageurs' : 'Sélectionnez d\'abord un voyage'}
-            style={{ display: isMobile ? 'none' : 'inline-flex' }}
+            className={isMobile ? 'hidden' : ''}
           >
-            <Plus size={16} /> Ajouter
-          </button>
+            <Plus /> Ajouter
+          </Button>
         </div>
 
         <div className="toolbar">
@@ -461,33 +467,37 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
       />
 
       {/* Bulk delete confirm */}
-      <Modal
-        isOpen={showDeleteConfirm}
-        onClose={() => !bulkDeleting && setShowDeleteConfirm(false)}
-        title={`Supprimer ${selectionCount} voyageur(s) ?`}
+      <Dialog
+        open={showDeleteConfirm}
+        onOpenChange={(open) => { if (!open && !bulkDeleting) setShowDeleteConfirm(false); }}
       >
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-          Cette action est irréversible. Les voyageurs sélectionnés et leurs scans seront supprimés.
-        </p>
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={() => setShowDeleteConfirm(false)}
-            disabled={bulkDeleting}
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            className="btn btn-danger"
-            onClick={handleBulkDelete}
-            disabled={bulkDeleting}
-          >
-            <Trash2 size={16} /> {bulkDeleting ? 'Suppression...' : 'Supprimer'}
-          </button>
-        </div>
-      </Modal>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{`Supprimer ${selectionCount} voyageur(s) ?`}</DialogTitle>
+            <DialogDescription>
+              Cette action est irréversible. Les voyageurs sélectionnés et leurs scans seront supprimés.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={bulkDeleting}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+            >
+              <Trash2 /> {bulkDeleting ? 'Suppression...' : 'Supprimer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Bulk share modal */}
       <BulkShareModal
@@ -740,60 +750,41 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
         </button>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        <button
-          type="button"
-          className="btn btn-sm btn-success"
+        <Button
+          size="sm"
           onClick={onBulkCheckIn}
           disabled={!hasRemaining}
+          className="bg-emerald-700 hover:bg-emerald-800 text-white"
         >
-          <Check size={14} /> Embarquer
-        </button>
+          <Check /> Embarquer
+        </Button>
         {!isMobile && (
           <>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              onClick={onBulkUndo}
-              disabled={!hasCheckedIn}
-            >
-              <CornerUpLeft size={14} /> Désembarquer
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              onClick={onShareWhatsApp}
-              disabled={!hasPhone}
-            >
-              <MessageCircle size={14} /> WhatsApp
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              onClick={onShareEmail}
-              disabled={!hasEmail}
-            >
-              <Mail size={14} /> Email
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-danger-outline"
-              onClick={onDelete}
-            >
-              <Trash2 size={14} /> Supprimer
-            </button>
+            <Button size="sm" variant="outline" onClick={onBulkUndo} disabled={!hasCheckedIn}>
+              <CornerUpLeft /> Désembarquer
+            </Button>
+            <Button size="sm" variant="outline" onClick={onShareWhatsApp} disabled={!hasPhone}>
+              <MessageCircle /> WhatsApp
+            </Button>
+            <Button size="sm" variant="outline" onClick={onShareEmail} disabled={!hasEmail}>
+              <Mail /> Email
+            </Button>
+            <Button size="sm" variant="destructive" onClick={onDelete}>
+              <Trash2 /> Supprimer
+            </Button>
           </>
         )}
         {isMobile && (
           <div ref={moreRef} style={{ position: 'relative' }}>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setMoreOpen(v => !v)}
               aria-haspopup="menu"
               aria-expanded={moreOpen}
             >
-              <MoreHorizontal size={14} /> Plus
-            </button>
+              <MoreHorizontal /> Plus
+            </Button>
             {moreOpen && (
               <div className="popover" style={{ right: 0, top: 'calc(100% + 6px)' }} role="menu">
                 <button type="button" disabled={!hasCheckedIn} onClick={() => { setMoreOpen(false); onBulkUndo(); }}>
@@ -890,27 +881,34 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Ajouter des voyageurs">
-      <div role="tablist" style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
-        <button
-          role="tab"
-          type="button"
-          aria-selected={mode === 'manual'}
-          className={mode === 'manual' ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline'}
-          onClick={() => setMode('manual')}
-        >
-          <Plus size={14} /> Manuel
-        </button>
-        <button
-          role="tab"
-          type="button"
-          aria-selected={mode === 'csv'}
-          className={mode === 'csv' ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline'}
-          onClick={() => setMode('csv')}
-        >
-          <Upload size={14} /> Import CSV
-        </button>
-      </div>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Ajouter des voyageurs</DialogTitle>
+          <DialogDescription className="sr-only">
+            Ajout manuel ou import CSV de voyageurs au voyage actif.
+          </DialogDescription>
+        </DialogHeader>
+        <div role="tablist" style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
+          <Button
+            size="sm"
+            variant={mode === 'manual' ? 'default' : 'outline'}
+            role="tab"
+            aria-selected={mode === 'manual'}
+            onClick={() => setMode('manual')}
+          >
+            <Plus /> Manuel
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === 'csv' ? 'default' : 'outline'}
+            role="tab"
+            aria-selected={mode === 'csv'}
+            onClick={() => setMode('csv')}
+          >
+            <Upload /> Import CSV
+          </Button>
+        </div>
 
       {mode === 'manual' ? (
         <form onSubmit={submitManual}>
@@ -1042,12 +1040,12 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
               <AlertCircle size={14} /> {error}
             </div>
           )}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button type="button" className="btn btn-outline" onClick={onClose} disabled={submitting}>Annuler</button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
-              <Plus size={16} /> {submitting ? 'Ajout...' : 'Ajouter'}
-            </button>
-          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Annuler</Button>
+            <Button type="submit" disabled={submitting}>
+              <Plus /> {submitting ? 'Ajout...' : 'Ajouter'}
+            </Button>
+          </DialogFooter>
         </form>
       ) : (
         <div>
@@ -1083,15 +1081,16 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
               )}
             </div>
           )}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button type="button" className="btn btn-outline" onClick={onClose} disabled={importing}>Fermer</button>
-            <button type="button" className="btn btn-primary" onClick={submitCsv} disabled={importing}>
-              <Upload size={16} /> {importing ? 'Import...' : 'Importer'}
-            </button>
-          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={importing}>Fermer</Button>
+            <Button type="button" onClick={submitCsv} disabled={importing}>
+              <Upload /> {importing ? 'Import...' : 'Importer'}
+            </Button>
+          </DialogFooter>
         </div>
       )}
-    </Modal>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1100,56 +1099,62 @@ function BulkShareModal({ isOpen, mode, onClose, travelers, trip, agencyName }) 
   const isWa = mode === 'whatsapp';
   const title = isWa ? 'Envoyer les QR codes par WhatsApp' : 'Envoyer les QR codes par email';
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '12px' }}>
-        Ouvrez un envoi à la fois pour éviter le blocage de votre navigateur.
-      </p>
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: '60vh', overflowY: 'auto' }}>
-        {travelers.map(t => {
-          const qrLink = getTravelerQrLink(t.referenceCode);
-          const link = isWa
-            ? buildWhatsAppLink({ traveler: t, trip, qrLink, agencyName })
-            : buildMailtoLink({ traveler: t, trip, qrLink, agencyName });
-          const missing = isWa ? !t.phone : !t.email;
-          return (
-            <li
-              key={t.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '8px',
-                padding: '10px 0',
-                borderBottom: '1px solid var(--border-subtle)',
-              }}
-            >
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t.displayName}</div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  {missing
-                    ? (isWa ? 'Téléphone manquant' : 'Email manquant')
-                    : (isWa ? t.phone : t.email)}
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            Ouvrez un envoi à la fois pour éviter le blocage de votre navigateur.
+          </DialogDescription>
+        </DialogHeader>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: '60vh', overflowY: 'auto' }}>
+          {travelers.map(t => {
+            const qrLink = getTravelerQrLink(t.referenceCode);
+            const link = isWa
+              ? buildWhatsAppLink({ traveler: t, trip, qrLink, agencyName })
+              : buildMailtoLink({ traveler: t, trip, qrLink, agencyName });
+            const missing = isWa ? !t.phone : !t.email;
+            return (
+              <li
+                key={t.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  padding: '10px 0',
+                  borderBottom: '1px solid var(--border-subtle)',
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t.displayName}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {missing
+                      ? (isWa ? 'Téléphone manquant' : 'Email manquant')
+                      : (isWa ? t.phone : t.email)}
+                  </div>
                 </div>
-              </div>
-              {link ? (
-                <a
-                  className="btn btn-sm btn-primary"
-                  href={link}
-                  target={isWa ? '_blank' : undefined}
-                  rel={isWa ? 'noopener noreferrer' : undefined}
-                >
-                  <Send size={14} /> Ouvrir
-                </a>
-              ) : (
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>—</span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-        <button type="button" className="btn btn-outline" onClick={onClose}>Fermer</button>
-      </div>
-    </Modal>
+                {link ? (
+                  <Button asChild size="sm">
+                    <a
+                      href={link}
+                      target={isWa ? '_blank' : undefined}
+                      rel={isWa ? 'noopener noreferrer' : undefined}
+                    >
+                      <Send /> Ouvrir
+                    </a>
+                  </Button>
+                ) : (
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>—</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>Fermer</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
