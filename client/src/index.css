@@ -1844,12 +1844,16 @@
    :root[data-theme="dark"] button[data-slot="button"]:disabled,
    :root[data-theme="dark"] button[data-slot="button"][data-disabled],
    :root[data-theme="dark"] a[data-slot="button"][aria-disabled="true"] {
-     opacity: 0.65;
+     opacity: 0.78;
    }
    :root[data-theme="dark"] button[data-slot="button"][data-variant="outline"]:disabled {
      border-color: var(--border-light);
-     background: rgba(255, 255, 255, 0.03);
-     color: var(--text-muted);
+     background: rgba(255, 255, 255, 0.045);
+     color: var(--text-secondary);
+   }
+   :root[data-theme="dark"] button[data-slot="button"][data-variant="outline"]:disabled svg {
+     color: var(--text-secondary);
+     opacity: 0.9;
    }
 
    /* Sidebar Déconnexion (shadcn destructive button) — visible border
@@ -1872,4 +1876,62 @@
    :root[data-theme="light"] .sidebar button[data-slot="button"][data-variant="destructive"]:hover:not(:disabled) {
      background: rgba(185, 28, 28, 0.14);
      border-color: rgba(185, 28, 28, 0.60);
+   }
+
+   /* ============================================================
+      v6 — Sidebar footer alignment + Voyage actif select contour
+      ============================================================ */
+
+   /* Grid layout: Déconnexion fills 1fr, theme button is a 44px square,
+      both vertically aligned and same height. */
+   .sidebar-footer-actions {
+     display: grid;
+     grid-template-columns: 1fr 44px;
+     gap: 10px;
+     align-items: center;
+   }
+   .sidebar-footer-actions .sidebar-logout {
+     height: 44px;
+     border-radius: var(--radius-md);
+     justify-content: center;
+   }
+   .sidebar-footer-actions .sidebar-theme-toggle {
+     width: 44px !important;
+     height: 44px !important;
+     border-radius: var(--radius-md) !important;
+     border: 1px solid var(--border-light) !important;
+     background: var(--surface-2) !important;
+     color: var(--text-primary) !important;
+     display: inline-flex !important;
+     align-items: center !important;
+     justify-content: center !important;
+     transition: background 160ms ease, border-color 160ms ease;
+   }
+   .sidebar-footer-actions .sidebar-theme-toggle:hover {
+     background: var(--glass-hover) !important;
+     border-color: var(--border-strong) !important;
+   }
+
+   /* Voyage actif (and Agence active for super_admin) — make it look
+      clearly like a clickable dropdown, not plain text. */
+   .sidebar-select-trigger {
+     min-height: 44px;
+     border-radius: 12px;
+     padding-left: 12px;
+     padding-right: 10px;
+     background: var(--surface-2) !important;
+     border-color: var(--border-light) !important;
+     color: var(--text-primary) !important;
+   }
+   .sidebar-select-trigger:hover {
+     background: var(--glass-hover) !important;
+     border-color: var(--border-strong) !important;
+   }
+   :root[data-theme="dark"] .sidebar-select-trigger:hover {
+     border-color: rgba(255, 255, 255, 0.22) !important;
+   }
+   /* Chevron more visible in the sidebar trigger */
+   .sidebar-select-trigger svg {
+     color: var(--text-secondary);
+     opacity: 0.9;
    }

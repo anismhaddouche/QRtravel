@@ -3,10 +3,17 @@ import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, ScanLine, Map, LogOut, Plane, Shield, Building2 } from 'lucide-react';
 import { api, getActiveAgencyId, setActiveAgencyId, onActiveAgencyChange } from '../utils/api';
 import ThemeToggle from './ThemeToggle';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function Sidebar({ isOnline, queueLength, syncStatus, trips, selectedTrip, onSelectTrip, username, role, onLogout }) {
   const isSuperAdmin = role === 'super_admin';
-  const isAgencyAdmin = role === 'agency_admin' || role === 'admin';
   const [agencies, setAgencies] = useState([]);
   const [activeAgencyId, setActiveAgencyIdState] = useState(() => getActiveAgencyId());
 
@@ -18,8 +25,9 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
   useEffect(() => onActiveAgencyChange(setActiveAgencyIdState), []);
 
   const handleAgencyChange = (id) => {
-    setActiveAgencyId(id || null);
-    setActiveAgencyIdState(id || null);
+    const next = id === '__none__' ? null : id;
+    setActiveAgencyId(next);
+    setActiveAgencyIdState(next);
   };
 
   return (
@@ -40,33 +48,40 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
       {isSuperAdmin && (
         <div style={{ marginBottom: '12px' }}>
           <div className="nav-section-label">Agence active</div>
-          <select
-            className="form-select"
-            value={activeAgencyId || ''}
-            onChange={e => handleAgencyChange(e.target.value)}
+          <Select
+            value={activeAgencyId || '__none__'}
+            onValueChange={handleAgencyChange}
           >
-            <option value="">— Toutes / Aucune —</option>
-            {agencies.map(a => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full sidebar-select-trigger">
+              <SelectValue placeholder="— Toutes / Aucune —" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">— Toutes / Aucune —</SelectItem>
+              {agencies.map(a => (
+                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
       <div style={{ marginBottom: '6px' }}>
         <div className="nav-section-label">Voyage actif</div>
-        <select
-          className="form-select"
+        <Select
           value={selectedTrip?.id || ''}
-          onChange={e => onSelectTrip(e.target.value)}
+          onValueChange={(id) => onSelectTrip(id)}
         >
-          {!selectedTrip && <option value="" disabled>— Sélectionner —</option>}
-          {trips.map(t => (
-            <option key={t.id} value={t.id}>
-              {t.name} {t.date ? `(${t.date})` : ''}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="— Sélectionner —" />
+          </SelectTrigger>
+          <SelectContent>
+            {trips.map(t => (
+              <SelectItem key={t.id} value={t.id}>
+                {t.name} {t.date ? `(${t.date})` : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="nav-section-label">Menu</div>
@@ -120,16 +135,16 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button
+        <div className="sidebar-footer-actions">
+          <Button
+            variant="destructive"
             onClick={onLogout}
-            className="btn btn-danger-outline"
-            style={{ flex: 1 }}
+            className="sidebar-logout"
           >
-            <LogOut size={16} />
+            <LogOut />
             <span>Déconnexion</span>
-          </button>
-          <ThemeToggle />
+          </Button>
+          <ThemeToggle className="sidebar-theme-toggle" />
         </div>
       </div>
     </aside>
