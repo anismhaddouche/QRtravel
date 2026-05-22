@@ -114,51 +114,54 @@
      --sidebar-ring:         oklch(0.708 0 0);
    }
 
-   /* Dark theme — secondary. Clean navy, never the default. */
+   /* Dark theme — professional admin (Vercel/Linear-like graphite).
+      No navy, no teal, no violet. Pure neutral grays + sober accents. */
    :root[data-theme="dark"] {
-     --navy:         #0F1424;
-     --navy-light:   #161C2E;
-     --navy-surface: #161C2E;
-     --bg-page:      #0F1424;
-     --surface-1:    #161C2E;
-     --surface-2:    #1E2540;
-     --nav-bg:       #161C2E;
-     --scrim:        rgba(15, 20, 36, 0.65);
+     --navy:         #0B0B0C;
+     --navy-light:   #17181C;
+     --navy-surface: #17181C;
+     --bg-page:      #0B0B0C;
+     --surface-1:    #17181C;
+     --surface-2:    #202227;
+     --nav-bg:       #17181C;
+     --scrim:        rgba(0, 0, 0, 0.70);
 
-     --glass:        #161C2E;
-     --glass-hover:  #1E2540;
-     --glass-active: #25305A;
+     --glass:        #17181C;
+     --glass-hover:  #202227;
+     --glass-active: #2A2D34;
 
-     --border:        rgba(255, 255, 255, 0.08);
-     --border-light:  rgba(255, 255, 255, 0.14);
-     --border-subtle: rgba(255, 255, 255, 0.05);
-     --border-strong: rgba(255, 255, 255, 0.20);
+     --border:        #2A2D34;
+     --border-light:  #3A3E47;
+     --border-subtle: #1F2126;
+     --border-strong: #44494F;
 
-     --accent:        #60A5FA;
-     --accent-light:  #93C5FD;
-     --accent-dark:   #3B82F6;
-     --accent-glow:   rgba(96, 165, 250, 0.20);
-     --accent-bg:     rgba(96, 165, 250, 0.14);
+     /* Accent: discreet zinc-white for primary actions (admin neutral).
+        Reserved blue for focus rings only. */
+     --accent:        #F4F4F5;
+     --accent-light:  #E4E4E7;
+     --accent-dark:   #D4D4D8;
+     --accent-glow:   rgba(59, 130, 246, 0.35);
+     --accent-bg:     rgba(244, 244, 245, 0.08);
 
      --success:       #10B981;
      --success-light: #34D399;
-     --success-bg:    rgba(16, 185, 129, 0.14);
+     --success-bg:    rgba(16, 185, 129, 0.12);
 
      --warning:       #F59E0B;
      --warning-light: #FBBF24;
-     --warning-bg:    rgba(245, 158, 11, 0.14);
+     --warning-bg:    rgba(245, 158, 11, 0.12);
 
      --danger:        #EF4444;
      --danger-light:  #F87171;
-     --danger-bg:     rgba(239, 68, 68, 0.14);
+     --danger-bg:     rgba(239, 68, 68, 0.12);
 
-     --text-primary:   #E5EAF2;
-     --text-secondary: #A0AAC0;
-     --text-muted:     #6E7A93;
+     --text-primary:   #F5F5F6;
+     --text-secondary: #A1A1AA;
+     --text-muted:     #71717A;
 
-     --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.25);
-     --shadow-md:  0 4px 14px rgba(0, 0, 0, 0.30);
-     --shadow-lg:  0 14px 36px rgba(0, 0, 0, 0.36);
+     --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.40);
+     --shadow-md:  0 4px 14px rgba(0, 0, 0, 0.45);
+     --shadow-lg:  0 14px 36px rgba(0, 0, 0, 0.55);
    }
 
    /* Backwards-compat alias for any rule that still keys on [data-theme="light"]. */
@@ -282,93 +285,6 @@
      gap: 8px;
    }
 
-   /* ========== Buttons ========== */
-   .btn {
-     display: inline-flex;
-     align-items: center;
-     justify-content: center;
-     gap: 8px;
-     padding: 10px 20px;
-     border-radius: var(--radius-sm);
-     font-family: var(--font);
-     font-size: 0.875rem;
-     font-weight: 600;
-     border: none;
-     cursor: pointer;
-     transition: all 200ms ease;
-     text-decoration: none;
-   }
-
-   .btn:disabled {
-     opacity: 0.5;
-     cursor: not-allowed;
-   }
-
-   .btn-primary {
-     background: var(--accent);
-     color: var(--white);
-     box-shadow: 0 1px 2px rgba(0,0,0,0.12);
-   }
-
-   .btn-primary:hover:not(:disabled) {
-     background: var(--accent-dark);
-   }
-
-   .btn-success {
-     background: var(--success);
-     color: var(--white);
-   }
-
-   .btn-success:hover:not(:disabled) {
-     background: #059669;
-   }
-
-   .btn-danger {
-     background: var(--danger);
-     color: var(--white);
-   }
-
-   .btn-danger:hover:not(:disabled) {
-     background: #dc2626;
-   }
-
-   .btn-outline {
-     background: var(--glass);
-     color: var(--text-primary);
-     border: 1px solid var(--border);
-   }
-
-   .btn-outline:hover:not(:disabled) {
-     background: var(--glass-hover);
-     border-color: var(--border-light);
-   }
-
-   .btn-danger-outline {
-     background: transparent;
-     color: var(--danger-light);
-     border: 1px solid rgba(239, 68, 68, 0.3);
-   }
-
-   .btn-danger-outline:hover:not(:disabled) {
-     background: var(--danger-bg);
-     border-color: var(--danger);
-     color: var(--danger);
-   }
-
-   .btn-sm {
-     padding: 6px 12px;
-     font-size: 0.8rem;
-   }
-
-   .btn-lg {
-     padding: 14px 28px;
-     font-size: 1rem;
-   }
-
-   .btn-icon {
-     padding: 8px;
-   }
-
    /* ========== Status Badges ========== */
    .badge {
      display: inline-flex;
@@ -407,76 +323,9 @@
    }
 
    /* ========== Forms ========== */
-   .form-group {
-     margin-bottom: 20px;
-   }
-
-   .form-label {
-     display: block;
-     font-size: 0.85rem;
-     font-weight: 600;
-     color: var(--text-secondary);
-     margin-bottom: 8px;
-   }
-
-   .form-input,
-   .form-select {
-     width: 100%;
-     padding: 12px 16px;
-     background: var(--surface-1);
-     border: 1px solid var(--border);
-     border-radius: var(--radius-sm);
-     color: var(--text-primary);
-     font-family: var(--font);
-     font-size: 0.95rem;
-     transition: all 200ms ease;
-   }
-
-   :root[data-theme="dark"] .form-input,
-   :root[data-theme="dark"] .form-select {
-     background: rgba(255, 255, 255, 0.04);
-   }
-
-   :root[data-theme="light"] .form-input,
-   :root[data-theme="light"] .form-select {
-     background: #ffffff;
-   }
-
-   .form-input::placeholder {
-     color: var(--text-muted);
-   }
-
-   .form-input:focus,
-   .form-select:focus {
-     outline: none;
-     border-color: var(--accent-light);
-     box-shadow: 0 0 0 3px var(--accent-glow);
-   }
-
-   :root[data-theme="dark"] .form-input:focus,
-   :root[data-theme="dark"] .form-select:focus {
-     background: rgba(255, 255, 255, 0.06);
-   }
-
-   .form-select {
-     cursor: pointer;
-     appearance: none;
-     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-     background-repeat: no-repeat;
-     background-position: right 16px center;
-     padding-right: 40px;
-   }
-
-   .form-select option {
-     background: var(--navy-surface);
-     color: var(--text-primary);
-   }
-
-   .form-grid-2 {
-     display: grid;
-     grid-template-columns: 1fr 1fr;
-     gap: 16px;
-   }
+   /* Legacy form-input/form-label/form-group/form-select/form-grid-2
+      were removed — all forms now use shadcn <Input>/<Label>/<Select>
+      with Tailwind grid + space-y for layout. */
 
    .form-error {
      color: var(--danger-light);
@@ -584,14 +433,6 @@
 
    /* ========== Responsive Utilities ========== */
    @media (max-width: 768px) {
-     .form-grid-2 {
-       grid-template-columns: 1fr;
-     }
-
-     .form-group[style*="grid-column: span 2"] {
-       grid-column: span 1 !important;
-     }
-
      .page-header {
        flex-direction: column;
        align-items: stretch !important;
@@ -623,17 +464,10 @@
        justify-content: flex-end;
      }
 
-     /* Buttons stay comfortably tappable on touch (WCAG 2.5.5 target). */
-     .btn, .btn-sm {
-       min-height: 44px;
-     }
-
-     /* Inputs more comfortable on small screens. */
-     .form-input,
-     .form-select {
-       font-size: 16px; /* avoid iOS zoom-on-focus */
-       min-height: 44px;
-     }
+     /* shadcn <Button> default size is h-9; shadcn <Input> default is
+        h-9 with text-base on mobile via its own classes. WCAG 2.5.5
+        tactile targets are handled per-component (board-row__action,
+        FAB, bottom-nav tabs are already >= 44px). */
 
      /* Page title scales down on phones. */
      .page-title {
@@ -1879,25 +1713,25 @@
 }
 
    .dark {
-     /* shadcn tokens remapped to brand dark palette */
-     --background:         #0F1424;
-     --foreground:         #E5EAF2;
-     --card:               #161C2E;
-     --card-foreground:    #E5EAF2;
-     --popover:            #161C2E;
-     --popover-foreground: #E5EAF2;
-     --primary:            #60A5FA;
-     --primary-foreground: #0F1424;
-     --secondary:          #1E2540;
-     --secondary-foreground: #E5EAF2;
-     --muted:              #1E2540;
-     --muted-foreground:   #A0AAC0;
-     --accent:             #60A5FA;
-     --accent-foreground:  #0F1424;
-     --destructive:        #EF4444;
-     --border:             rgba(255, 255, 255, 0.10);
-     --input:              rgba(255, 255, 255, 0.15);
-     --ring:               rgba(96, 165, 250, 0.55);
+     /* shadcn tokens — professional admin graphite (Vercel/Linear) */
+     --background:         #0B0B0C;
+     --foreground:         #F5F5F6;
+     --card:               #17181C;
+     --card-foreground:    #F5F5F6;
+     --popover:            #17181C;
+     --popover-foreground: #F5F5F6;
+     --primary:            #F4F4F5;            /* neutral white-zinc */
+     --primary-foreground: #0B0B0C;
+     --secondary:          #202227;
+     --secondary-foreground: #F5F5F6;
+     --muted:              #202227;
+     --muted-foreground:   #A1A1AA;
+     --accent:             #202227;
+     --accent-foreground:  #F5F5F6;
+     --destructive:        #DC2626;
+     --border:             #2A2D34;
+     --input:              #2A2D34;
+     --ring:               rgba(59, 130, 246, 0.55);
      --chart-1:         oklch(0.87 0 0);
      --chart-2:         oklch(0.556 0 0);
      --chart-3:         oklch(0.439 0 0);

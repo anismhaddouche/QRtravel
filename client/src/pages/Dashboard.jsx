@@ -257,7 +257,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
           </div>
         </div>
         <SkeletonStats />
-        <div className="form-grid-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <SkeletonTable rows={3} />
           <SkeletonTable rows={3} />
         </div>

@@ -182,7 +182,7 @@ export default function TravelerDetails({ role }) {
         </div>
       </section>
 
-      <div className="form-grid-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         {/* Infos voyageur */}
         <div className="glass-card">
           <div className="glass-card-header">
