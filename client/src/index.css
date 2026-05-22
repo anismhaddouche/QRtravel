@@ -1166,6 +1166,7 @@
      color: var(--accent);
      padding: 4px 8px;
      background: var(--accent-bg);
+     border: 1px solid transparent;
      border-radius: 999px;
      margin-bottom: 8px;
    }
@@ -1803,3 +1804,72 @@
     @apply font-sans;
      }
 }
+
+   /* ============================================================
+      v5 — Dark-mode contrast polish (badges, avatars, disabled,
+            destructive button outline)
+      ============================================================ */
+
+   /* "VOYAGE ACTIF" eyebrow chip — readable subtle pill in dark */
+   :root[data-theme="dark"] .trip-hero__eyebrow {
+     color: #DCEBFF;
+     background: rgba(96, 165, 250, 0.14);
+     border-color: rgba(96, 165, 250, 0.30);
+   }
+
+   /* Sidebar / user-card avatar initials ("M") — visible disc in dark */
+   :root[data-theme="dark"] .avatar {
+     background: var(--surface-2);
+     border-color: var(--border);
+     color: var(--text-primary);
+   }
+   /* Keep semantic avatars (status) intact */
+   :root[data-theme="dark"] .avatar--success {
+     background: var(--success-bg);
+     color: var(--success-light);
+     border-color: rgba(16, 185, 129, 0.25);
+   }
+   :root[data-theme="dark"] .avatar--warning {
+     background: var(--warning-bg);
+     color: var(--warning-light);
+     border-color: rgba(245, 158, 11, 0.25);
+   }
+   :root[data-theme="dark"] .avatar--neutral {
+     background: var(--surface-2);
+     color: var(--text-primary);
+   }
+
+   /* Disabled shadcn buttons in dark — readable opacity + visible border
+      so callers like Appeler / WhatsApp / Email stay understandable. */
+   :root[data-theme="dark"] button[data-slot="button"]:disabled,
+   :root[data-theme="dark"] button[data-slot="button"][data-disabled],
+   :root[data-theme="dark"] a[data-slot="button"][aria-disabled="true"] {
+     opacity: 0.65;
+   }
+   :root[data-theme="dark"] button[data-slot="button"][data-variant="outline"]:disabled {
+     border-color: var(--border-light);
+     background: rgba(255, 255, 255, 0.03);
+     color: var(--text-muted);
+   }
+
+   /* Sidebar Déconnexion (shadcn destructive button) — visible border
+      and tinted surface in dark, hover state lifts the surface. */
+   .sidebar button[data-slot="button"][data-variant="destructive"] {
+     border: 1px solid rgba(220, 38, 38, 0.45);
+     background: rgba(220, 38, 38, 0.10);
+     color: #FCA5A5;
+   }
+   .sidebar button[data-slot="button"][data-variant="destructive"]:hover:not(:disabled) {
+     background: rgba(220, 38, 38, 0.16);
+     border-color: rgba(248, 113, 113, 0.65);
+     color: #FECACA;
+   }
+   :root[data-theme="light"] .sidebar button[data-slot="button"][data-variant="destructive"] {
+     border-color: rgba(185, 28, 28, 0.40);
+     background: rgba(185, 28, 28, 0.08);
+     color: var(--danger);
+   }
+   :root[data-theme="light"] .sidebar button[data-slot="button"][data-variant="destructive"]:hover:not(:disabled) {
+     background: rgba(185, 28, 28, 0.14);
+     border-color: rgba(185, 28, 28, 0.60);
+   }
