@@ -81,15 +81,15 @@ function DeleteAgencyModal({ agency, onClose, onDelete }) {
         </Label>
       </div>
 
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={onClose} className="flex-1" disabled={submitting}>
+      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+        <Button variant="outline" onClick={onClose} disabled={submitting} className="sm:flex-none">
           Annuler
         </Button>
         <Button
           variant="destructive"
-          className="flex-1"
           disabled={!canSubmit}
           onClick={submit}
+          className="sm:flex-none"
         >
           {submitting ? 'Suppression...' : (hasData ? 'Tout supprimer' : 'Supprimer')}
         </Button>
@@ -310,7 +310,7 @@ export default function Agencies() {
 
       {showForm && (
         <Modal isOpen={true} title={editing ? `Modifier : ${editing.name}` : 'Nouvelle agence'} onClose={() => setShowForm(false)}>
-          <form onSubmit={handleSave} className="space-y-4">
+          <form onSubmit={handleSave} className="space-y-5">
             {formError && <div className="form-error">{formError}</div>}
             <div className="space-y-2">
               <Label htmlFor="agency-name">Nom</Label>

@@ -7,6 +7,7 @@ import { Map, Plus, Edit2, Trash2, LogOut, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -182,8 +183,8 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
         onClose={() => { setShowForm(false); resetForm(); }}
         title={editingId ? 'Modifier le voyage' : 'Nouveau voyage'}
       >
-        {formError && <div className="form-error">{formError}</div>}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {formError && <div className="form-error mb-4">{formError}</div>}
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="input-trip-name">Nom du voyage *</Label>
             <Input
@@ -194,41 +195,44 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="input-trip-date">Date</Label>
-            <Input
-              id="input-trip-date"
-              type="date"
-              value={form.date}
-              onChange={e => setForm({ ...form, date: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="select-trip-status">Statut</Label>
-            <Select
-              value={form.status}
-              onValueChange={(status) => setForm({ ...form, status })}
-            >
-              <SelectTrigger id="select-trip-status" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Actif</SelectItem>
-                <SelectItem value="completed">Terminé</SelectItem>
-                <SelectItem value="archived">Archivé</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="input-trip-date">Date</Label>
+              <Input
+                id="input-trip-date"
+                type="date"
+                value={form.date}
+                onChange={e => setForm({ ...form, date: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="select-trip-status">Statut</Label>
+              <Select
+                value={form.status}
+                onValueChange={(status) => setForm({ ...form, status })}
+              >
+                <SelectTrigger id="select-trip-status" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Actif</SelectItem>
+                  <SelectItem value="completed">Terminé</SelectItem>
+                  <SelectItem value="archived">Archivé</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="input-trip-notes">Notes (optionnel)</Label>
-            <Input
+            <Textarea
               id="input-trip-notes"
+              rows={3}
               placeholder="Détails du voyage, notes pour le guide..."
               value={form.notes}
               onChange={e => setForm({ ...form, notes: e.target.value })}
             />
           </div>
-          <div className="flex justify-between pt-2">
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
               Annuler
             </Button>
@@ -248,7 +252,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
           <AlertCircle size={18} style={{ color: 'var(--warning-light)', flexShrink: 0, marginTop: '2px' }} />
           <span>{TRIP_LIMIT_MESSAGE}</span>
         </p>
-        <div className="flex justify-end">
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
           <Button onClick={() => setShowLimit(false)}>J'ai compris</Button>
         </div>
       </Modal>
@@ -370,7 +374,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
             ⚠️ Cette action supprimera définitivement tous les voyageurs associés ({deleteConfirm?.travelerCount || 0} unités) et leur historique de scan. Cette action est irréversible.
           </p>
         </div>
-        <div className="flex justify-between">
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
             Annuler
           </Button>

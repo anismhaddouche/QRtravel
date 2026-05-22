@@ -217,7 +217,7 @@ export default function Users({ currentUsername, currentRole }) {
 
       {showForm && (
         <Modal isOpen={true} title="Nouveau compte" onClose={() => { setShowForm(false); setFormError(''); }}>
-          <form onSubmit={handleCreate} className="space-y-4">
+          <form onSubmit={handleCreate} className="space-y-5">
             {formError && <div className="form-error">{formError}</div>}
             <div className="space-y-2">
               <Label htmlFor="user-email">Email</Label>
@@ -283,7 +283,7 @@ export default function Users({ currentUsername, currentRole }) {
 
       {resetTarget && (
         <Modal isOpen={true} title={`Réinitialiser : ${resetTarget.email}`} onClose={() => setResetTarget(null)}>
-          <form onSubmit={handleReset} className="space-y-4">
+          <form onSubmit={handleReset} className="space-y-5">
             {resetError && <div className="form-error">{resetError}</div>}
             <div className="space-y-2">
               <Label htmlFor="reset-password">Nouveau mot de passe</Label>
@@ -310,13 +310,12 @@ export default function Users({ currentUsername, currentRole }) {
           <p>
             Supprimer définitivement <strong>{deleteConfirm.email}</strong> ? Cette action est irréversible.
           </p>
-          <div className="flex gap-3 mt-4">
-            <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>
+          <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
               Annuler
             </Button>
             <Button
               variant="destructive"
-              className="flex-1"
               onClick={() => handleDelete(deleteConfirm.id)}
             >
               Supprimer

@@ -18,6 +18,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink, buildShareMessage } from '../utils/share';
 import GroupMembersEditor, { emptyMember, validateMembers } from '../components/GroupMembersEditor';
 
@@ -478,7 +488,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
               Cette action est irréversible. Les voyageurs sélectionnés et leurs scans seront supprimés.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"
@@ -882,14 +892,14 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Ajouter des voyageurs</DialogTitle>
           <DialogDescription className="sr-only">
             Ajout manuel ou import CSV de voyageurs au voyage actif.
           </DialogDescription>
         </DialogHeader>
-        <div role="tablist" style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
+        <div role="tablist" className="flex gap-2 mb-4">
           <Button
             size="sm"
             variant={mode === 'manual' ? 'default' : 'outline'}
@@ -911,34 +921,32 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
         </div>
 
       {mode === 'manual' ? (
-        <form onSubmit={submitManual}>
-          <div className="form-group">
-            <label className="form-label">Nom d'affichage *</label>
-            <input
+        <form onSubmit={submitManual} className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="add-display-name">Nom d'affichage *</Label>
+            <Input
+              id="add-display-name"
               required
-              className="form-input"
               value={form.displayName}
               onChange={(e) => setForm({ ...form, displayName: e.target.value })}
             />
           </div>
-          <div className="form-group">
-            <label className="form-label">Code de référence *</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="add-ref-code">Code de référence *</Label>
+            <Input
+              id="add-ref-code"
               required
-              className="form-input"
               value={form.referenceCode}
               onChange={(e) => setForm({ ...form, referenceCode: e.target.value.toUpperCase() })}
               placeholder="TRV-..."
             />
           </div>
-          <div className="form-grid-2">
-            <div className="form-group">
-              <label className="form-label">Type</label>
-              <select
-                className="form-input"
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="add-type">Type</Label>
+              <Select
                 value={form.type}
-                onChange={(e) => {
-                  const type = e.target.value;
+                onValueChange={(type) => {
                   // Individuel = 1; Groupe min = 2 (with 2 empty rows pre-filled).
                   const peopleCount = type === 'person' ? 1 : Math.max(2, form.peopleCount || 2);
                   const groupMembers = type === 'group'
@@ -955,18 +963,23 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
                   });
                 }}
               >
-                <option value="person">Individuel</option>
-                <option value="group">Groupe</option>
-              </select>
+                <SelectTrigger id="add-type" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="person">Individuel</SelectItem>
+                  <SelectItem value="group">Groupe</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             {form.type === 'group' && (
-              <div className="form-group">
-                <label className="form-label">Nombre de personnes</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="add-people-count">Nombre de personnes</Label>
+                <Input
+                  id="add-people-count"
                   type="number"
                   min="2"
                   max="100"
-                  className="form-input"
                   value={form.peopleCountInput}
                   onChange={(e) => {
                     const raw = e.target.value;
@@ -1008,39 +1021,41 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
               onChange={(groupMembers) => setForm((f) => ({ ...f, groupMembers }))}
             />
           )}
-          <div className="form-group">
-            <label className="form-label">Téléphone</label>
-            <input
-              className="form-input"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              placeholder="05....."
-            />
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="add-phone">Téléphone</Label>
+              <Input
+                id="add-phone"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="05....."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-email">Email</Label>
+              <Input
+                id="add-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label className="form-label">Email</label>
-            <input
-              type="email"
-              className="form-input"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Notes</label>
-            <textarea
-              className="form-input"
+          <div className="space-y-2">
+            <Label htmlFor="add-notes">Notes</Label>
+            <Textarea
+              id="add-notes"
               rows={3}
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
           </div>
           {error && (
-            <div style={{ color: 'var(--danger-light)', fontSize: '0.85rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="flex items-center gap-2 text-sm text-destructive">
               <AlertCircle size={14} /> {error}
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Annuler</Button>
             <Button type="submit" disabled={submitting}>
               <Plus /> {submitting ? 'Ajout...' : 'Ajouter'}
@@ -1048,31 +1063,29 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
           </DialogFooter>
         </form>
       ) : (
-        <div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '12px' }}>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
             Colonnes attendues : <code>type, nom, prenom, tel, mail</code>. Types acceptés : Individuel, Groupe.
           </p>
-          <input
+          <Input
             ref={fileRef}
             type="file"
             accept=".csv,text/csv"
-            className="form-input"
-            style={{ marginBottom: '12px' }}
           />
           {importError && (
-            <div style={{ color: 'var(--danger-light)', fontSize: '0.85rem', marginBottom: '12px' }}>
+            <div className="flex items-center gap-2 text-sm text-destructive">
               <AlertCircle size={14} /> {importError}
             </div>
           )}
           {importResult && (
-            <div style={{ marginBottom: '12px', fontSize: '0.85rem' }}>
-              <div style={{ color: 'var(--success-light)' }}>{importResult.created} créé(s)</div>
+            <div className="text-sm space-y-1">
+              <div className="text-emerald-700 dark:text-emerald-400">{importResult.created} créé(s)</div>
               {importResult.failed > 0 && (
                 <>
-                  <div style={{ color: 'var(--warning-light)' }}>{importResult.failed} en erreur</div>
-                  <ul style={{ maxHeight: '160px', overflowY: 'auto', marginTop: '6px', paddingLeft: '20px' }}>
+                  <div className="text-amber-700 dark:text-amber-400">{importResult.failed} en erreur</div>
+                  <ul className="mt-1 max-h-40 overflow-y-auto pl-5 list-disc">
                     {importResult.errors.map((er, i) => (
-                      <li key={i} style={{ color: 'var(--text-muted)' }}>
+                      <li key={i} className="text-muted-foreground">
                         Ligne {er.line} — {er.error}
                       </li>
                     ))}
@@ -1081,7 +1094,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
               )}
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={onClose} disabled={importing}>Fermer</Button>
             <Button type="button" onClick={submitCsv} disabled={importing}>
               <Upload /> {importing ? 'Import...' : 'Importer'}
@@ -1151,7 +1164,7 @@ function BulkShareModal({ isOpen, mode, onClose, travelers, trip, agencyName }) 
             );
           })}
         </ul>
-        <DialogFooter>
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={onClose}>Fermer</Button>
         </DialogFooter>
       </DialogContent>

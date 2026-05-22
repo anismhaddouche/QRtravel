@@ -4,7 +4,6 @@ import { api } from '../utils/api';
 import { LoadingState } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import StatusBadge from '../components/StatusBadge';
-import Modal from '../components/Modal';
 import {
   ArrowLeft, User, Users, Phone, Mail, MessageCircle, Copy,
   QrCode, Hash, MapPin, Building2, FileText, AlertCircle,
@@ -12,6 +11,25 @@ import {
 } from 'lucide-react';
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink } from '../utils/share';
 import GroupMembersEditor, { emptyMember, validateMembers } from '../components/GroupMembersEditor';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // Only two types are supported now. Legacy 'couple' / 'family' rows are
 // rendered as Groupe (a DB migration also converts them on init).
@@ -103,9 +121,9 @@ export default function TravelerDetails({ role }) {
           }
         />
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
-          <button className="btn btn-outline" onClick={() => navigate(-1)}>
-            <ArrowLeft size={16} /> Retour
-          </button>
+          <Button variant="outline" onClick={() => navigate(-1)}>
+            <ArrowLeft /> Retour
+          </Button>
         </div>
       </div>
     );
@@ -131,13 +149,14 @@ export default function TravelerDetails({ role }) {
 
   return (
     <div>
-      <button
-        className="btn btn-outline btn-sm"
+      <Button
+        variant="outline"
+        size="sm"
         onClick={() => navigate('/')}
-        style={{ marginBottom: '12px' }}
+        className="mb-3"
       >
-        <ArrowLeft size={14} /> Retour au tableau de bord
-      </button>
+        <ArrowLeft /> Retour au tableau de bord
+      </Button>
 
       <section className="detail-hero">
         <span className={`avatar avatar--lg ${isCheckedIn ? 'avatar--success' : 'avatar--neutral'}`}>
@@ -154,12 +173,12 @@ export default function TravelerDetails({ role }) {
           <div className="detail-hero__ref">{traveler.referenceCode}</div>
         </div>
         <div className="detail-hero__actions">
-          <button className="btn btn-outline" onClick={() => setShowEdit(true)}>
-            <Edit2 size={16} /> Modifier
-          </button>
-          <button className="btn btn-danger-outline" onClick={() => setShowDelete(true)}>
-            <Trash2 size={16} /> Supprimer
-          </button>
+          <Button variant="outline" onClick={() => setShowEdit(true)}>
+            <Edit2 /> Modifier
+          </Button>
+          <Button variant="destructive" onClick={() => setShowDelete(true)}>
+            <Trash2 /> Supprimer
+          </Button>
         </div>
       </section>
 
@@ -208,28 +227,33 @@ export default function TravelerDetails({ role }) {
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
             {traveler.phone && (
-              <a className="btn btn-outline" href={`tel:${traveler.phone}`} title="Appeler">
-                <Phone size={16} /> Appeler
-              </a>
+              <Button asChild variant="outline">
+                <a href={`tel:${traveler.phone}`} title="Appeler">
+                  <Phone /> Appeler
+                </a>
+              </Button>
             )}
             {wa && (
-              <a className="btn btn-outline" href={wa} target="_blank" rel="noopener noreferrer" title="WhatsApp">
-                <MessageCircle size={16} /> WhatsApp
-              </a>
+              <Button asChild variant="outline">
+                <a href={wa} target="_blank" rel="noopener noreferrer" title="WhatsApp">
+                  <MessageCircle /> WhatsApp
+                </a>
+              </Button>
             )}
             {mt && (
-              <a className="btn btn-outline" href={mt} title="Email">
-                <Mail size={16} /> Email
-              </a>
+              <Button asChild variant="outline">
+                <a href={mt} title="Email">
+                  <Mail /> Email
+                </a>
+              </Button>
             )}
-            <button
-              type="button"
-              className="btn btn-outline"
+            <Button
+              variant="outline"
               onClick={() => copyText(qrLink || traveler.referenceCode, 'Lien QR copié')}
               title="Copier le lien du QR code"
             >
-              <Copy size={16} /> Copier lien QR
-            </button>
+              <Copy /> Copier lien QR
+            </Button>
           </div>
         </div>
 
@@ -366,23 +390,27 @@ export default function TravelerDetails({ role }) {
         onSave={handleSaveEdit}
       />
 
-      <Modal
-        isOpen={showDelete}
-        onClose={() => !deleting && setShowDelete(false)}
-        title="Supprimer ce voyageur ?"
+      <Dialog
+        open={showDelete}
+        onOpenChange={(open) => { if (!open && !deleting) setShowDelete(false); }}
       >
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-          Cette action est irréversible. <strong>{traveler.displayName}</strong> et ses scans seront supprimés.
-        </p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <button type="button" className="btn btn-outline" onClick={() => setShowDelete(false)} disabled={deleting}>
-            Annuler
-          </button>
-          <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
-            <Trash2 size={16} /> {deleting ? 'Suppression...' : 'Supprimer'}
-          </button>
-        </div>
-      </Modal>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Supprimer ce voyageur ?</DialogTitle>
+            <DialogDescription>
+              Cette action est irréversible. <strong>{traveler.displayName}</strong> et ses scans seront supprimés.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setShowDelete(false)} disabled={deleting}>
+              Annuler
+            </Button>
+            <Button type="button" variant="destructive" onClick={handleDelete} disabled={deleting}>
+              <Trash2 /> {deleting ? 'Suppression...' : 'Supprimer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {toast && (
         <div
@@ -489,142 +517,156 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
   if (!traveler) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={() => !saving && onClose()} title="Modifier le voyageur">
-      <form onSubmit={submit}>
-        <div className="form-group">
-          <label className="form-label">Nom d'affichage</label>
-          <input
-            required
-            className="form-input"
-            value={form.displayName}
-            onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-          />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Code de référence</label>
-          <input
-            className="form-input"
-            value={traveler.referenceCode}
-            disabled
-            title="Le code de référence ne peut pas être modifié"
-          />
-        </div>
-        <div className="form-grid-2">
-          <div className="form-group">
-            <label className="form-label">Type</label>
-            <select
-              className="form-input"
-              value={form.type}
-              onChange={(e) => {
-                const type = e.target.value;
-                const peopleCount = type === 'person' ? 1 : Math.max(2, form.peopleCount || 2);
-                const groupMembers = type === 'group'
-                  ? (form.groupMembers?.length === peopleCount
-                      ? form.groupMembers
-                      : Array.from({ length: peopleCount }, () => emptyMember()))
-                  : [];
-                setForm({
-                  ...form,
-                  type,
-                  peopleCount,
-                  peopleCountInput: String(peopleCount),
-                  groupMembers,
-                });
-              }}
-            >
-              <option value="person">Individuel</option>
-              <option value="group">Groupe</option>
-            </select>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => { if (!open && !saving) onClose(); }}
+    >
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Modifier le voyageur</DialogTitle>
+          <DialogDescription className="sr-only">
+            Édition des informations du voyageur.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="edit-display-name">Nom d'affichage</Label>
+            <Input
+              id="edit-display-name"
+              required
+              value={form.displayName}
+              onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-ref-code">Code de référence</Label>
+            <Input
+              id="edit-ref-code"
+              value={traveler.referenceCode}
+              disabled
+              title="Le code de référence ne peut pas être modifié"
+            />
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-type">Type</Label>
+              <Select
+                value={form.type}
+                onValueChange={(type) => {
+                  const peopleCount = type === 'person' ? 1 : Math.max(2, form.peopleCount || 2);
+                  const groupMembers = type === 'group'
+                    ? (form.groupMembers?.length === peopleCount
+                        ? form.groupMembers
+                        : Array.from({ length: peopleCount }, () => emptyMember()))
+                    : [];
+                  setForm({
+                    ...form,
+                    type,
+                    peopleCount,
+                    peopleCountInput: String(peopleCount),
+                    groupMembers,
+                  });
+                }}
+              >
+                <SelectTrigger id="edit-type" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="person">Individuel</SelectItem>
+                  <SelectItem value="group">Groupe</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {form.type === 'group' && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-people-count">Nombre de personnes</Label>
+                <Input
+                  id="edit-people-count"
+                  type="number"
+                  min="2"
+                  max="100"
+                  value={form.peopleCountInput}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setForm((f) => {
+                      const parsed = parseInt(raw, 10);
+                      const valid = Number.isFinite(parsed) && parsed >= 2 && parsed <= 100;
+                      const peopleCount = valid ? parsed : f.peopleCount;
+                      const groupMembers = valid && parsed !== f.groupMembers.length
+                        ? Array.from({ length: parsed }, (_, i) => f.groupMembers[i] || emptyMember())
+                        : f.groupMembers;
+                      return { ...f, peopleCountInput: raw, peopleCount, groupMembers };
+                    });
+                  }}
+                  onBlur={() => {
+                    setForm((f) => {
+                      const parsed = parseInt(f.peopleCountInput, 10);
+                      const norm = Number.isFinite(parsed) && parsed >= 2
+                        ? Math.min(100, parsed)
+                        : 2;
+                      const groupMembers = norm !== f.groupMembers.length
+                        ? Array.from({ length: norm }, (_, i) => f.groupMembers[i] || emptyMember())
+                        : f.groupMembers;
+                      return {
+                        ...f,
+                        peopleCount: norm,
+                        peopleCountInput: String(norm),
+                        groupMembers,
+                      };
+                    });
+                  }}
+                />
+              </div>
+            )}
           </div>
           {form.type === 'group' && (
-            <div className="form-group">
-              <label className="form-label">Nombre de personnes</label>
-              <input
-                type="number"
-                min="2"
-                max="100"
-                className="form-input"
-                value={form.peopleCountInput}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  setForm((f) => {
-                    const parsed = parseInt(raw, 10);
-                    const valid = Number.isFinite(parsed) && parsed >= 2 && parsed <= 100;
-                    const peopleCount = valid ? parsed : f.peopleCount;
-                    const groupMembers = valid && parsed !== f.groupMembers.length
-                      ? Array.from({ length: parsed }, (_, i) => f.groupMembers[i] || emptyMember())
-                      : f.groupMembers;
-                    return { ...f, peopleCountInput: raw, peopleCount, groupMembers };
-                  });
-                }}
-                onBlur={() => {
-                  setForm((f) => {
-                    const parsed = parseInt(f.peopleCountInput, 10);
-                    const norm = Number.isFinite(parsed) && parsed >= 2
-                      ? Math.min(100, parsed)
-                      : 2;
-                    const groupMembers = norm !== f.groupMembers.length
-                      ? Array.from({ length: norm }, (_, i) => f.groupMembers[i] || emptyMember())
-                      : f.groupMembers;
-                    return {
-                      ...f,
-                      peopleCount: norm,
-                      peopleCountInput: String(norm),
-                      groupMembers,
-                    };
-                  });
-                }}
-              />
+            <GroupMembersEditor
+              peopleCount={form.peopleCount}
+              value={form.groupMembers}
+              onChange={(groupMembers) => setForm((f) => ({ ...f, groupMembers }))}
+            />
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="edit-phone">Téléphone</Label>
+            <Input
+              id="edit-phone"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              placeholder="05....."
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-email">Email</Label>
+            <Input
+              id="edit-email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-notes">Notes</Label>
+            <Textarea
+              id="edit-notes"
+              rows={3}
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+          </div>
+          {error && (
+            <div style={{ color: 'var(--danger-light)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <AlertCircle size={14} /> {error}
             </div>
           )}
-        </div>
-        {form.type === 'group' && (
-          <GroupMembersEditor
-            peopleCount={form.peopleCount}
-            value={form.groupMembers}
-            onChange={(groupMembers) => setForm((f) => ({ ...f, groupMembers }))}
-          />
-        )}
-        <div className="form-group">
-          <label className="form-label">Téléphone</label>
-          <input
-            className="form-input"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            placeholder="05....."
-          />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Email</label>
-          <input
-            type="email"
-            className="form-input"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Notes</label>
-          <textarea
-            className="form-input"
-            rows={3}
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          />
-        </div>
-        {error && (
-          <div style={{ color: 'var(--danger-light)', fontSize: '0.85rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <AlertCircle size={14} /> {error}
-          </div>
-        )}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <button type="button" className="btn btn-outline" onClick={onClose} disabled={saving}>Annuler</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            <Save size={16} /> {saving ? 'Sauvegarde...' : 'Enregistrer'}
-          </button>
-        </div>
-      </form>
-    </Modal>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Annuler</Button>
+            <Button type="submit" disabled={saving}>
+              <Save /> {saving ? 'Sauvegarde...' : 'Enregistrer'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
