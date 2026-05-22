@@ -198,12 +198,12 @@ export default function TravelerDetails({ role }) {
             <Field icon={Users} label="Personnes">{traveler.peopleCount}</Field>
             <Field icon={Phone} label="Téléphone">
               {traveler.phone ? (
-                <a href={`tel:${traveler.phone}`} style={{ color: 'var(--accent-light)' }}>{traveler.phone}</a>
+                <a href={`tel:${traveler.phone}`} className="traveler-info-link">{traveler.phone}</a>
               ) : <Muted>—</Muted>}
             </Field>
             <Field icon={Mail} label="Email">
               {traveler.email ? (
-                <a href={`mailto:${traveler.email}`} style={{ color: 'var(--accent-light)' }}>{traveler.email}</a>
+                <a href={`mailto:${traveler.email}`} className="traveler-info-link">{traveler.email}</a>
               ) : <Muted>—</Muted>}
             </Field>
             <Field icon={MapPin} label="Voyage">

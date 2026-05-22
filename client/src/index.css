@@ -1946,19 +1946,55 @@
 
    /* Traveler action buttons forced into a disabled-but-readable state
       (Appeler / WhatsApp / Email when contact info is missing). */
-   .traveler-action-disabled,
    :root[data-theme="dark"] .traveler-action-disabled {
-     opacity: 0.85 !important;
-     border-color: var(--border-light) !important;
-     background: rgba(255, 255, 255, 0.06) !important;
-     color: var(--text-secondary) !important;
+     opacity: 1 !important;
+     border-color: #4B5563 !important;
+     background: rgba(255, 255, 255, 0.075) !important;
+     color: #D1D5DB !important;
      cursor: not-allowed !important;
    }
-   :root[data-theme="light"] .traveler-action-disabled {
-     background: rgba(15, 23, 42, 0.04) !important;
-     color: var(--text-secondary) !important;
+   :root[data-theme="dark"] .traveler-action-disabled:hover {
+     background: rgba(255, 255, 255, 0.075) !important;
+     border-color: #4B5563 !important;
+     color: #D1D5DB !important;
+     cursor: not-allowed !important;
    }
-   .traveler-action-disabled svg {
-     color: currentColor !important;
+   :root[data-theme="dark"] .traveler-action-disabled svg {
+     color: #D1D5DB !important;
      opacity: 1 !important;
+   }
+   :root[data-theme="light"] .traveler-action-disabled {
+     opacity: 1 !important;
+     border-color: rgba(15, 23, 42, 0.18) !important;
+     background: rgba(15, 23, 42, 0.04) !important;
+     color: #4B5563 !important;
+     cursor: not-allowed !important;
+   }
+   :root[data-theme="light"] .traveler-action-disabled:hover {
+     background: rgba(15, 23, 42, 0.04) !important;
+     border-color: rgba(15, 23, 42, 0.18) !important;
+     color: #4B5563 !important;
+     cursor: not-allowed !important;
+   }
+   :root[data-theme="light"] .traveler-action-disabled svg {
+     color: #4B5563 !important;
+     opacity: 1 !important;
+   }
+
+   /* Phone / Email values in TravelerDetails Information panel — must
+      remain readable in dark mode (previously inherited --accent-light
+      which is a dark gray in the admin-graphite palette). */
+   :root[data-theme="dark"] .traveler-info-link {
+     color: #D1D5DB !important;
+   }
+   :root[data-theme="dark"] .traveler-info-link:hover {
+     color: #F5F5F6 !important;
+     text-decoration: underline;
+   }
+   :root[data-theme="light"] .traveler-info-link {
+     color: var(--accent);
+   }
+   :root[data-theme="light"] .traveler-info-link:hover {
+     color: var(--accent-dark);
+     text-decoration: underline;
    }
