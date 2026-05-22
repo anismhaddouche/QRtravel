@@ -1935,3 +1935,30 @@
      color: var(--text-secondary);
      opacity: 0.9;
    }
+
+   /* Sidebar dropdown content — anchored below the trigger, bounded
+      height, comfortable z-index above the rest of the app. */
+   .sidebar-select-content {
+     z-index: 100;
+     min-width: var(--radix-select-trigger-width);
+     max-height: min(320px, var(--radix-select-content-available-height));
+   }
+
+   /* Traveler action buttons forced into a disabled-but-readable state
+      (Appeler / WhatsApp / Email when contact info is missing). */
+   .traveler-action-disabled,
+   :root[data-theme="dark"] .traveler-action-disabled {
+     opacity: 0.85 !important;
+     border-color: var(--border-light) !important;
+     background: rgba(255, 255, 255, 0.06) !important;
+     color: var(--text-secondary) !important;
+     cursor: not-allowed !important;
+   }
+   :root[data-theme="light"] .traveler-action-disabled {
+     background: rgba(15, 23, 42, 0.04) !important;
+     color: var(--text-secondary) !important;
+   }
+   .traveler-action-disabled svg {
+     color: currentColor !important;
+     opacity: 1 !important;
+   }

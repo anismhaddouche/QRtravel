@@ -55,7 +55,13 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
             <SelectTrigger className="w-full sidebar-select-trigger">
               <SelectValue placeholder="— Toutes / Aucune —" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              position="popper"
+              side="bottom"
+              align="start"
+              sideOffset={6}
+              className="sidebar-select-content"
+            >
               <SelectItem value="__none__">— Toutes / Aucune —</SelectItem>
               {agencies.map(a => (
                 <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
@@ -71,10 +77,16 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
           value={selectedTrip?.id || ''}
           onValueChange={(id) => onSelectTrip(id)}
         >
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full sidebar-select-trigger">
             <SelectValue placeholder="— Sélectionner —" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent
+            position="popper"
+            side="bottom"
+            align="start"
+            sideOffset={6}
+            className="sidebar-select-content"
+          >
             {trips.map(t => (
               <SelectItem key={t.id} value={t.id}>
                 {t.name} {t.date ? `(${t.date})` : ''}

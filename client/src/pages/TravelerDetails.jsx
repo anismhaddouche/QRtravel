@@ -226,25 +226,37 @@ export default function TravelerDetails({ role }) {
           </dl>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
-            {traveler.phone && (
+            {traveler.phone ? (
               <Button asChild variant="outline">
                 <a href={`tel:${traveler.phone}`} title="Appeler">
                   <Phone /> Appeler
                 </a>
               </Button>
+            ) : (
+              <Button variant="outline" disabled className="traveler-action-disabled" title="Téléphone manquant">
+                <Phone /> Appeler
+              </Button>
             )}
-            {wa && (
+            {wa ? (
               <Button asChild variant="outline">
                 <a href={wa} target="_blank" rel="noopener noreferrer" title="WhatsApp">
                   <MessageCircle /> WhatsApp
                 </a>
               </Button>
+            ) : (
+              <Button variant="outline" disabled className="traveler-action-disabled" title="Téléphone manquant pour WhatsApp">
+                <MessageCircle /> WhatsApp
+              </Button>
             )}
-            {mt && (
+            {mt ? (
               <Button asChild variant="outline">
                 <a href={mt} title="Email">
                   <Mail /> Email
                 </a>
+              </Button>
+            ) : (
+              <Button variant="outline" disabled className="traveler-action-disabled" title="Email manquant">
+                <Mail /> Email
               </Button>
             )}
             <Button
