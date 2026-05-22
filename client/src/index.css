@@ -560,8 +560,10 @@
      display: inline-flex;
      align-items: center;
      justify-content: center;
-     color: #fff;
-     background: var(--accent);
+     /* Adaptive icon color: white on brand blue in light,
+        dark on zinc-white background in dark. */
+     color: var(--primary-foreground);
+     background: var(--primary);
      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
    }
    .brand__name {
@@ -613,7 +615,7 @@
      background: var(--accent-bg);
      color: var(--accent);
    }
-   .nav-item--active svg { color: var(--accent); }
+   .nav-item--active svg { color: var(--primary); }
    .nav-item--active::before {
      content: '';
      position: absolute;
@@ -622,8 +624,10 @@
      bottom: 8px;
      width: 2px;
      border-radius: 2px;
-     background: var(--accent);
+     background: var(--primary);
    }
+   :root[data-theme="dark"] .nav-item--active svg { color: var(--text-primary); }
+   :root[data-theme="dark"] .nav-item--active::before { background: var(--text-primary); }
 
    /* ----- Avatar initials (flat, calm) ----- */
    .avatar {
@@ -765,8 +769,8 @@
    }
    .seg button:hover { color: var(--text-primary); }
    .seg button[aria-selected="true"] {
-     background: var(--accent);
-     color: #fff;
+     background: var(--primary);
+     color: var(--primary-foreground);
      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
    }
 
@@ -857,6 +861,11 @@
    .icon-btn--danger { color: var(--danger-light); border-color: rgba(220,38,38,0.30); }
    :root[data-theme="light"] .icon-btn--danger { color: var(--danger); }
    .icon-btn--danger:hover { background: var(--danger-bg); }
+
+   @media (max-width: 640px) {
+     /* Larger tactile target on mobile for icon-only buttons. */
+     .icon-btn { width: 40px; height: 40px; }
+   }
 
    /* ----- Selection bar (sticky) ----- */
    .selection-bar {
@@ -1437,9 +1446,9 @@
      height: 56px;
      border-radius: 50%;
      border: none;
-     background: var(--accent);
-     color: #fff;
-     box-shadow: 0 8px 24px rgba(13,148,136,0.35), 0 2px 6px rgba(0,0,0,0.18);
+     background: var(--primary);
+     color: var(--primary-foreground);
+     box-shadow: 0 8px 24px rgba(0,0,0,0.30), 0 2px 6px rgba(0,0,0,0.18);
      display: inline-flex;
      align-items: center;
      justify-content: center;
@@ -1508,8 +1517,8 @@
      height: 24px;
      padding: 0 6px;
      border-radius: 999px;
-     background: var(--accent);
-     color: #fff;
+     background: var(--primary);
+     color: var(--primary-foreground);
      font-size: 0.76rem;
      font-weight: 700;
    }
@@ -1539,19 +1548,24 @@
      width: 52px;
      height: 52px;
      border-radius: 50%;
-     background: var(--accent);
-     color: #fff;
+     background: var(--primary);
+     color: var(--primary-foreground);
      display: inline-flex;
      align-items: center;
      justify-content: center;
-     box-shadow: 0 6px 16px rgba(13,148,136,0.35), 0 2px 4px rgba(0,0,0,0.18);
+     box-shadow: 0 6px 16px rgba(0,0,0,0.30), 0 2px 4px rgba(0,0,0,0.18);
      margin-bottom: 4px;
      transition: background 160ms ease, transform 160ms ease;
    }
-   .bottom-nav-floating .nav-tab--cta:hover .nav-tab__cta-bubble { background: var(--accent-dark); }
-   .bottom-nav-floating .nav-tab--cta.nav-tab--active .nav-tab__cta-bubble { background: var(--accent-dark); }
-   .bottom-nav-floating .nav-tab--cta .nav-tab__cta-bubble svg { color: #fff !important; }
+   .bottom-nav-floating .nav-tab--cta:hover .nav-tab__cta-bubble {
+     background: color-mix(in srgb, var(--primary) 85%, transparent);
+   }
+   .bottom-nav-floating .nav-tab--cta.nav-tab--active .nav-tab__cta-bubble {
+     background: color-mix(in srgb, var(--primary) 85%, transparent);
+   }
+   .bottom-nav-floating .nav-tab--cta .nav-tab__cta-bubble svg { color: var(--primary-foreground) !important; }
    .bottom-nav-floating .nav-tab--cta span { font-weight: 600; color: var(--text-secondary); }
+   .bottom-nav-floating .nav-tab--cta.nav-tab--active span { color: var(--text-primary); }
 
    /* When raised CTA is present, taller nav bar */
    .bottom-nav-floating--has-cta { padding-top: 6px; }
