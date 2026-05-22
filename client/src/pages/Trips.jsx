@@ -4,6 +4,16 @@ import Modal from '../components/Modal';
 import { LoadingState } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import { Map, Plus, Edit2, Trash2, LogOut, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const TRIP_LIMIT = 3;
 const TRIP_LIMIT_MESSAGE = 'Limite atteinte : cette agence a déjà 3 voyages. Supprimez un voyage existant avant d\'en créer un nouveau.';
@@ -118,8 +128,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
           <p className="page-subtitle">{trips.length} voyage{trips.length !== 1 ? 's' : ''} au total</p>
         </div>
         <div className="flex gap-3">
-          <button
-            className="btn btn-primary"
+          <Button
             onClick={() => {
               if (trips.length >= TRIP_LIMIT) {
                 setShowLimit(true);
@@ -131,101 +140,101 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
             id="btn-add-trip"
             title={trips.length >= TRIP_LIMIT ? TRIP_LIMIT_MESSAGE : 'Créer un nouveau voyage'}
           >
-            <Plus size={18} /> Nouveau voyage
-          </button>
+            <Plus /> Nouveau voyage
+          </Button>
         </div>
       </div>
-      
+
       {/* Sur mobile, on affiche un bouton de déconnexion car la sidebar n'est pas là */}
       {onLogout && (
-        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'flex-end' }}>
-          <button 
-            className="btn btn-outline" 
-            onClick={onLogout}
-          >
-            <LogOut size={16} /> Déconnexion
-          </button>
+        <div className="mb-6 flex justify-end">
+          <Button variant="outline" onClick={onLogout}>
+            <LogOut /> Déconnexion
+          </Button>
         </div>
       )}
 
-      {/* S'il y a des voyages sur mobile, il peut être utile de pouvoir en sélectionner un ici */}
+      {/* Sélecteur mobile du voyage actif */}
       {trips.length > 0 && window.innerWidth < 1024 && (
-        <div className="glass-card" style={{ marginBottom: '24px' }}>
-          <label className="form-label">Voyage actif pour cette session</label>
-          <select
-            className="form-select"
+        <div className="glass-card mb-6 space-y-2">
+          <Label htmlFor="mobile-trip-select">Voyage actif pour cette session</Label>
+          <Select
             value={selectedTripId || ''}
-            onChange={e => onSelectTrip(e.target.value)}
+            onValueChange={(id) => onSelectTrip(id)}
           >
-            {!selectedTripId && <option value="" disabled>— Sélectionner un voyage —</option>}
-            {trips.map(t => (
-              <option key={t.id} value={t.id}>
-                {t.name} {t.date ? `(${t.date})` : ''}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="mobile-trip-select" className="w-full">
+              <SelectValue placeholder="— Sélectionner un voyage —" />
+            </SelectTrigger>
+            <SelectContent>
+              {trips.map(t => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name} {t.date ? `(${t.date})` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
       {/* Trip Form Modal */}
-      <Modal 
-        isOpen={showForm} 
+      <Modal
+        isOpen={showForm}
         onClose={() => { setShowForm(false); resetForm(); }}
         title={editingId ? 'Modifier le voyage' : 'Nouveau voyage'}
       >
         {formError && <div className="form-error">{formError}</div>}
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Nom du voyage *</label>
-            <input
-              className="form-input"
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="input-trip-name">Nom du voyage *</Label>
+            <Input
+              id="input-trip-name"
               placeholder="ex: Tournée de Barcelone"
               value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })}
               required
-              id="input-trip-name"
             />
           </div>
-          <div className="form-group">
-            <label className="form-label">Date</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="input-trip-date">Date</Label>
+            <Input
+              id="input-trip-date"
               type="date"
-              className="form-input"
               value={form.date}
               onChange={e => setForm({ ...form, date: e.target.value })}
-              id="input-trip-date"
             />
           </div>
-          <div className="form-group">
-            <label className="form-label">Statut</label>
-            <select
-              className="form-select"
+          <div className="space-y-2">
+            <Label htmlFor="select-trip-status">Statut</Label>
+            <Select
               value={form.status}
-              onChange={e => setForm({ ...form, status: e.target.value })}
-              id="select-trip-status"
+              onValueChange={(status) => setForm({ ...form, status })}
             >
-              <option value="active">Actif</option>
-              <option value="completed">Terminé</option>
-              <option value="archived">Archivé</option>
-            </select>
+              <SelectTrigger id="select-trip-status" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Actif</SelectItem>
+                <SelectItem value="completed">Terminé</SelectItem>
+                <SelectItem value="archived">Archivé</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div className="form-group">
-            <label className="form-label">Notes (optionnel)</label>
-            <input
-              className="form-input"
+          <div className="space-y-2">
+            <Label htmlFor="input-trip-notes">Notes (optionnel)</Label>
+            <Input
+              id="input-trip-notes"
               placeholder="Détails du voyage, notes pour le guide..."
               value={form.notes}
               onChange={e => setForm({ ...form, notes: e.target.value })}
-              id="input-trip-notes"
             />
           </div>
-          <div className="flex justify-between mt-4">
-            <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)}>
+          <div className="flex justify-between pt-2">
+            <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
               Annuler
-            </button>
-            <button type="submit" className="btn btn-primary" id="btn-save-trip">
+            </Button>
+            <Button type="submit" id="btn-save-trip">
               {editingId ? 'Enregistrer' : 'Créer le voyage'}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
@@ -239,23 +248,21 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
           <AlertCircle size={18} style={{ color: 'var(--warning-light)', flexShrink: 0, marginTop: '2px' }} />
           <span>{TRIP_LIMIT_MESSAGE}</span>
         </p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="button" className="btn btn-primary" onClick={() => setShowLimit(false)}>
-            J'ai compris
-          </button>
+        <div className="flex justify-end">
+          <Button onClick={() => setShowLimit(false)}>J'ai compris</Button>
         </div>
       </Modal>
 
       {/* Trip List */}
       {trips.length === 0 ? (
-        <EmptyState 
+        <EmptyState
           icon={Map}
           title="Aucun voyage pour le moment"
           description="Commencez par créer votre premier voyage pour gérer vos passagers."
           action={
-            <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-              <Plus size={18} /> Créer un voyage
-            </button>
+            <Button onClick={() => setShowForm(true)}>
+              <Plus /> Créer un voyage
+            </Button>
           }
         />
       ) : (
@@ -263,10 +270,10 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
           {trips.map(trip => {
             const isSelected = trip.id === selectedTripId;
             return (
-              <div 
-                key={trip.id} 
+              <div
+                key={trip.id}
                 className="glass-card"
-                style={{ 
+                style={{
                   border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border)',
                   boxShadow: isSelected ? 'var(--shadow-glow)' : 'var(--shadow-sm)'
                 }}
@@ -287,13 +294,13 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
                   </p>
                 )}
 
-                <div style={{ 
-                  display: 'flex', 
-                  gap: '24px', 
-                  padding: '16px 0', 
-                  borderTop: '1px solid var(--border-subtle)', 
+                <div style={{
+                  display: 'flex',
+                  gap: '24px',
+                  padding: '16px 0',
+                  borderTop: '1px solid var(--border-subtle)',
                   borderBottom: '1px solid var(--border-subtle)',
-                  marginBottom: '16px' 
+                  marginBottom: '16px'
                 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                     <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{trip.travelerCount || 0}</span>
@@ -310,19 +317,31 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <button 
-                    className={isSelected ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm"}
+                  <Button
+                    size="sm"
+                    variant={isSelected ? 'default' : 'outline'}
                     onClick={() => onSelectTrip(trip.id)}
                   >
                     {isSelected ? "Voyage actif" : "Sélectionner"}
-                  </button>
+                  </Button>
                   <div className="flex gap-2">
-                    <button className="btn-icon" onClick={() => handleEdit(trip)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                      <Edit2 size={16} />
-                    </button>
-                    <button className="btn-icon" onClick={() => setDeleteConfirm(trip)} style={{ background: 'transparent', border: 'none', color: 'var(--danger-light)', cursor: 'pointer' }}>
-                      <Trash2 size={16} />
-                    </button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => handleEdit(trip)}
+                      aria-label={`Modifier ${trip.name}`}
+                    >
+                      <Edit2 />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setDeleteConfirm(trip)}
+                      aria-label={`Supprimer ${trip.name}`}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 />
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -340,24 +359,28 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
         <p style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>
           Êtes-vous sûr de vouloir supprimer <strong>"{deleteConfirm?.name}"</strong> ?
         </p>
-        <div style={{ 
-          background: 'var(--danger-bg)', 
-          border: '1px solid rgba(239, 68, 68, 0.3)', 
-          padding: '12px', 
+        <div style={{
+          background: 'var(--danger-bg)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          padding: '12px',
           borderRadius: '8px',
-          marginBottom: '24px' 
+          marginBottom: '24px'
         }}>
           <p style={{ color: 'var(--danger-light)', fontSize: '0.85rem', margin: 0 }}>
             ⚠️ Cette action supprimera définitivement tous les voyageurs associés ({deleteConfirm?.travelerCount || 0} unités) et leur historique de scan. Cette action est irréversible.
           </p>
         </div>
         <div className="flex justify-between">
-          <button className="btn btn-outline" onClick={() => setDeleteConfirm(null)}>
+          <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
             Annuler
-          </button>
-          <button className="btn btn-danger" onClick={() => handleDelete(deleteConfirm.id)} id="btn-confirm-delete-trip">
-            <Trash2 size={18} /> Supprimer
-          </button>
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => handleDelete(deleteConfirm.id)}
+            id="btn-confirm-delete-trip"
+          >
+            <Trash2 /> Supprimer
+          </Button>
         </div>
       </Modal>
     </div>

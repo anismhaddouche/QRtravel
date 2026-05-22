@@ -4,6 +4,10 @@ import Modal from '../components/Modal';
 import { LoadingState } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import { Building2, Plus, Trash2, Pencil, CheckCircle2, XCircle, Eye } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const EMPTY_FORM = { name: '', email: '', phone: '', adminEmail: '', adminPassword: '', adminPasswordConfirm: '' };
 
@@ -52,12 +56,12 @@ function DeleteAgencyModal({ agency, onClose, onDelete }) {
         <p>Cette agence est vide. La suppression est définitive.</p>
       )}
 
-      <div className="form-group" style={{ marginTop: '12px' }}>
-        <label className="form-label">
+      <div className="mt-3 space-y-2">
+        <Label htmlFor="confirm-agency-name">
           Pour confirmer, tapez le nom de l’agence : <strong>{agency.name}</strong>
-        </label>
-        <input
-          className="form-input"
+        </Label>
+        <Input
+          id="confirm-agency-name"
           type="text"
           value={typed}
           onChange={e => setTyped(e.target.value)}
@@ -66,27 +70,29 @@ function DeleteAgencyModal({ agency, onClose, onDelete }) {
         />
       </div>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0 16px' }}>
-        <input
-          type="checkbox"
+      <div className="flex items-center gap-2 my-4">
+        <Checkbox
+          id="ack-irreversible"
           checked={acknowledged}
-          onChange={e => setAcknowledged(e.target.checked)}
+          onCheckedChange={(v) => setAcknowledged(v === true)}
         />
-        <span>Je comprends que cette action est irréversible.</span>
-      </label>
+        <Label htmlFor="ack-irreversible" className="font-normal">
+          Je comprends que cette action est irréversible.
+        </Label>
+      </div>
 
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <button className="btn" onClick={onClose} style={{ flex: 1 }} disabled={submitting}>
+      <div className="flex gap-3">
+        <Button variant="outline" onClick={onClose} className="flex-1" disabled={submitting}>
           Annuler
-        </button>
-        <button
-          className="btn btn-danger"
-          style={{ flex: 1 }}
+        </Button>
+        <Button
+          variant="destructive"
+          className="flex-1"
           disabled={!canSubmit}
           onClick={submit}
         >
           {submitting ? 'Suppression...' : (hasData ? 'Tout supprimer' : 'Supprimer')}
-        </button>
+        </Button>
       </div>
     </Modal>
   );
@@ -208,9 +214,9 @@ export default function Agencies() {
           <Building2 size={28} />
           <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>Agences</h1>
         </div>
-        <button className="btn btn-primary" onClick={startCreate}>
-          <Plus size={18} /> Nouvelle agence
-        </button>
+        <Button onClick={startCreate}>
+          <Plus /> Nouvelle agence
+        </Button>
       </div>
 
       {error && <div className="form-error">{error}</div>}
@@ -257,31 +263,44 @@ export default function Agencies() {
                     {' · '}{a.status}
                   </div>
                 </div>
-                <div className="row-actions" style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    className="btn btn-sm"
+                <div className="row-actions flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     title={isActive ? "Désélectionner" : "Sélectionner pour inspection"}
+                    aria-label={isActive ? `Désélectionner ${a.name}` : `Sélectionner ${a.name}`}
                     onClick={() => handleSelectAgency(a.id)}
                   >
-                    <Eye size={16} />
-                  </button>
-                  <button className="btn btn-sm" title="Modifier" onClick={() => startEdit(a)}>
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    className="btn btn-sm"
+                    <Eye />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Modifier"
+                    aria-label={`Modifier ${a.name}`}
+                    onClick={() => startEdit(a)}
+                  >
+                    <Pencil />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     title={a.status === 'active' ? 'Désactiver' : 'Activer'}
+                    aria-label={a.status === 'active' ? `Désactiver ${a.name}` : `Activer ${a.name}`}
                     onClick={() => handleToggleStatus(a)}
                   >
-                    {a.status === 'active' ? <XCircle size={16} /> : <CheckCircle2 size={16} />}
-                  </button>
-                  <button
-                    className="btn btn-sm btn-danger"
+                    {a.status === 'active' ? <XCircle /> : <CheckCircle2 />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-destructive hover:text-destructive"
                     title="Supprimer"
+                    aria-label={`Supprimer ${a.name}`}
                     onClick={() => setDeleteConfirm(a)}
                   >
-                    <Trash2 size={16} />
-                  </button>
+                    <Trash2 />
+                  </Button>
                 </div>
               </div>
             );
@@ -291,66 +310,81 @@ export default function Agencies() {
 
       {showForm && (
         <Modal isOpen={true} title={editing ? `Modifier : ${editing.name}` : 'Nouvelle agence'} onClose={() => setShowForm(false)}>
-          <form onSubmit={handleSave}>
+          <form onSubmit={handleSave} className="space-y-4">
             {formError && <div className="form-error">{formError}</div>}
-            <div className="form-group">
-              <label className="form-label">Nom</label>
-              <input
-                className="form-input" type="text" value={form.name}
+            <div className="space-y-2">
+              <Label htmlFor="agency-name">Nom</Label>
+              <Input
+                id="agency-name"
+                type="text"
+                value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
-                autoFocus required
+                autoFocus
+                required
               />
             </div>
-            <div className="form-group">
-              <label className="form-label">Email</label>
-              <input
-                className="form-input" type="email" value={form.email}
+            <div className="space-y-2">
+              <Label htmlFor="agency-email">Email</Label>
+              <Input
+                id="agency-email"
+                type="email"
+                value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
               />
             </div>
-            <div className="form-group">
-              <label className="form-label">Téléphone</label>
-              <input
-                className="form-input" type="tel" value={form.phone}
+            <div className="space-y-2">
+              <Label htmlFor="agency-phone">Téléphone</Label>
+              <Input
+                id="agency-phone"
+                type="tel"
+                value={form.phone}
                 onChange={e => setForm({ ...form, phone: e.target.value })}
               />
             </div>
 
             {!editing && (
               <>
-                <h4 style={{ marginTop: '24px', marginBottom: '8px', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
+                <h4 className="mt-6 mb-2 text-sm text-muted-foreground">
                   Administrateur de l’agence
                 </h4>
-                <div className="form-group">
-                  <label className="form-label">Email admin</label>
-                  <input
-                    className="form-input" type="email" value={form.adminEmail}
+                <div className="space-y-2">
+                  <Label htmlFor="agency-admin-email">Email admin</Label>
+                  <Input
+                    id="agency-admin-email"
+                    type="email"
+                    value={form.adminEmail}
                     onChange={e => setForm({ ...form, adminEmail: e.target.value })}
                     required
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Mot de passe</label>
-                  <input
-                    className="form-input" type="text" value={form.adminPassword}
+                <div className="space-y-2">
+                  <Label htmlFor="agency-admin-password">Mot de passe</Label>
+                  <Input
+                    id="agency-admin-password"
+                    type="text"
+                    value={form.adminPassword}
                     onChange={e => setForm({ ...form, adminPassword: e.target.value })}
-                    minLength={8} required
+                    minLength={8}
+                    required
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Confirmation mot de passe</label>
-                  <input
-                    className="form-input" type="text" value={form.adminPasswordConfirm}
+                <div className="space-y-2">
+                  <Label htmlFor="agency-admin-password-confirm">Confirmation mot de passe</Label>
+                  <Input
+                    id="agency-admin-password-confirm"
+                    type="text"
+                    value={form.adminPasswordConfirm}
                     onChange={e => setForm({ ...form, adminPasswordConfirm: e.target.value })}
-                    minLength={8} required
+                    minLength={8}
+                    required
                   />
                 </div>
               </>
             )}
 
-            <button type="submit" className="btn btn-primary w-full" disabled={submitting}>
+            <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? 'Enregistrement...' : (editing ? 'Enregistrer' : 'Créer l’agence + admin')}
-            </button>
+            </Button>
           </form>
         </Modal>
       )}

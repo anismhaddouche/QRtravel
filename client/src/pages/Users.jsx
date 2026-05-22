@@ -4,6 +4,16 @@ import Modal from '../components/Modal';
 import { LoadingState } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import { Users as UsersIcon, Plus, Trash2, KeyRound, Shield, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const ROLE_LABEL = {
   super_admin: 'Super administrateur',
@@ -129,9 +139,9 @@ export default function Users({ currentUsername, currentRole }) {
           <UsersIcon size={28} />
           <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>Comptes</h1>
         </div>
-        <button className="btn btn-primary" onClick={() => { setForm(emptyForm(isSuperAdmin)); setFormError(''); setShowForm(true); }}>
-          <Plus size={18} /> Nouveau compte
-        </button>
+        <Button onClick={() => { setForm(emptyForm(isSuperAdmin)); setFormError(''); setShowForm(true); }}>
+          <Plus /> Nouveau compte
+        </Button>
       </div>
 
       {error && <div className="form-error">{error}</div>}
@@ -177,22 +187,27 @@ export default function Users({ currentUsername, currentRole }) {
                     {' · '}créé le {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}
                   </div>
                 </div>
-                <div className="row-actions" style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    className="btn btn-sm"
+                <div className="row-actions flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     title="Réinitialiser le mot de passe"
+                    aria-label={`Réinitialiser le mot de passe de ${u.email}`}
                     onClick={() => { setResetTarget(u); setResetPassword(''); setResetError(''); }}
                   >
-                    <KeyRound size={16} />
-                  </button>
-                  <button
-                    className="btn btn-sm btn-danger"
+                    <KeyRound />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-destructive hover:text-destructive"
                     title="Supprimer"
+                    aria-label={`Supprimer ${u.email}`}
                     disabled={currentUsername && u.email.toLowerCase() === String(currentUsername).toLowerCase()}
                     onClick={() => setDeleteConfirm(u)}
                   >
-                    <Trash2 size={16} />
-                  </button>
+                    <Trash2 />
+                  </Button>
                 </div>
               </div>
             );
@@ -202,12 +217,12 @@ export default function Users({ currentUsername, currentRole }) {
 
       {showForm && (
         <Modal isOpen={true} title="Nouveau compte" onClose={() => { setShowForm(false); setFormError(''); }}>
-          <form onSubmit={handleCreate}>
+          <form onSubmit={handleCreate} className="space-y-4">
             {formError && <div className="form-error">{formError}</div>}
-            <div className="form-group">
-              <label className="form-label">Email</label>
-              <input
-                className="form-input"
+            <div className="space-y-2">
+              <Label htmlFor="user-email">Email</Label>
+              <Input
+                id="user-email"
                 type="email"
                 value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
@@ -215,10 +230,10 @@ export default function Users({ currentUsername, currentRole }) {
                 required
               />
             </div>
-            <div className="form-group">
-              <label className="form-label">Mot de passe</label>
-              <input
-                className="form-input"
+            <div className="space-y-2">
+              <Label htmlFor="user-password">Mot de passe</Label>
+              <Input
+                id="user-password"
                 type="text"
                 value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
@@ -226,48 +241,54 @@ export default function Users({ currentUsername, currentRole }) {
                 required
               />
             </div>
-            <div className="form-group">
-              <label className="form-label">Rôle</label>
-              <select
-                className="form-select"
+            <div className="space-y-2">
+              <Label htmlFor="user-role">Rôle</Label>
+              <Select
                 value={form.role}
-                onChange={e => setForm({ ...form, role: e.target.value })}
+                onValueChange={(role) => setForm({ ...form, role })}
               >
-                <option value="agency_admin">Administrateur d&apos;agence</option>
-                {isSuperAdmin && <option value="super_admin">Super administrateur</option>}
-              </select>
+                <SelectTrigger id="user-role" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="agency_admin">Administrateur d&apos;agence</SelectItem>
+                  {isSuperAdmin && <SelectItem value="super_admin">Super administrateur</SelectItem>}
+                </SelectContent>
+              </Select>
             </div>
             {isSuperAdmin && form.role !== 'super_admin' && (
-              <div className="form-group">
-                <label className="form-label">Agence</label>
-                <select
-                  className="form-select"
+              <div className="space-y-2">
+                <Label htmlFor="user-agency">Agence</Label>
+                <Select
                   value={form.agencyId || ''}
-                  onChange={e => setForm({ ...form, agencyId: e.target.value })}
-                  required
+                  onValueChange={(agencyId) => setForm({ ...form, agencyId })}
                 >
-                  <option value="">— Sélectionner une agence —</option>
-                  {agencies.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
+                  <SelectTrigger id="user-agency" className="w-full">
+                    <SelectValue placeholder="— Sélectionner une agence —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {agencies.map(a => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
-            <button type="submit" className="btn btn-primary w-full" disabled={submitting}>
+            <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? 'Création...' : 'Créer'}
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
 
       {resetTarget && (
         <Modal isOpen={true} title={`Réinitialiser : ${resetTarget.email}`} onClose={() => setResetTarget(null)}>
-          <form onSubmit={handleReset}>
+          <form onSubmit={handleReset} className="space-y-4">
             {resetError && <div className="form-error">{resetError}</div>}
-            <div className="form-group">
-              <label className="form-label">Nouveau mot de passe</label>
-              <input
-                className="form-input"
+            <div className="space-y-2">
+              <Label htmlFor="reset-password">Nouveau mot de passe</Label>
+              <Input
+                id="reset-password"
                 type="text"
                 value={resetPassword}
                 onChange={e => setResetPassword(e.target.value)}
@@ -275,11 +296,11 @@ export default function Users({ currentUsername, currentRole }) {
                 autoFocus
                 required
               />
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+              <p className="text-xs text-muted-foreground">
                 Toutes les sessions actives de cet utilisateur seront déconnectées.
               </p>
             </div>
-            <button type="submit" className="btn btn-primary w-full">Réinitialiser</button>
+            <Button type="submit" className="w-full">Réinitialiser</Button>
           </form>
         </Modal>
       )}
@@ -289,11 +310,17 @@ export default function Users({ currentUsername, currentRole }) {
           <p>
             Supprimer définitivement <strong>{deleteConfirm.email}</strong> ? Cette action est irréversible.
           </p>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-            <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ flex: 1 }}>Annuler</button>
-            <button className="btn btn-danger" onClick={() => handleDelete(deleteConfirm.id)} style={{ flex: 1 }}>
+          <div className="flex gap-3 mt-4">
+            <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => handleDelete(deleteConfirm.id)}
+            >
               Supprimer
-            </button>
+            </Button>
           </div>
         </Modal>
       )}
