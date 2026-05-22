@@ -56,7 +56,7 @@ function DeleteAgencyModal({ agency, onClose, onDelete }) {
         <p>Cette agence est vide. La suppression est définitive.</p>
       )}
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-3 grid gap-2">
         <Label htmlFor="confirm-agency-name">
           Pour confirmer, tapez le nom de l’agence : <strong>{agency.name}</strong>
         </Label>
@@ -310,9 +310,9 @@ export default function Agencies() {
 
       {showForm && (
         <Modal isOpen={true} title={editing ? `Modifier : ${editing.name}` : 'Nouvelle agence'} onClose={() => setShowForm(false)}>
-          <form onSubmit={handleSave} className="space-y-5">
+          <form onSubmit={handleSave} className="grid gap-5">
             {formError && <div className="form-error">{formError}</div>}
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="agency-name">Nom</Label>
               <Input
                 id="agency-name"
@@ -323,7 +323,7 @@ export default function Agencies() {
                 required
               />
             </div>
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="agency-email">Email</Label>
               <Input
                 id="agency-email"
@@ -332,7 +332,7 @@ export default function Agencies() {
                 onChange={e => setForm({ ...form, email: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="agency-phone">Téléphone</Label>
               <Input
                 id="agency-phone"
@@ -347,7 +347,7 @@ export default function Agencies() {
                 <h4 className="mt-6 mb-2 text-sm text-muted-foreground">
                   Administrateur de l’agence
                 </h4>
-                <div className="space-y-2">
+                <div className="grid gap-2">
                   <Label htmlFor="agency-admin-email">Email admin</Label>
                   <Input
                     id="agency-admin-email"
@@ -357,7 +357,7 @@ export default function Agencies() {
                     required
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="grid gap-2">
                   <Label htmlFor="agency-admin-password">Mot de passe</Label>
                   <Input
                     id="agency-admin-password"
@@ -368,7 +368,7 @@ export default function Agencies() {
                     required
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="grid gap-2">
                   <Label htmlFor="agency-admin-password-confirm">Confirmation mot de passe</Label>
                   <Input
                     id="agency-admin-password-confirm"

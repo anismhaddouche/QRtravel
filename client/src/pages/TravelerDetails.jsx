@@ -528,8 +528,8 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
             Édition des informations du voyageur.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-5">
-          <div className="space-y-2">
+        <form onSubmit={submit} className="grid gap-5">
+          <div className="grid gap-2">
             <Label htmlFor="edit-display-name">Nom d'affichage</Label>
             <Input
               id="edit-display-name"
@@ -538,7 +538,7 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               onChange={(e) => setForm({ ...form, displayName: e.target.value })}
             />
           </div>
-          <div className="space-y-2">
+          <div className="grid gap-2">
             <Label htmlFor="edit-ref-code">Code de référence</Label>
             <Input
               id="edit-ref-code"
@@ -548,7 +548,7 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
             />
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="edit-type">Type</Label>
               <Select
                 value={form.type}
@@ -578,7 +578,7 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               </Select>
             </div>
             {form.type === 'group' && (
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="edit-people-count">Nombre de personnes</Label>
                 <Input
                   id="edit-people-count"
@@ -626,7 +626,7 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               onChange={(groupMembers) => setForm((f) => ({ ...f, groupMembers }))}
             />
           )}
-          <div className="space-y-2">
+          <div className="grid gap-2">
             <Label htmlFor="edit-phone">Téléphone</Label>
             <Input
               id="edit-phone"
@@ -635,7 +635,7 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               placeholder="05....."
             />
           </div>
-          <div className="space-y-2">
+          <div className="grid gap-2">
             <Label htmlFor="edit-email">Email</Label>
             <Input
               id="edit-email"
@@ -644,7 +644,7 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </div>
-          <div className="space-y-2">
+          <div className="grid gap-2">
             <Label htmlFor="edit-notes">Notes</Label>
             <Textarea
               id="edit-notes"

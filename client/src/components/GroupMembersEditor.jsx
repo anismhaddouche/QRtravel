@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { Users } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 // Renders a list of N member rows (firstName / lastName / phone / email)
 // where N === peopleCount. Parent owns the array via `value` / `onChange`.
@@ -32,53 +34,44 @@ export default function GroupMembersEditor({ peopleCount, value, onChange }) {
   };
 
   return (
-    <div className="form-group" style={{ marginTop: '8px' }}>
-      <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+    <div className="grid gap-3">
+      <Label className="flex items-center gap-1.5">
         <Users size={14} /> Membres du groupe ({peopleCount})
-      </label>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      </Label>
+      <div className="flex flex-col gap-3">
         {Array.from({ length: peopleCount }).map((_, i) => {
           const m = members[i] || emptyMember();
           return (
             <div
               key={i}
-              style={{
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '8px',
-                padding: '10px',
-                background: 'var(--surface-1, rgba(255,255,255,0.02))',
-              }}
+              className="rounded-md border border-border bg-card p-3 grid gap-2"
             >
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
+              <div className="text-xs font-semibold text-muted-foreground">
                 Membre {i + 1}
               </div>
-              <div className="form-grid-2" style={{ marginBottom: '6px' }}>
-                <input
-                  className="form-input"
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
                   placeholder="Nom"
                   value={m.lastName || ''}
                   onChange={(e) => updateMember(i, { lastName: e.target.value })}
                   aria-label={`Nom du membre ${i + 1}`}
                 />
-                <input
-                  className="form-input"
+                <Input
                   placeholder="Prénom"
                   value={m.firstName || ''}
                   onChange={(e) => updateMember(i, { firstName: e.target.value })}
                   aria-label={`Prénom du membre ${i + 1}`}
                 />
               </div>
-              <div className="form-grid-2">
-                <input
-                  className="form-input"
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
                   placeholder="05....."
                   value={m.phone || ''}
                   onChange={(e) => updateMember(i, { phone: e.target.value })}
                   aria-label={`Téléphone du membre ${i + 1}`}
                 />
-                <input
+                <Input
                   type="email"
-                  className="form-input"
                   placeholder="email@exemple.com"
                   value={m.email || ''}
                   onChange={(e) => updateMember(i, { email: e.target.value })}

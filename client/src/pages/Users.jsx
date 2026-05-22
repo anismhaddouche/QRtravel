@@ -217,9 +217,9 @@ export default function Users({ currentUsername, currentRole }) {
 
       {showForm && (
         <Modal isOpen={true} title="Nouveau compte" onClose={() => { setShowForm(false); setFormError(''); }}>
-          <form onSubmit={handleCreate} className="space-y-5">
+          <form onSubmit={handleCreate} className="grid gap-5">
             {formError && <div className="form-error">{formError}</div>}
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="user-email">Email</Label>
               <Input
                 id="user-email"
@@ -230,7 +230,7 @@ export default function Users({ currentUsername, currentRole }) {
                 required
               />
             </div>
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="user-password">Mot de passe</Label>
               <Input
                 id="user-password"
@@ -241,7 +241,7 @@ export default function Users({ currentUsername, currentRole }) {
                 required
               />
             </div>
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="user-role">Rôle</Label>
               <Select
                 value={form.role}
@@ -257,7 +257,7 @@ export default function Users({ currentUsername, currentRole }) {
               </Select>
             </div>
             {isSuperAdmin && form.role !== 'super_admin' && (
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="user-agency">Agence</Label>
                 <Select
                   value={form.agencyId || ''}
@@ -283,9 +283,9 @@ export default function Users({ currentUsername, currentRole }) {
 
       {resetTarget && (
         <Modal isOpen={true} title={`Réinitialiser : ${resetTarget.email}`} onClose={() => setResetTarget(null)}>
-          <form onSubmit={handleReset} className="space-y-5">
+          <form onSubmit={handleReset} className="grid gap-5">
             {resetError && <div className="form-error">{resetError}</div>}
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="reset-password">Nouveau mot de passe</Label>
               <Input
                 id="reset-password"

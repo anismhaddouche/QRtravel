@@ -157,7 +157,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
 
       {/* Sélecteur mobile du voyage actif */}
       {trips.length > 0 && window.innerWidth < 1024 && (
-        <div className="glass-card mb-6 space-y-2">
+        <div className="glass-card mb-6 grid gap-2">
           <Label htmlFor="mobile-trip-select">Voyage actif pour cette session</Label>
           <Select
             value={selectedTripId || ''}
@@ -184,8 +184,8 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
         title={editingId ? 'Modifier le voyage' : 'Nouveau voyage'}
       >
         {formError && <div className="form-error mb-4">{formError}</div>}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
+        <form onSubmit={handleSubmit} className="grid gap-5">
+          <div className="grid gap-2">
             <Label htmlFor="input-trip-name">Nom du voyage *</Label>
             <Input
               id="input-trip-name"
@@ -196,7 +196,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
             />
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="input-trip-date">Date</Label>
               <Input
                 id="input-trip-date"
@@ -205,7 +205,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
                 onChange={e => setForm({ ...form, date: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="select-trip-status">Statut</Label>
               <Select
                 value={form.status}
@@ -222,7 +222,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
               </Select>
             </div>
           </div>
-          <div className="space-y-2">
+          <div className="grid gap-2">
             <Label htmlFor="input-trip-notes">Notes (optionnel)</Label>
             <Textarea
               id="input-trip-notes"

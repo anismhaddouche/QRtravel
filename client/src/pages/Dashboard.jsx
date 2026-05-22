@@ -921,8 +921,8 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
         </div>
 
       {mode === 'manual' ? (
-        <form onSubmit={submitManual} className="space-y-5">
-          <div className="space-y-2">
+        <form onSubmit={submitManual} className="grid gap-5">
+          <div className="grid gap-2">
             <Label htmlFor="add-display-name">Nom d'affichage *</Label>
             <Input
               id="add-display-name"
@@ -931,7 +931,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
               onChange={(e) => setForm({ ...form, displayName: e.target.value })}
             />
           </div>
-          <div className="space-y-2">
+          <div className="grid gap-2">
             <Label htmlFor="add-ref-code">Code de référence *</Label>
             <Input
               id="add-ref-code"
@@ -942,7 +942,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
             />
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="add-type">Type</Label>
               <Select
                 value={form.type}
@@ -973,7 +973,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
               </Select>
             </div>
             {form.type === 'group' && (
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="add-people-count">Nombre de personnes</Label>
                 <Input
                   id="add-people-count"
@@ -1022,7 +1022,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
             />
           )}
           <div className="grid gap-5 sm:grid-cols-2">
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="add-phone">Téléphone</Label>
               <Input
                 id="add-phone"
@@ -1031,7 +1031,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
                 placeholder="05....."
               />
             </div>
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="add-email">Email</Label>
               <Input
                 id="add-email"
@@ -1041,7 +1041,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
               />
             </div>
           </div>
-          <div className="space-y-2">
+          <div className="grid gap-2">
             <Label htmlFor="add-notes">Notes</Label>
             <Textarea
               id="add-notes"
@@ -1063,7 +1063,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
           </DialogFooter>
         </form>
       ) : (
-        <div className="space-y-4">
+        <div className="grid gap-4">
           <p className="text-sm text-muted-foreground">
             Colonnes attendues : <code>type, nom, prenom, tel, mail</code>. Types acceptés : Individuel, Groupe.
           </p>
@@ -1078,7 +1078,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
             </div>
           )}
           {importResult && (
-            <div className="text-sm space-y-1">
+            <div className="text-sm grid gap-1">
               <div className="text-emerald-700 dark:text-emerald-400">{importResult.created} créé(s)</div>
               {importResult.failed > 0 && (
                 <>

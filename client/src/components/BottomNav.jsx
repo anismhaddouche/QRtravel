@@ -6,6 +6,15 @@ import {
 } from 'lucide-react';
 import { api, getActiveAgencyId, setActiveAgencyId, onActiveAgencyChange } from '../utils/api';
 import ThemeToggle from './ThemeToggle';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 export default function BottomNav({ role, username, onLogout }) {
   const isSuperAdmin = role === 'super_admin';
@@ -81,17 +90,13 @@ function MobileMenu({ isSuperAdmin, isAgencyAdmin, username, role, onClose, onLo
 
   const go = (to) => { navigate(to); onClose(); };
   const onAgencyChange = (id) => {
-    setActiveAgencyId(id || null);
-    setActiveAgencyIdState(id || null);
+    const next = id === '__none__' ? null : id;
+    setActiveAgencyId(next);
+    setActiveAgencyIdState(next);
   };
 
-  const itemStyle = {
-    display: 'flex', alignItems: 'center', gap: '12px',
-    padding: '14px 16px', borderRadius: 'var(--radius-md)',
-    width: '100%', textAlign: 'left', cursor: 'pointer',
-    background: 'transparent', border: 'none', color: 'var(--text-primary)',
-    fontSize: '1rem', fontWeight: 500,
-  };
+  const menuItemClass =
+    'w-full justify-start gap-3 px-4 py-6 text-base font-medium';
 
   return (
     <div
@@ -123,44 +128,66 @@ function MobileMenu({ isSuperAdmin, isAgencyAdmin, username, role, onClose, onLo
               </div>
             </div>
           </div>
-          <button onClick={onClose} aria-label="Fermer" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', padding: 8 }}>
-            <X size={22} />
-          </button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="Fermer"
+          >
+            <X />
+          </Button>
         </div>
 
         {isSuperAdmin && (
-          <div style={{ marginBottom: '16px' }}>
-            <label className="form-label" style={{ fontSize: '0.7rem' }}>AGENCE ACTIVE</label>
-            <select
-              className="form-select"
-              value={activeAgencyId || ''}
-              onChange={e => onAgencyChange(e.target.value)}
+          <div className="mb-4 grid gap-2">
+            <Label htmlFor="mobile-agency" className="text-[0.7rem] uppercase tracking-wider">
+              Agence active
+            </Label>
+            <Select
+              value={activeAgencyId || '__none__'}
+              onValueChange={onAgencyChange}
             >
-              <option value="">— Aucune —</option>
-              {agencies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+              <SelectTrigger id="mobile-agency" className="w-full">
+                <SelectValue placeholder="— Aucune —" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— Aucune —</SelectItem>
+                {agencies.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <button style={itemStyle} onClick={() => go('/')}><LayoutDashboard size={20} /> Tableau de bord</button>
+        <div className="flex flex-col gap-1">
+          <Button variant="ghost" className={menuItemClass} onClick={() => go('/')}>
+            <LayoutDashboard /> Tableau de bord
+          </Button>
           {isSuperAdmin && (
-            <button style={itemStyle} onClick={() => go('/agencies')}><Building2 size={20} /> Agences</button>
+            <Button variant="ghost" className={menuItemClass} onClick={() => go('/agencies')}>
+              <Building2 /> Agences
+            </Button>
           )}
-          <button style={itemStyle} onClick={() => go('/trips')}><Map size={20} /> Voyages</button>
-          <button style={itemStyle} onClick={() => go('/scanner')}><ScanLine size={20} /> Scanner</button>
+          <Button variant="ghost" className={menuItemClass} onClick={() => go('/trips')}>
+            <Map /> Voyages
+          </Button>
+          <Button variant="ghost" className={menuItemClass} onClick={() => go('/scanner')}>
+            <ScanLine /> Scanner
+          </Button>
           {/* Personnel is super_admin only — agency_admin cannot manage users. */}
           {isSuperAdmin && (
-            <button style={itemStyle} onClick={() => go('/users')}><Shield size={20} /> Personnel</button>
+            <Button variant="ghost" className={menuItemClass} onClick={() => go('/users')}>
+              <Shield /> Personnel
+            </Button>
           )}
-          <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '8px 0' }} />
+          <div className="my-2 border-t border-border" />
           <ThemeToggle variant="menu-item" />
-          <button
-            style={{ ...itemStyle, color: 'var(--danger-light)' }}
+          <Button
+            variant="ghost"
+            className={`${menuItemClass} text-destructive hover:text-destructive`}
             onClick={() => { onClose(); onLogout(); }}
           >
-            <LogOut size={20} /> Se déconnecter
-          </button>
+            <LogOut /> Se déconnecter
+          </Button>
         </div>
       </div>
     </div>
