@@ -18,6 +18,28 @@ function cleanStr(v, max) {
   return s.slice(0, max);
 }
 
+function todayYYYYMMDD() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Refuse dates strictement passées au format YYYY-MM-DD.
+// null/undefined/'' = pas de validation (champ optionnel).
+// Format non YYYY-MM-DD = pas de validation (compatibilité données existantes).
+function validateTripDate(date) {
+  if (date === null || date === undefined || date === '') return;
+  if (typeof date !== 'string') return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  if (date < todayYYYYMMDD()) {
+    const err = new Error('La date du voyage ne peut pas être dans le passé.');
+    err.statusCode = 400;
+    throw err;
+  }
+}
+
 function validateStatus(s) {
   if (s === undefined || s === null || s === '') return null;
   if (typeof s !== 'string' || !TRIP_STATUSES.includes(s)) {
@@ -84,6 +106,7 @@ router.post('/', async (req, res) => {
     const name = cleanStr(body.name, MAX_NAME);
     if (!name) return res.status(400).json({ error: 'name is required', code: 'VALIDATION' });
     const date = cleanStr(body.date, MAX_DATE);
+    validateTripDate(date);
     const notes = body.notes === undefined ? '' : (cleanStr(body.notes, MAX_NOTES) || '');
 
     // agencyId selection:
@@ -141,6 +164,7 @@ router.put('/:id', async (req, res) => {
     const body = req.body || {};
     const name = body.name === undefined ? null : cleanStr(body.name, MAX_NAME);
     const date = body.date === undefined ? null : cleanStr(body.date, MAX_DATE);
+    if (body.date !== undefined) validateTripDate(date);
     const status = validateStatus(body.status);
     const notes = body.notes === undefined ? null : (cleanStr(body.notes, MAX_NOTES) || '');
     const now = new Date().toISOString();
