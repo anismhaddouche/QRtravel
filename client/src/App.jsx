@@ -149,7 +149,7 @@ function AuthenticatedApp({ username, role, onLogout }) {
             <Route path="/trips" element={
               needsAgencySelection
                 ? <AgencyPrompt />
-                : <Trips onTripChange={tripCtx.refreshTrips} selectedTripId={tripCtx.selectedTripId} onSelectTrip={tripCtx.selectTrip} onLogout={!isDesktop ? onLogout : null} />
+                : <Trips onTripChange={tripCtx.refreshTrips} selectedTripId={tripCtx.selectedTripId} onSelectTrip={tripCtx.selectTrip} />
             } />
             {isSuperAdmin && (
               <Route path="/agencies" element={<Agencies />} />

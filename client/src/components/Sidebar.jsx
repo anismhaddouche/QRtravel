@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ScanLine, Map, LogOut, Plane, Shield, Building2 } from 'lucide-react';
+import { LayoutDashboard, ScanLine, Map, LogOut, Plane, Shield, Building2, RefreshCw, Clock } from 'lucide-react';
 import { api, getActiveAgencyId, setActiveAgencyId, onActiveAgencyChange } from '../utils/api';
 import ThemeToggle from './ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -121,8 +121,8 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
             </span>
           </div>
           {queueLength > 0 && (
-            <span className="badge badge-warning">
-              {syncStatus === 'syncing' ? '⟳' : '⏳'} {queueLength}
+            <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              {syncStatus === 'syncing' ? <RefreshCw size={12} /> : <Clock size={12} />} {queueLength}
             </span>
           )}
         </div>

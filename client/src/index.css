@@ -474,6 +474,16 @@
        justify-content: center;
      }
 
+     .page-header .page-header-actions {
+       display: flex;
+       justify-content: flex-end;
+       width: 100%;
+     }
+
+     .page-header .page-header-actions .btn {
+       width: auto;
+     }
+
      /* Modal: edge-to-edge with safe padding on phones. */
      .modal-content {
        width: 100% !important;

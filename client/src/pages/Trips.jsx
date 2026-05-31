@@ -3,7 +3,7 @@ import { api } from '../utils/api';
 import Modal from '../components/Modal';
 import { LoadingState } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
-import { Map, Plus, Edit2, Trash2, LogOut, AlertCircle } from 'lucide-react';
+import { Map, Plus, Edit2, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,7 +25,7 @@ const STATUS_CONFIG = {
   archived: { label: 'Archivé', className: 'badge-warning' },
 };
 
-export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLogout }) {
+export default function Trips({ onTripChange, selectedTripId, onSelectTrip }) {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -113,7 +113,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
       <div>
         <div className="page-header">
           <div>
-            <h1 className="page-title"><Map size={28} className="text-accent" /> Voyages & Destinations</h1>
+            <h1 className="page-title"><Map size={28} className="text-accent" /> Voyages</h1>
           </div>
         </div>
         <LoadingState message="Chargement des voyages..." />
@@ -125,10 +125,10 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title"><Map size={28} style={{ color: 'var(--accent)' }} /> Voyages & Destinations</h1>
+          <h1 className="page-title"><Map size={28} style={{ color: 'var(--accent)' }} /> Voyages</h1>
           <p className="page-subtitle">{trips.length} voyage{trips.length !== 1 ? 's' : ''} au total</p>
         </div>
-        <div className="flex gap-3">
+        <div className="page-header-actions">
           <Button
             onClick={() => {
               if (trips.length >= TRIP_LIMIT) {
@@ -145,15 +145,6 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
           </Button>
         </div>
       </div>
-
-      {/* Sur mobile, on affiche un bouton de déconnexion car la sidebar n'est pas là */}
-      {onLogout && (
-        <div className="mb-6 flex justify-end">
-          <Button variant="outline" onClick={onLogout}>
-            <LogOut /> Déconnexion
-          </Button>
-        </div>
-      )}
 
       {/* Sélecteur mobile du voyage actif */}
       {trips.length > 0 && window.innerWidth < 1024 && (
@@ -370,8 +361,9 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip, onLo
           borderRadius: '8px',
           marginBottom: '24px'
         }}>
-          <p style={{ color: 'var(--danger-light)', fontSize: '0.85rem', margin: 0 }}>
-            ⚠️ Cette action supprimera définitivement tous les voyageurs associés ({deleteConfirm?.travelerCount || 0} unités) et leur historique de scan. Cette action est irréversible.
+          <p style={{ color: 'var(--danger-light)', fontSize: '0.85rem', margin: 0, display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <span>Cette action supprimera définitivement tous les voyageurs associés ({deleteConfirm?.travelerCount || 0} unités) et leur historique de scan. Cette action est irréversible.</span>
           </p>
         </div>
         <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
