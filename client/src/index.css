@@ -1637,6 +1637,23 @@
      .trip-hero__add { width: 44px; height: 44px; }
    }
 
+   /* Light mode: force a solid blue fill so the CTA stands out against
+      the pale hero background (the shadcn --primary token resolves to
+      white in this theme, hence the explicit override). */
+   :root[data-theme="light"] .trip-hero__add {
+     background: #2563EB !important;
+     border-color: #2563EB !important;
+     color: #FFFFFF !important;
+   }
+   :root[data-theme="light"] .trip-hero__add svg {
+     color: #FFFFFF !important;
+     stroke: #FFFFFF !important;
+   }
+   :root[data-theme="light"] .trip-hero__add:hover {
+     background: #1D4ED8 !important;
+     border-color: #1D4ED8 !important;
+   }
+
    /* Dashboard toast — readable in both themes */
    .dashboard-toast {
      position: fixed;
