@@ -785,6 +785,7 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
           variant="outline"
           onClick={onBulkUndo}
           disabled={!hasCheckedIn}
+          className="sel-action sel-action--undo"
         >
           <CornerUpLeft /> Désembarquer
         </Button>
@@ -817,7 +818,11 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
               <MoreHorizontal />
             </Button>
             {moreOpen && (
-              <div className="popover" style={{ right: 0, top: 'calc(100% + 6px)' }} role="menu">
+              <div
+                className="popover selection-more-menu"
+                style={{ right: 0, left: 'auto', top: 'calc(100% + 6px)' }}
+                role="menu"
+              >
                 <button type="button" disabled={!hasPhone} onClick={() => { setMoreOpen(false); onShareWhatsApp(); }}>
                   <MessageCircle size={15} /> WhatsApp
                 </button>

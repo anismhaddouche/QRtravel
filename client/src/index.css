@@ -1590,6 +1590,32 @@
      padding-right: 0;
    }
 
+   /* Désembarquer — rouge sobre quand actif */
+   .selection-bar--v2 .sel-action--undo:not(:disabled) {
+     background: var(--danger);
+     border-color: var(--danger);
+     color: #ffffff;
+   }
+   .selection-bar--v2 .sel-action--undo:not(:disabled):hover {
+     background: #b91c1c;
+     border-color: #b91c1c;
+     color: #ffffff;
+   }
+   .selection-bar--v2 .sel-action--undo:not(:disabled) svg {
+     color: #ffffff;
+   }
+   .selection-bar--v2 .sel-action--undo:disabled {
+     opacity: 0.55;
+   }
+
+   /* "..." popover — keep on-screen, anchor to button's right edge */
+   .selection-more-menu {
+     z-index: 100;
+     min-width: 200px;
+     max-width: calc(100vw - 24px);
+     transform-origin: top right;
+   }
+
    /* Dashboard toast — readable in both themes */
    .dashboard-toast {
      position: fixed;
