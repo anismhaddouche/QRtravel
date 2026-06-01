@@ -450,24 +450,7 @@ export default function TravelerDetails({ role }) {
       </Dialog>
 
       {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            position: 'fixed',
-            bottom: '88px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'var(--surface-2, rgba(0,0,0,0.85))',
-            color: 'var(--white)',
-            padding: '10px 16px',
-            borderRadius: '8px',
-            border: '1px solid var(--border-subtle)',
-            fontSize: '0.85rem',
-            zIndex: 1000,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-          }}
-        >
+        <div role="status" aria-live="polite" className="app-toast">
           {toast}
         </div>
       )}
