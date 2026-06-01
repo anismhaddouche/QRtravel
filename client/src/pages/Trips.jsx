@@ -140,7 +140,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip }) {
       <div>
         <div className="page-header">
           <div>
-            <h1 className="page-title"><Map size={28} className="text-accent" /> Voyages</h1>
+            <h1 className="page-title">Voyages</h1>
           </div>
         </div>
         <LoadingState message="Chargement des voyages..." />
@@ -152,7 +152,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip }) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title"><Map size={28} style={{ color: 'var(--accent)' }} /> Voyages</h1>
+          <h1 className="page-title">Voyages</h1>
           <p className="page-subtitle">{trips.length} voyage{trips.length !== 1 ? 's' : ''} au total</p>
         </div>
         <div className="page-header-actions">

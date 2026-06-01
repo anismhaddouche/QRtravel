@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ScanLine, MoreHorizontal,
-  Building2, Map, Shield, LogOut, X, Plane,
+  Building2, Map, Shield, LogOut, X,
 } from 'lucide-react';
 import { api, getActiveAgencyId, setActiveAgencyId, onActiveAgencyChange } from '../utils/api';
 import ThemeToggle from './ThemeToggle';
@@ -119,13 +119,10 @@ function MobileMenu({ isSuperAdmin, isAgencyAdmin, username, role, onClose, onLo
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Plane size={20} />
-            <div>
-              <div style={{ fontWeight: 700 }}>{username}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {role === 'super_admin' ? 'Super admin' : (role === 'agency_admin' || role === 'admin') ? 'Admin agence' : role}
-              </div>
+          <div>
+            <div style={{ fontWeight: 700 }}>{username}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              {role === 'super_admin' ? 'Super admin' : (role === 'agency_admin' || role === 'admin') ? 'Admin agence' : role}
             </div>
           </div>
           <Button

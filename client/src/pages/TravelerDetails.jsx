@@ -226,41 +226,41 @@ export default function TravelerDetails({ role }) {
         {/* Infos voyageur */}
         <div className="glass-card">
           <div className="glass-card-header">
-            <h2 className="glass-card-title"><User size={20} /> Informations</h2>
+            <h2 className="glass-card-title">Informations</h2>
             <StatusBadge status={traveler.status} />
           </div>
 
           <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '12px 16px', margin: 0 }}>
             {isGroup && (
               <>
-                <Field icon={TypeIcon} label="Type">{typeLabel}</Field>
-                <Field icon={Users} label="Personnes">{traveler.peopleCount}</Field>
+                <Field label="Type">{typeLabel}</Field>
+                <Field label="Personnes">{traveler.peopleCount}</Field>
               </>
             )}
-            <Field icon={Phone} label="Téléphone">
+            <Field label="Téléphone">
               {traveler.phone ? (
                 <a href={`tel:${traveler.phone}`} className="traveler-info-link">{traveler.phone}</a>
               ) : <Muted>—</Muted>}
             </Field>
-            <Field icon={Mail} label="Email">
+            <Field label="Email">
               {traveler.email ? (
                 <a href={`mailto:${traveler.email}`} className="traveler-info-link">{traveler.email}</a>
               ) : <Muted>—</Muted>}
             </Field>
-            <Field icon={MapPin} label="Voyage">
+            <Field label="Voyage">
               {traveler.tripName || <Muted>—</Muted>}
               {traveler.tripDate ? <span style={{ color: 'var(--text-muted)' }}> — {traveler.tripDate}</span> : null}
             </Field>
             {isSuperAdmin && (
-              <Field icon={Building2} label="Agence">
+              <Field label="Agence">
                 {traveler.agencyName || <Muted>—</Muted>}
               </Field>
             )}
             {checkedAt && (
-              <Field icon={Hash} label="Embarqué le">{checkedAt}</Field>
+              <Field label="Embarqué le">{checkedAt}</Field>
             )}
             {traveler.notes && (
-              <Field icon={FileText} label="Notes">
+              <Field label="Notes">
                 <span style={{ whiteSpace: 'pre-wrap' }}>{traveler.notes}</span>
               </Field>
             )}
@@ -270,7 +270,7 @@ export default function TravelerDetails({ role }) {
         {/* QR code */}
         <div className="glass-card">
           <div className="glass-card-header">
-            <h2 className="glass-card-title"><QrCode size={20} /> QR code</h2>
+            <h2 className="glass-card-title">QR code</h2>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
             <div className="qr-frame">
@@ -708,8 +708,9 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
 function Field({ icon: Icon, label, children }) {
   return (
     <>
-      <dt style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>
-        <Icon size={14} /> {label}
+      <dt style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+        {Icon ? <Icon size={14} /> : null}
+        {label}
       </dt>
       <dd style={{ margin: 0, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
         {children}
