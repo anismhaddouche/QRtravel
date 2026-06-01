@@ -339,14 +339,15 @@ test('CSV import: too many rows → 413', async () => {
   });
 });
 
-test('POST /travelers: duplicate referenceCode (pg 23505) → 409 DUPLICATE_REFERENCE', async () => {
+test('POST /travelers: referenceCode generation race (pg 23505) → 500 REF_GENERATION_RACE', async () => {
+  // referenceCode is now auto-generated server-side; a 23505 here means
+  // two concurrent inserts hit the same generated code (extremely rare).
   setDbStubs({
     get: async (sql) => {
       if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-A' };
-      // Pre-check returns null so we reach INSERT, which then races to a duplicate.
-      if (/FROM travelers WHERE "referenceCode"/.test(sql)) return null;
       return null;
     },
+    all: async () => [],
     run: async () => { const e = new Error('duplicate key'); e.code = '23505'; throw e; },
   });
   const app = buildApp('agency_admin', 'agency-A');
@@ -354,11 +355,11 @@ test('POST /travelers: duplicate referenceCode (pg 23505) → 409 DUPLICATE_REFE
     const res = await fetch(`${base}/api/travelers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ referenceCode: 'TRV-DUP', displayName: 'X', type: 'person', tripId: 'trip-1' }),
+      body: JSON.stringify({ displayName: 'X', type: 'person', tripId: 'trip-1' }),
     });
-    assert.equal(res.status, 409);
+    assert.equal(res.status, 500);
     const body = await res.json();
-    assert.equal(body.code, 'DUPLICATE_REFERENCE');
+    assert.equal(body.code, 'REF_GENERATION_RACE');
   });
 });
 

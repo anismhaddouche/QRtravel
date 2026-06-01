@@ -170,7 +170,6 @@ export default function TravelerDetails({ role }) {
               <TypeIcon size={11} /> {typeLabel} · {traveler.peopleCount} pers.
             </span>
           </div>
-          <div className="detail-hero__ref">{traveler.referenceCode}</div>
         </div>
         <div className="detail-hero__actions">
           <Button variant="outline" onClick={() => setShowEdit(true)}>
@@ -191,9 +190,6 @@ export default function TravelerDetails({ role }) {
           </div>
 
           <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '12px 16px', margin: 0 }}>
-            <Field icon={Hash} label="Code de référence">
-              <span style={{ fontFamily: 'var(--font-mono)' }}>{traveler.referenceCode}</span>
-            </Field>
             <Field icon={TypeIcon} label="Type">{typeLabel}</Field>
             <Field icon={Users} label="Personnes">{traveler.peopleCount}</Field>
             <Field icon={Phone} label="Téléphone">
@@ -262,7 +258,8 @@ export default function TravelerDetails({ role }) {
             <Button
               variant="outline"
               className="traveler-action-button"
-              onClick={() => copyText(qrLink || traveler.referenceCode, 'Lien QR copié')}
+              onClick={() => { if (qrLink) copyText(qrLink, 'Lien QR copié'); }}
+              disabled={!qrLink}
               title="Copier le lien du QR code"
             >
               <Copy /> Copier lien QR
@@ -283,20 +280,6 @@ export default function TravelerDetails({ role }) {
                 style={{ display: 'block', maxWidth: '100%', width: '240px', height: 'auto' }}
               />
             </div>
-            <a
-              href={qrLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                fontSize: '0.78rem',
-                color: 'var(--text-muted)',
-                wordBreak: 'break-all',
-                textAlign: 'center',
-                fontFamily: 'var(--font-mono)',
-              }}
-            >
-              {qrLink}
-            </a>
           </div>
         </div>
       </div>
@@ -549,15 +532,6 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               required
               value={form.displayName}
               onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="edit-ref-code">Code de référence</Label>
-            <Input
-              id="edit-ref-code"
-              value={traveler.referenceCode}
-              disabled
-              title="Le code de référence ne peut pas être modifié"
             />
           </div>
           <div className="grid gap-5 sm:grid-cols-2">

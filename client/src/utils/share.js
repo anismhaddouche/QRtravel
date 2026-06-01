@@ -29,13 +29,11 @@ function compactPhone(phone) {
 
 export function buildShareMessage({ traveler, trip, qrLink, agencyName }) {
   const name = (traveler && traveler.displayName) || '';
-  const ref = (traveler && traveler.referenceCode) || '';
   const tripName = (trip && trip.name) || 'votre voyage';
   const lines = [
     `Bonjour ${name},`,
     '',
     `Voici votre QR code pour le voyage ${tripName}.`,
-    `Code de référence : ${ref}`,
   ];
   if (qrLink) lines.push(`QR code : ${qrLink}`);
   lines.push('');

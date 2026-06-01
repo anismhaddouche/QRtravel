@@ -50,7 +50,7 @@ function useIsMobile(breakpoint = 768) {
 }
 
 const EMPTY_FORM = {
-  referenceCode: '', displayName: '', type: 'person',
+  displayName: '', type: 'person',
   peopleCount: 1, peopleCountInput: '1',
   notes: '', phone: '', email: '',
   groupMembers: [],
@@ -134,7 +134,8 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
     if (q) {
       list = list.filter(t =>
         (t.displayName || '').toLowerCase().includes(q) ||
-        (t.referenceCode || '').toLowerCase().includes(q)
+        (t.phone || '').toLowerCase().includes(q) ||
+        (t.email || '').toLowerCase().includes(q)
       );
     }
     return list;
@@ -315,7 +316,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             <input
               type="text"
               className="input-search"
-              placeholder="Rechercher par nom ou code…"
+              placeholder="Rechercher par nom, téléphone ou email…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Rechercher un voyageur"
@@ -636,12 +637,11 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
       </div>
       <div className="board-row__main">
         <div className="board-row__name">{t.displayName}</div>
-        <div className="board-row__sub">
-          <span className="board-row__ref">{t.referenceCode}</span>
-          {t.peopleCount > 1 && (
+        {t.peopleCount > 1 && (
+          <div className="board-row__sub">
             <span className="board-row__people"><Users size={10} /> {t.peopleCount}</span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       {isCheckedIn ? (
         <button
@@ -693,7 +693,7 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
             )}
             <button
               type="button"
-              onClick={() => { setMenuOpen(false); onCopy(qrLink || t.referenceCode, `Lien QR de ${t.displayName} copié`); }}
+              onClick={() => { setMenuOpen(false); if (qrLink) onCopy(qrLink, `Lien QR de ${t.displayName} copié`); }}
             >
               <Copy size={15} /> Copier le lien QR
             </button>
@@ -932,16 +932,6 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
               required
               value={form.displayName}
               onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="add-ref-code">Code de référence *</Label>
-            <Input
-              id="add-ref-code"
-              required
-              value={form.referenceCode}
-              onChange={(e) => setForm({ ...form, referenceCode: e.target.value.toUpperCase() })}
-              placeholder="TRV-..."
             />
           </div>
           <div className="grid gap-5 sm:grid-cols-2">

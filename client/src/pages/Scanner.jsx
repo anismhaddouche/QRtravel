@@ -457,44 +457,6 @@ export default function Scanner({ isOnline, offlineQueue, tripId, trip }) {
         </>
       )}
 
-      {/* Manual code entry — also respects the processing lock */}
-      <div className="glass-card">
-        <h3 className="glass-card-title" style={{ marginBottom: '8px' }}>Saisie manuelle</h3>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-          Entrez le code de référence pour valider l'embarquement sans caméra.
-        </p>
-        <form onSubmit={handleManualSubmit} className="flex flex-col gap-2 sm:flex-row">
-          <Input
-            type="text"
-            placeholder="ex: TRV-001"
-            value={manualCode}
-            onChange={(e) => setManualCode(e.target.value)}
-            className="flex-1 font-mono min-h-11 border-input bg-background"
-            id="input-manual-code"
-            autoComplete="off"
-            disabled={isProcessingScan}
-          />
-          <Button
-            type="submit"
-            disabled={!manualCode.trim() || isProcessingScan}
-            id="btn-manual-checkin"
-            title={isProcessingScan ? 'Traitement en cours…' : ''}
-            className="min-h-11 px-5 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm"
-          >
-            {isProcessingScan ? (
-              <>
-                <Loader2 className="animate-spin" />
-                {processingPhase === 'cooldown' ? `${cooldownRemainingSec}s` : '…'}
-              </>
-            ) : (
-              <>
-                <Check /> Valider
-              </>
-            )}
-          </Button>
-        </form>
-      </div>
-
       <ScanFeedback result={feedback} onDismiss={() => setFeedback(null)} />
     </div>
   );
