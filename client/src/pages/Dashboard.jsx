@@ -579,20 +579,19 @@ function TripHero({ trip, stats, refreshing, onRefresh }) {
     <section className="trip-hero trip-hero--compact" aria-label="Voyage actif">
       <div className="trip-hero__body">
         <div className="trip-hero__left">
-          <div className="trip-hero__title">{trip?.name || 'Voyage'}</div>
-          <div className="trip-hero__meta">
+          <div className="trip-hero__title-row">
+            <div className="trip-hero__title">{trip?.name || 'Voyage'}</div>
             {trip?.date && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span className="trip-hero__date">
                 <Calendar size={12} /> {trip.date}
               </span>
             )}
-            {trip?.agencyName && (
-              <>
-                <span className="dot" aria-hidden />
-                <span>{trip.agencyName}</span>
-              </>
-            )}
           </div>
+          {trip?.agencyName && (
+            <div className="trip-hero__meta">
+              <span>{trip.agencyName}</span>
+            </div>
+          )}
         </div>
         <button
           type="button"
@@ -677,22 +676,22 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
       {isCheckedIn ? (
         <button
           type="button"
-          className="board-row__action board-row__action--undo"
+          className="board-row__action board-row__action--checked"
           onClick={(e) => { stop(e); onUndo(); }}
           aria-label={`Désembarquer ${t.displayName}`}
           title={`Désembarquer ${t.displayName}`}
         >
-          <CornerUpLeft size={18} />
+          <Check size={18} />
         </button>
       ) : (
         <button
           type="button"
-          className="board-row__action board-row__action--checkin"
+          className="board-row__action board-row__action--remaining"
           onClick={(e) => { stop(e); onCheckIn(); }}
           aria-label={`Embarquer ${t.displayName}`}
           title={`Embarquer ${t.displayName}`}
         >
-          <Check size={18} />
+          <UserX size={18} />
         </button>
       )}
       <div style={{ position: 'relative' }} onClick={stop}>

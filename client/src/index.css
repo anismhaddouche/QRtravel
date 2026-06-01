@@ -1180,6 +1180,13 @@
      border-radius: 999px;
      margin-bottom: 8px;
    }
+   .trip-hero__title-row {
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     gap: 12px;
+     flex-wrap: wrap;
+   }
    .trip-hero__title {
      font-size: 1.25rem;
      font-weight: 700;
@@ -1190,6 +1197,18 @@
      align-items: center;
      gap: 8px;
      flex-wrap: wrap;
+     min-width: 0;
+     flex: 1 1 auto;
+   }
+   .trip-hero__date {
+     display: inline-flex;
+     align-items: center;
+     gap: 5px;
+     font-size: 0.85rem;
+     font-weight: 600;
+     color: var(--text-secondary);
+     white-space: nowrap;
+     flex-shrink: 0;
    }
    .trip-hero__meta {
      margin-top: 4px;
@@ -1313,25 +1332,13 @@
      grid-template-columns: auto 1fr auto auto;
      align-items: center;
      gap: 12px;
-     padding: 12px 14px 12px 18px;
+     padding: 12px 14px;
      background: var(--surface-1);
      border: 1px solid var(--border);
      border-radius: 14px;
      transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;
      cursor: pointer;
    }
-   .board-row::before {
-     content: '';
-     position: absolute;
-     left: 0;
-     top: 10px;
-     bottom: 10px;
-     width: 3px;
-     border-radius: 2px;
-     background: var(--warning);
-     transition: background 160ms ease;
-   }
-   .board-row[data-status="checked_in"]::before { background: var(--success); }
    .board-row:hover {
      border-color: var(--border-light);
      background: var(--glass-hover);
@@ -1678,24 +1685,24 @@
      transition: background 160ms ease, color 160ms ease, border-color 160ms ease, transform 120ms ease;
    }
    .board-row__action:active { transform: scale(0.96); }
-   .board-row__action--checkin {
+   /* Embarqué → vert (clic = désembarquer) */
+   .board-row__action--checked {
      background: var(--success);
      color: #ffffff;
      box-shadow: 0 1px 2px rgba(0,0,0,0.10);
    }
-   .board-row__action--checkin:hover { background: #036848; }
-   .board-row__action--undo {
-     background: var(--surface-1);
-     color: var(--text-secondary);
-     border-color: var(--border);
+   .board-row__action--checked:hover { background: #036848; }
+   /* Restant / non embarqué → rouge (clic = embarquer) */
+   .board-row__action--remaining {
+     background: var(--danger);
+     color: #ffffff;
+     box-shadow: 0 1px 2px rgba(0,0,0,0.10);
    }
-   .board-row__action--undo:hover {
-     background: var(--surface-2);
-     color: var(--text-primary);
-     border-color: var(--border-light);
-   }
-   :root[data-theme="dark"] .board-row__action--checkin { background: var(--success); color: #fff; }
-   :root[data-theme="dark"] .board-row__action--checkin:hover { background: #0e9f70; }
+   .board-row__action--remaining:hover { background: #b91c1c; }
+   :root[data-theme="dark"] .board-row__action--checked { background: var(--success); color: #fff; }
+   :root[data-theme="dark"] .board-row__action--checked:hover { background: #0e9f70; }
+   :root[data-theme="dark"] .board-row__action--remaining { background: var(--danger); color: #fff; }
+   :root[data-theme="dark"] .board-row__action--remaining:hover { background: #dc2626; }
 
    /* Lighter list container — no big card around the list */
    .list-shell {
@@ -1718,7 +1725,7 @@
      .capsule-row { padding: 0 14px 12px; gap: 6px; }
      .capsule { padding: 5px 10px; font-size: 0.74rem; }
      .capsule__value { font-size: 0.88rem; }
-     .board-row { padding: 10px 8px 10px 14px; gap: 8px; }
+     .board-row { padding: 10px 10px; gap: 8px; }
      .board-row__action { width: 44px; height: 44px; border-radius: 12px; }
      .board-row__more { width: 44px; height: 44px; border-radius: 12px; }
      .main-content { padding: 12px 12px 100px; }
