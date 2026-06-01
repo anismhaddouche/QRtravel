@@ -1574,6 +1574,16 @@
      color: var(--accent);
      border-color: var(--accent);
    }
+   :root[data-theme="dark"] .selection-bar--v2 .sel-count__chip {
+     background: rgba(255, 255, 255, 0.08);
+     border-color: #4B5563;
+     color: #E5E7EB;
+   }
+   :root[data-theme="dark"] .selection-bar--v2 .sel-count__chip--active {
+     background: rgba(37, 99, 235, 0.18);
+     border-color: rgba(96, 165, 250, 0.65);
+     color: #DBEAFE;
+   }
    .selection-bar--v2 .sel-count__label {
      color: var(--text-muted);
      font-weight: 500;
@@ -1590,7 +1600,32 @@
      padding-right: 0;
    }
 
-   /* Désembarquer — rouge sobre quand actif */
+   /* Embarquer — vert quand actif, transparent/grisé quand disabled */
+   .selection-bar--v2 .sel-action--checkin:not(:disabled) {
+     background: var(--success);
+     border-color: var(--success);
+     color: #ffffff;
+   }
+   .selection-bar--v2 .sel-action--checkin:not(:disabled):hover {
+     background: #047857;
+     border-color: #047857;
+     color: #ffffff;
+   }
+   .selection-bar--v2 .sel-action--checkin:not(:disabled) svg {
+     color: #ffffff;
+   }
+   .selection-bar--v2 .sel-action--checkin:disabled {
+     background: transparent;
+     border-color: var(--border);
+     color: var(--text-muted);
+     opacity: 0.65;
+     cursor: not-allowed;
+   }
+   .selection-bar--v2 .sel-action--checkin:disabled svg {
+     color: var(--text-muted);
+   }
+
+   /* Désembarquer — rouge sobre quand actif, transparent/grisé quand disabled */
    .selection-bar--v2 .sel-action--undo:not(:disabled) {
      background: var(--danger);
      border-color: var(--danger);
@@ -1605,7 +1640,14 @@
      color: #ffffff;
    }
    .selection-bar--v2 .sel-action--undo:disabled {
-     opacity: 0.55;
+     background: transparent;
+     border-color: var(--border);
+     color: var(--text-muted);
+     opacity: 0.65;
+     cursor: not-allowed;
+   }
+   .selection-bar--v2 .sel-action--undo:disabled svg {
+     color: var(--text-muted);
    }
 
    /* "..." popover — keep on-screen, anchor to button's right edge */

@@ -751,9 +751,10 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
       <div className="sel-actions">
         <Button
           size="sm"
+          variant="outline"
           onClick={onBulkCheckIn}
           disabled={!hasRemaining}
-          className="bg-emerald-700 hover:bg-emerald-800 text-white"
+          className="sel-action sel-action--checkin"
         >
           <Check /> Embarquer
         </Button>
