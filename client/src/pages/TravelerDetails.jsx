@@ -7,7 +7,7 @@ import StatusBadge from '../components/StatusBadge';
 import {
   ArrowLeft, User, Users, Phone, Mail, MessageCircle, Copy,
   QrCode, Hash, MapPin, Building2, FileText, AlertCircle,
-  Edit2, Trash2, Save, ChevronDown, ChevronUp,
+  Edit2, Trash2, Save, ChevronDown, ChevronUp, History,
 } from 'lucide-react';
 
 const PERSON_NAME_RE = /^[A-Za-zÀ-ÖØ-öø-ÿĀ-žḀ-ỿ'’\- ]{2,50}$/u;
@@ -359,7 +359,7 @@ export default function TravelerDetails({ role }) {
         </div>
       )}
 
-      {/* Activité du voyageur — pliable */}
+      {/* Activité — même design que l'accordéon "Activité récente" de l'accueil */}
       <div className="glass-card" style={{ marginTop: '24px' }}>
         <button
           type="button"
@@ -378,8 +378,7 @@ export default function TravelerDetails({ role }) {
           }}
         >
           <h2 className="glass-card-title" style={{ margin: 0 }}>
-            <FileText size={20} /> Activité du voyageur
-            {traveler.activity?.length ? ` (${traveler.activity.length} derniers événements)` : ''}
+            <History size={20} /> Activité {traveler.activity?.length ? `(${traveler.activity.length})` : ''}
           </h2>
           {activityOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </button>
@@ -387,27 +386,36 @@ export default function TravelerDetails({ role }) {
           !traveler.activity || traveler.activity.length === 0 ? (
             <div style={{ marginTop: '12px' }}>
               <EmptyState
-                icon={FileText}
-                title="Aucune activité pour ce voyageur"
+                icon={History}
+                title="Aucune activité"
                 description="Les embarquements et désembarquements apparaîtront ici."
               />
             </div>
           ) : (
-            <ol className="timeline" style={{ listStyle: 'none' }}>
+            <ul style={{ listStyle: 'none', margin: '12px 0 0', padding: 0 }}>
               {traveler.activity.map((ev) => {
                 const isCheckin = ev.action === 'check_in';
-                const label = isCheckin ? 'Embarqué' : ev.action === 'undo_check_in' ? 'Désembarqué' : ev.action;
-                const when = new Date(ev.timestamp).toLocaleString('fr-FR');
-                const source = ev.deviceId && ev.deviceId !== 'unknown' ? ev.deviceId : null;
+                const when = new Date(ev.timestamp).toLocaleTimeString('fr-FR');
                 return (
-                  <li key={ev.id} className="timeline__item">
-                    <span className={`timeline__dot ${isCheckin ? 'timeline__dot--success' : 'timeline__dot--warning'}`} />
-                    <div className="timeline__title">{label}</div>
-                    <div className="timeline__meta">{when}{source ? ` · ${source}` : ''}</div>
+                  <li key={ev.id} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '16px',
+                    padding: '12px 0', borderBottom: '1px solid var(--border-subtle)',
+                  }}>
+                    <div style={{
+                      marginTop: '4px', width: '10px', height: '10px', borderRadius: '50%',
+                      background: isCheckin ? 'var(--success)' : 'var(--warning)',
+                      boxShadow: isCheckin ? '0 0 8px var(--success)' : 'none',
+                    }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                        <strong>{traveler.displayName}</strong> a été {isCheckin ? 'embarqué(e)' : 'dés-embarqué(e)'}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>{when}</div>
+                    </div>
                   </li>
                 );
               })}
-            </ol>
+            </ul>
           )
         )}
       </div>
