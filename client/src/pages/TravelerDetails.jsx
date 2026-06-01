@@ -187,24 +187,37 @@ export default function TravelerDetails({ role }) {
         <ArrowLeft /> Retour au tableau de bord
       </Button>
 
-      <section className="detail-hero">
+      <section className="detail-hero detail-hero--compact">
         <div className="detail-hero__body">
           <div className="detail-hero__name">{traveler.displayName}</div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
-            <StatusBadge status={traveler.status} />
-            {isGroup && (
+          {isGroup && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
               <span className="traveler-row__chip chip-success" style={{ background: 'var(--surface-1)', color: 'var(--text-secondary)' }}>
                 <Users size={11} /> Groupe · {traveler.peopleCount} pers.
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-        <div className="detail-hero__actions">
-          <Button variant="outline" onClick={() => setShowEdit(true)}>
-            <Edit2 /> Modifier
+        <div className="detail-hero__actions detail-hero__actions--icons">
+          <Button
+            variant="outline"
+            size="icon"
+            className="detail-hero__action-btn"
+            onClick={() => setShowEdit(true)}
+            aria-label="Modifier le voyageur"
+            title="Modifier"
+          >
+            <Edit2 />
           </Button>
-          <Button variant="destructive" onClick={() => setShowDelete(true)}>
-            <Trash2 /> Supprimer
+          <Button
+            variant="destructive"
+            size="icon"
+            className="detail-hero__action-btn"
+            onClick={() => setShowDelete(true)}
+            aria-label="Supprimer le voyageur"
+            title="Supprimer"
+          >
+            <Trash2 />
           </Button>
         </div>
       </section>

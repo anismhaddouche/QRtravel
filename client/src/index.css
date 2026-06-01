@@ -1023,6 +1023,35 @@
      flex-wrap: wrap;
    }
 
+   /* Compact hero: name on the left, square icon actions on the right,
+      no status badge. Name wraps if very long but actions stay visible. */
+   .detail-hero--compact {
+     flex-wrap: nowrap;
+     align-items: flex-start;
+   }
+   .detail-hero--compact .detail-hero__body {
+     min-width: 0;
+   }
+   .detail-hero--compact .detail-hero__name {
+     overflow-wrap: anywhere;
+     word-break: break-word;
+   }
+   .detail-hero__actions--icons {
+     flex-shrink: 0;
+     flex-wrap: nowrap;
+     gap: 8px;
+   }
+   .detail-hero__action-btn {
+     width: 40px;
+     height: 40px;
+   }
+   @media (max-width: 480px) {
+     .detail-hero__action-btn {
+       width: 44px;
+       height: 44px;
+     }
+   }
+
    /* ----- QR frame ----- */
    .qr-frame {
      padding: 16px;
