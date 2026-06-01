@@ -265,8 +265,23 @@ export default function TravelerDetails({ role }) {
               </Field>
             )}
           </dl>
+        </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+        {/* QR code */}
+        <div className="glass-card">
+          <div className="glass-card-header">
+            <h2 className="glass-card-title"><QrCode size={20} /> QR code</h2>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+            <div className="qr-frame">
+              <img
+                src={qrLink}
+                alt={`QR code de ${traveler.displayName}`}
+                style={{ display: 'block', maxWidth: '100%', width: '240px', height: 'auto' }}
+              />
+            </div>
+          </div>
+          <div className="qr-actions">
             {wa ? (
               <Button asChild variant="outline" className="traveler-action-button">
                 <a href={wa} target="_blank" rel="noopener noreferrer" title="WhatsApp">
@@ -291,29 +306,13 @@ export default function TravelerDetails({ role }) {
             )}
             <Button
               variant="outline"
-              className="traveler-action-button"
+              className="traveler-action-button qr-actions__copy"
               onClick={() => { if (qrLink) copyText(qrLink, 'Lien QR copié'); }}
               disabled={!qrLink}
               title="Copier le lien du QR code"
             >
               <Copy /> Copier lien QR
             </Button>
-          </div>
-        </div>
-
-        {/* QR code */}
-        <div className="glass-card">
-          <div className="glass-card-header">
-            <h2 className="glass-card-title"><QrCode size={20} /> QR code</h2>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
-            <div className="qr-frame">
-              <img
-                src={qrLink}
-                alt={`QR code de ${traveler.displayName}`}
-                style={{ display: 'block', maxWidth: '100%', width: '240px', height: 'auto' }}
-              />
-            </div>
           </div>
         </div>
       </div>

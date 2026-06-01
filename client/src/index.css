@@ -1052,6 +1052,32 @@
      }
    }
 
+   /* Action buttons sitting under the QR image: WhatsApp + Email share
+      a row when there is room, "Copier lien QR" spans the next line on
+      narrow screens via the --copy variant. */
+   .qr-actions {
+     display: grid;
+     grid-template-columns: 1fr 1fr;
+     gap: 8px;
+     margin-top: 16px;
+     padding-top: 16px;
+     border-top: 1px solid var(--border-subtle);
+   }
+   .qr-actions > .qr-actions__copy {
+     grid-column: 1 / -1;
+   }
+   .qr-actions > * {
+     width: 100%;
+   }
+   @media (min-width: 640px) {
+     .qr-actions {
+       grid-template-columns: repeat(3, minmax(0, 1fr));
+     }
+     .qr-actions > .qr-actions__copy {
+       grid-column: auto;
+     }
+   }
+
    /* ----- QR frame ----- */
    .qr-frame {
      padding: 16px;
