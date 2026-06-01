@@ -763,16 +763,50 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
         {hasSelection && (
           <button
             type="button"
-            className="icon-btn"
+            className="icon-btn sel-clear"
             onClick={onClear}
             aria-label="Tout désélectionner"
             title="Tout désélectionner"
-            style={{ width: 28, height: 28 }}
           >
             <X size={14} />
           </button>
         )}
       </div>
+      {isMobile && (
+        <div ref={moreRef} className="sel-more-wrap" style={{ position: 'relative' }}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setMoreOpen(v => !v)}
+            aria-haspopup="menu"
+            aria-expanded={moreOpen}
+            aria-label="Plus d'actions"
+            title="Plus d'actions"
+            disabled={!hasSelection}
+            className="sel-more"
+          >
+            <MoreHorizontal />
+          </Button>
+          {moreOpen && (
+            <div
+              className="popover selection-more-menu"
+              style={{ right: 0, left: 'auto', top: 'calc(100% + 6px)' }}
+              role="menu"
+            >
+              <button type="button" disabled={!hasPhone} onClick={() => { setMoreOpen(false); onShareWhatsApp(); }}>
+                <MessageCircle size={15} /> WhatsApp
+              </button>
+              <button type="button" disabled={!hasEmail} onClick={() => { setMoreOpen(false); onShareEmail(); }}>
+                <Mail size={15} /> Email
+              </button>
+              <div className="popover__divider" />
+              <button type="button" className="popover__danger" onClick={() => { setMoreOpen(false); onDelete(); }}>
+                <Trash2 size={15} /> Supprimer
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <div className="sel-actions">
         <Button
           size="sm"
@@ -794,51 +828,16 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
         </Button>
         {!isMobile && (
           <>
-            <Button size="sm" variant="outline" onClick={onShareWhatsApp} disabled={!hasPhone}>
+            <Button size="sm" variant="outline" onClick={onShareWhatsApp} disabled={!hasPhone} className="sel-action">
               <MessageCircle /> WhatsApp
             </Button>
-            <Button size="sm" variant="outline" onClick={onShareEmail} disabled={!hasEmail}>
+            <Button size="sm" variant="outline" onClick={onShareEmail} disabled={!hasEmail} className="sel-action">
               <Mail /> Email
             </Button>
-            <Button size="sm" variant="destructive" onClick={onDelete} disabled={!hasSelection}>
+            <Button size="sm" variant="destructive" onClick={onDelete} disabled={!hasSelection} className="sel-action">
               <Trash2 /> Supprimer
             </Button>
           </>
-        )}
-        {isMobile && (
-          <div ref={moreRef} className="sel-more-wrap" style={{ position: 'relative' }}>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setMoreOpen(v => !v)}
-              aria-haspopup="menu"
-              aria-expanded={moreOpen}
-              aria-label="Plus d'actions"
-              title="Plus d'actions"
-              disabled={!hasSelection}
-              className="sel-more"
-            >
-              <MoreHorizontal />
-            </Button>
-            {moreOpen && (
-              <div
-                className="popover selection-more-menu"
-                style={{ right: 0, left: 'auto', top: 'calc(100% + 6px)' }}
-                role="menu"
-              >
-                <button type="button" disabled={!hasPhone} onClick={() => { setMoreOpen(false); onShareWhatsApp(); }}>
-                  <MessageCircle size={15} /> WhatsApp
-                </button>
-                <button type="button" disabled={!hasEmail} onClick={() => { setMoreOpen(false); onShareEmail(); }}>
-                  <Mail size={15} /> Email
-                </button>
-                <div className="popover__divider" />
-                <button type="button" className="popover__danger" onClick={() => { setMoreOpen(false); onDelete(); }}>
-                  <Trash2 size={15} /> Supprimer
-                </button>
-              </div>
-            )}
-          </div>
         )}
       </div>
     </div>
