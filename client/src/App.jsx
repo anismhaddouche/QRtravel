@@ -26,11 +26,19 @@ export default function App() {
   useEffect(() => {
     api.me()
       .then((data) => {
+        // null = no active session (401 expected on first load / after
+        // logout). Anything else means we're logged in.
+        if (!data) {
+          setAuthState('unauthenticated');
+          return;
+        }
         setUsername(data.username);
         setRole(data.role || 'admin');
         setAuthState('authenticated');
       })
       .catch(() => {
+        // Network / unexpected error — still treat as unauthenticated
+        // so the user lands on the login screen instead of a blank app.
         setAuthState('unauthenticated');
       });
   }, []);

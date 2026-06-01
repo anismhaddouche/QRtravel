@@ -88,7 +88,31 @@ export const api = {
   // Auth
   login: (username, password) => request('/auth/login', { method: 'POST', body: { username, password } }),
   logout: () => request('/auth/logout', { method: 'POST' }),
-  me: () => request('/auth/me'),
+  // /auth/me is the "do I have a session?" probe — a 401 here is an
+  // expected, normal state (logged-out user, expired cookie). We resolve
+  // null instead of throwing so callers don't have to swallow an error
+  // and the browser console stays clean. Other endpoints keep the
+  // throw-on-401 + global onAuthError behavior.
+  me: async () => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/me`, {
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (response.status === 401) return null;
+      const data = await response.json();
+      if (!response.ok) {
+        const error = new Error(data.error || 'Request failed');
+        error.status = response.status;
+        error.code = data.code;
+        throw error;
+      }
+      return data;
+    } catch (err) {
+      if (err && err.status === 401) return null;
+      throw err;
+    }
+  },
 
   // Agencies (super_admin only)
   getAgencies: () => request('/agencies'),
