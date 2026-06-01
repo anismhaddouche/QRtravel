@@ -932,25 +932,25 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
             Ajout manuel ou import CSV de voyageurs au voyage actif.
           </DialogDescription>
         </DialogHeader>
-        <div role="tablist" className="flex gap-2 mb-4">
-          <Button
-            size="sm"
-            variant={mode === 'manual' ? 'default' : 'outline'}
+        <div role="tablist" aria-label="Mode d'ajout" className="add-mode-switch mb-4">
+          <button
+            type="button"
             role="tab"
             aria-selected={mode === 'manual'}
+            className={`add-mode-switch__option${mode === 'manual' ? ' add-mode-switch__option--active' : ''}`}
             onClick={() => setMode('manual')}
           >
-            <Plus /> Manuel
-          </Button>
-          <Button
-            size="sm"
-            variant={mode === 'csv' ? 'default' : 'outline'}
+            <Plus size={16} /> Manuel
+          </button>
+          <button
+            type="button"
             role="tab"
             aria-selected={mode === 'csv'}
+            className={`add-mode-switch__option${mode === 'csv' ? ' add-mode-switch__option--active' : ''}`}
             onClick={() => setMode('csv')}
           >
-            <Upload /> Import CSV
-          </Button>
+            <Upload size={16} /> Import CSV
+          </button>
         </div>
 
       {mode === 'manual' ? (
