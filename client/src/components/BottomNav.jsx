@@ -32,7 +32,7 @@ export default function BottomNav({ role, username, onLogout }) {
         <NavItem to="/trips" icon={<Map size={22} />} label="Voyages" />
         <NavLink
           to="/scanner"
-          className={({ isActive }) => `nav-tab nav-tab--cta${isActive ? ' nav-tab--active' : ''}`}
+          className={({ isActive }) => `nav-tab nav-tab--scanner nav-tab--cta${isActive ? ' nav-tab--active' : ''}`}
           aria-label="Ouvrir le scanner"
         >
           <span className="nav-tab__cta-bubble"><ScanLine size={22} /></span>
