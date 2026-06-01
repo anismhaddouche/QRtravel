@@ -1611,9 +1611,30 @@
    /* "..." popover — keep on-screen, anchor to button's right edge */
    .selection-more-menu {
      z-index: 100;
-     min-width: 200px;
-     max-width: calc(100vw - 24px);
+     min-width: 180px;
+     max-width: calc(100vw - 32px);
      transform-origin: top right;
+   }
+   /* Wrapper of the mobile "..." button: push it to the right of the
+      .sel-actions flex row so the right-anchored popover always extends
+      leftward within the bar (and viewport). */
+   .selection-bar--v2 .sel-more-wrap {
+     margin-left: auto;
+   }
+
+   /* Trip-hero add button — primary tint to read as the page CTA */
+   .icon-btn.icon-btn--primary {
+     background: var(--primary);
+     color: var(--primary-foreground);
+     border-color: var(--primary);
+   }
+   .icon-btn.icon-btn--primary:hover {
+     background: var(--primary);
+     filter: brightness(0.92);
+   }
+   .trip-hero__add { width: 40px; height: 40px; border-radius: 10px; }
+   @media (max-width: 480px) {
+     .trip-hero__add { width: 44px; height: 44px; }
    }
 
    /* Dashboard toast — readable in both themes */

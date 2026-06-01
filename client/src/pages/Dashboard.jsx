@@ -4,7 +4,7 @@ import { api, onActiveAgencyChange } from '../utils/api';
 import { SkeletonStats, SkeletonTable } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import {
-  Users, UserCheck, UserX, LayoutDashboard, History, RefreshCw,
+  Users, UserCheck, UserX, LayoutDashboard, History,
   MessageCircle, Mail, Copy, Phone, ChevronDown, ChevronUp, MoreHorizontal,
   Plus, Upload, Trash2, Check, CornerUpLeft, Send, AlertCircle, X, Search,
   Calendar,
@@ -278,8 +278,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
         <TripHero
           trip={trip}
           stats={stats}
-          refreshing={refreshing}
-          onRefresh={() => fetchData(true)}
+          onAddTravelers={() => setShowAdd(true)}
         />
       )}
 
@@ -307,16 +306,6 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             </h2>
             {travelersOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
-          {!isMobile && (
-            <Button
-              onClick={() => setShowAdd(true)}
-              disabled={!tripId}
-              title={tripId ? 'Ajouter des voyageurs' : 'Sélectionnez d\'abord un voyage'}
-              size="sm"
-            >
-              <Plus /> Ajouter
-            </Button>
-          )}
         </div>
 
       {travelersOpen && (<>
@@ -548,23 +537,12 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
         </div>
       )}
 
-      {/* Mobile FAB — primary CTA always reachable */}
-      {isMobile && tripId && (
-        <button
-          type="button"
-          className="fab"
-          aria-label="Ajouter des voyageurs"
-          onClick={() => setShowAdd(true)}
-        >
-          <Plus size={26} />
-        </button>
-      )}
     </div>
   );
 }
 
 // ─── Trip Hero (compact header — no progress bar) ──────────────────
-function TripHero({ trip, stats, refreshing, onRefresh }) {
+function TripHero({ trip, stats, onAddTravelers }) {
   const total = stats.totalPeople || 0;
   const done = stats.checkedInPeople || 0;
   const left = stats.missingPeople || 0;
@@ -588,13 +566,12 @@ function TripHero({ trip, stats, refreshing, onRefresh }) {
         </div>
         <button
           type="button"
-          className="icon-btn"
-          onClick={onRefresh}
-          disabled={refreshing}
-          aria-label="Actualiser"
-          title="Actualiser"
+          className="icon-btn icon-btn--primary trip-hero__add"
+          onClick={onAddTravelers}
+          aria-label="Ajouter des voyageurs"
+          title="Ajouter des voyageurs"
         >
-          <RefreshCw size={16} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+          <Plus size={18} />
         </button>
       </div>
       <div className="capsule-row" role="group" aria-label="Statistiques voyage">
@@ -803,7 +780,7 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
           </>
         )}
         {isMobile && (
-          <div ref={moreRef} style={{ position: 'relative' }}>
+          <div ref={moreRef} className="sel-more-wrap" style={{ position: 'relative' }}>
             <Button
               size="sm"
               variant="outline"
