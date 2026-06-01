@@ -73,13 +73,25 @@ const TYPES = ['person', 'group'];
 const TYPE_ERROR = 'Type invalide. Valeurs acceptées : Individuel, Groupe';
 const TRAVELER_STATUSES = ['not_checked_in', 'checked_in'];
 const REF_CODE_RE = /^[A-Za-z0-9_\-]{1,64}$/;
-const MAX_NAME = 200;
-const MAX_NOTES = 2000;
-const MAX_PHONE = 30;
-const MAX_EMAIL = 255;
+const MAX_DISPLAY_NAME = 120;
+const MIN_PERSON_NAME = 2;
+const MAX_PERSON_NAME = 50;
+const MAX_NOTES = 500;
+const MAX_PHONE = 20;
+const MAX_EMAIL = 120;
 const MIN_PEOPLE = 1;
 const MAX_PEOPLE = 200;
+// Accepts Latin letters with accents, spaces, hyphens, apostrophes
+// (straight or curly). Length 2–50 enforced by quantifier.
+const PERSON_NAME_RE = /^[A-Za-zÀ-ÖØ-öø-ÿĀ-žḀ-ỿ'’\- ]{2,50}$/u;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Optional leading +, then digits/spaces/dots/dashes. Real digit count
+// is enforced separately (8–15).
+const PHONE_RE = /^\+?[\d][\d\s.\-]{7,18}$/;
+// Reject obvious HTML/script injection in free-text fields.
+const HTML_INJECTION_RE = /<script\b|<\/|javascript:/i;
+// Legacy alias kept for any code path that still uses MAX_NAME.
+const MAX_NAME = MAX_DISPLAY_NAME;
 
 // Maps a free-form CSV "type" cell to one of the internal TYPES.
 const TYPE_ALIASES = {
@@ -128,16 +140,47 @@ function validateStatus(v) {
   return v;
 }
 
+// Strict person-name validator. `label` is interpolated into the error
+// for clarity (e.g. "Le nom" / "Le prénom").
+function validatePersonName(v, { label = 'Le nom', required = true } = {}) {
+  if (v === undefined || v === null || v === '') {
+    if (required) { const err = new Error(`${label} est requis`); err.statusCode = 400; throw err; }
+    return null;
+  }
+  if (typeof v !== 'string') {
+    const err = new Error(`${label} doit être une chaîne`); err.statusCode = 400; throw err;
+  }
+  const s = v.trim().replace(/\s+/g, ' ');
+  if (s.length < MIN_PERSON_NAME) {
+    const err = new Error(`${label} doit contenir au moins ${MIN_PERSON_NAME} caractères`);
+    err.statusCode = 400; throw err;
+  }
+  if (s.length > MAX_PERSON_NAME) {
+    const err = new Error(`${label} doit contenir au plus ${MAX_PERSON_NAME} caractères`);
+    err.statusCode = 400; throw err;
+  }
+  if (!PERSON_NAME_RE.test(s)) {
+    const err = new Error(`${label} contient des caractères non autorisés`);
+    err.statusCode = 400; throw err;
+  }
+  return s;
+}
+
 function validatePhone(v, { throwOnError = true } = {}) {
   if (v === undefined || v === null || v === '') return null;
   if (typeof v !== 'string') {
-    if (throwOnError) { const err = new Error('phone must be a string'); err.statusCode = 400; throw err; }
+    if (throwOnError) { const err = new Error('Numéro de téléphone invalide'); err.statusCode = 400; throw err; }
     return null;
   }
-  const s = v.trim();
+  const s = v.trim().replace(/\s+/g, ' ');
   if (!s) return null;
-  if (s.length > MAX_PHONE) {
-    if (throwOnError) { const err = new Error(`phone must be at most ${MAX_PHONE} characters`); err.statusCode = 400; throw err; }
+  if (s.length > MAX_PHONE || !PHONE_RE.test(s)) {
+    if (throwOnError) { const err = new Error('Numéro de téléphone invalide'); err.statusCode = 400; throw err; }
+    return null;
+  }
+  const digits = s.replace(/\D/g, '');
+  if (digits.length < 8 || digits.length > 15) {
+    if (throwOnError) { const err = new Error('Numéro de téléphone invalide'); err.statusCode = 400; throw err; }
     return null;
   }
   return s;
@@ -146,16 +189,53 @@ function validatePhone(v, { throwOnError = true } = {}) {
 function validateEmail(v, { throwOnError = true } = {}) {
   if (v === undefined || v === null || v === '') return null;
   if (typeof v !== 'string') {
-    if (throwOnError) { const err = new Error('email must be a string'); err.statusCode = 400; throw err; }
+    if (throwOnError) { const err = new Error('Email invalide'); err.statusCode = 400; throw err; }
     return null;
   }
   const s = v.trim().toLowerCase();
   if (!s) return null;
   if (s.length > MAX_EMAIL || !EMAIL_RE.test(s)) {
-    if (throwOnError) { const err = new Error('email is invalid'); err.statusCode = 400; throw err; }
+    if (throwOnError) { const err = new Error('Email invalide'); err.statusCode = 400; throw err; }
     return null;
   }
   return s;
+}
+
+function validateNotes(v, { throwOnError = true } = {}) {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'string') {
+    if (throwOnError) { const err = new Error('Notes invalides'); err.statusCode = 400; throw err; }
+    return null;
+  }
+  const s = v.trim();
+  if (!s) return '';
+  if (s.length > MAX_NOTES) {
+    if (throwOnError) { const err = new Error(`Les notes ne doivent pas dépasser ${MAX_NOTES} caractères`); err.statusCode = 400; throw err; }
+    return s.slice(0, MAX_NOTES);
+  }
+  if (HTML_INJECTION_RE.test(s)) {
+    if (throwOnError) { const err = new Error('Les notes contiennent des caractères non autorisés'); err.statusCode = 400; throw err; }
+    return null;
+  }
+  return s;
+}
+
+// Resolve a final displayName from a request body: prefer firstName +
+// lastName when provided; fall back to a legacy `displayName` (for
+// backward compatibility with older clients). Returns the trimmed,
+// length-capped string, or throws a 400 on validation failure.
+function resolveDisplayName(body) {
+  const hasFirst = typeof body.firstName === 'string' && body.firstName.trim();
+  const hasLast = typeof body.lastName === 'string' && body.lastName.trim();
+  if (hasFirst || hasLast) {
+    const firstName = validatePersonName(body.firstName, { label: 'Le prénom' });
+    const lastName = validatePersonName(body.lastName, { label: 'Le nom' });
+    return `${firstName} ${lastName}`.slice(0, MAX_DISPLAY_NAME);
+  }
+  // Legacy clients sending displayName directly.
+  const raw = cleanStr(body.displayName, MAX_DISPLAY_NAME);
+  if (!raw) return null;
+  return raw;
 }
 
 const MAX_GROUP_MEMBERS = 100;
@@ -185,8 +265,17 @@ function validateGroupMembers(raw, { expectedCount } = {}) {
     if (typeof m !== 'object' || Array.isArray(m)) {
       const err = new Error(`groupMembers[${i}] must be an object`); err.statusCode = 400; throw err;
     }
-    const firstName = cleanStr(m.firstName, MAX_MEMBER_NAME);
-    const lastName = cleanStr(m.lastName, MAX_MEMBER_NAME);
+    let firstName = null, lastName = null;
+    try {
+      firstName = m.firstName === undefined || m.firstName === null || m.firstName === ''
+        ? null
+        : validatePersonName(m.firstName, { label: 'Le prénom' });
+    } catch (e) { const err = new Error(`groupMembers[${i}].firstName: ${e.message}`); err.statusCode = 400; throw err; }
+    try {
+      lastName = m.lastName === undefined || m.lastName === null || m.lastName === ''
+        ? null
+        : validatePersonName(m.lastName, { label: 'Le nom' });
+    } catch (e) { const err = new Error(`groupMembers[${i}].lastName: ${e.message}`); err.statusCode = 400; throw err; }
     if (!firstName && !lastName) {
       const err = new Error(`groupMembers[${i}]: firstName or lastName is required`);
       err.statusCode = 400; throw err;
@@ -315,19 +404,25 @@ router.post('/', async (req, res) => {
     // referenceCode is no longer accepted from the client. It's an
     // internal technical identifier (used by QR/scan) generated by the
     // server. Any value sent by the caller is intentionally ignored.
-    const displayName = cleanStr(body.displayName, MAX_NAME);
     const tripId = typeof body.tripId === 'string' ? body.tripId.trim() : '';
-
-    if (!displayName || !tripId) {
+    if (!tripId) {
       return res.status(400).json({
-        error: 'displayName, type, and tripId are required',
+        error: 'tripId is required',
+        code: 'VALIDATION',
+      });
+    }
+
+    const displayName = resolveDisplayName(body);
+    if (!displayName) {
+      return res.status(400).json({
+        error: 'Le nom et le prénom sont requis',
         code: 'VALIDATION',
       });
     }
 
     const type = validateType(body.type, { required: true });
     const peopleCount = validatePeopleCount(body.peopleCount);
-    const notes = body.notes === undefined ? '' : (cleanStr(body.notes, MAX_NOTES) || '');
+    const notes = validateNotes(body.notes) || '';
     const phone = validatePhone(body.phone);
     const email = validateEmail(body.email);
 
@@ -426,7 +521,17 @@ router.put('/:id', async (req, res) => {
     if (!traveler) return res.status(404).json({ error: 'Traveler not found' });
 
     const body = req.body || {};
-    const displayName = body.displayName === undefined ? null : cleanStr(body.displayName, MAX_NAME);
+    // PUT accepts firstName + lastName (new contract) OR displayName
+    // (legacy). Only update displayName when the client actually sent
+    // identifying fields — undefined leaves the column unchanged.
+    let displayName = null;
+    const sentNameFields = body.firstName !== undefined || body.lastName !== undefined || body.displayName !== undefined;
+    if (sentNameFields) {
+      displayName = resolveDisplayName(body);
+      if (!displayName) {
+        const err = new Error('Le nom et le prénom sont requis'); err.statusCode = 400; throw err;
+      }
+    }
     const type = validateType(body.type);
     let peopleCount = validatePeopleCount(body.peopleCount);
     // Effective type = incoming type or, if unchanged, the existing one.
@@ -439,7 +544,7 @@ router.put('/:id', async (req, res) => {
       peopleCount = Math.max(2, base);
     }
     const status = validateStatus(body.status);
-    const notes = body.notes === undefined ? null : (cleanStr(body.notes, MAX_NOTES) || '');
+    const notes = body.notes === undefined ? null : (validateNotes(body.notes) || '');
     // For phone/email, `undefined` = leave unchanged. Empty string = explicit clear.
     let phone;
     if (body.phone === undefined) phone = undefined;
@@ -650,16 +755,18 @@ router.post(
         const tel = idx.tel >= 0 ? (row[idx.tel] || '').trim() : '';
         const mail = idx.mail >= 0 ? (row[idx.mail] || '').trim() : '';
 
-        if (!nom && !prenom) {
-          errors.push({ line: lineNo, error: 'Nom manquant' });
-          continue;
-        }
-        if (!nom) {
-          errors.push({ line: lineNo, error: 'Nom manquant' });
+        if (!nom || !prenom) {
+          errors.push({ line: lineNo, error: 'Nom et prénom requis' });
           continue;
         }
 
-        const displayName = (prenom ? `${prenom} ${nom}` : nom).slice(0, MAX_NAME);
+        let validNom, validPrenom;
+        try { validNom = validatePersonName(nom, { label: 'Le nom' }); }
+        catch (e) { errors.push({ line: lineNo, error: e.message }); continue; }
+        try { validPrenom = validatePersonName(prenom, { label: 'Le prénom' }); }
+        catch (e) { errors.push({ line: lineNo, error: e.message }); continue; }
+
+        const displayName = `${validPrenom} ${validNom}`.slice(0, MAX_DISPLAY_NAME);
         const type = rawType ? mapType(rawType) : 'person';
         if (!type) {
           errors.push({ line: lineNo, error: TYPE_ERROR });
@@ -669,12 +776,12 @@ router.post(
         let phone = null;
         if (tel) {
           try { phone = validatePhone(tel); }
-          catch { errors.push({ line: lineNo, error: 'Téléphone trop long' }); continue; }
+          catch (e) { errors.push({ line: lineNo, error: e.message }); continue; }
         }
         let email = null;
         if (mail) {
           try { email = validateEmail(mail); }
-          catch { errors.push({ line: lineNo, error: 'Email invalide' }); continue; }
+          catch (e) { errors.push({ line: lineNo, error: e.message }); continue; }
         }
 
         const referenceCode = generateUniqueRefCode(usedRefs);

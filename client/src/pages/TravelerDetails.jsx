@@ -9,6 +9,38 @@ import {
   QrCode, Hash, MapPin, Building2, FileText, AlertCircle,
   Edit2, Trash2, Save, ChevronDown, ChevronUp,
 } from 'lucide-react';
+
+const PERSON_NAME_RE = /^[A-Za-zÀ-ÖØ-öø-ÿĀ-žḀ-ỿ'’\- ]{2,50}$/u;
+const PHONE_RE = /^\+?[\d][\d\s.\-]{7,18}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_NOTES_UI = 500;
+
+function splitDisplayName(displayName) {
+  const parts = (displayName || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: '', lastName: '' };
+  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
+function validateEditForm({ firstName, lastName, phone, email, notes }) {
+  const fn = (firstName || '').trim();
+  const ln = (lastName || '').trim();
+  if (!fn || !PERSON_NAME_RE.test(fn)) return 'Le prénom contient des caractères non autorisés ou est invalide (2 à 50 caractères).';
+  if (!ln || !PERSON_NAME_RE.test(ln)) return 'Le nom contient des caractères non autorisés ou est invalide (2 à 50 caractères).';
+  if (phone) {
+    const p = phone.trim();
+    const digits = p.replace(/\D/g, '');
+    if (!PHONE_RE.test(p) || digits.length < 8 || digits.length > 15) {
+      return 'Numéro de téléphone invalide.';
+    }
+  }
+  if (email) {
+    const e = email.trim().toLowerCase();
+    if (e.length > 120 || !EMAIL_RE.test(e)) return 'Email invalide.';
+  }
+  if (notes && notes.length > MAX_NOTES_UI) return `Les notes ne doivent pas dépasser ${MAX_NOTES_UI} caractères.`;
+  return null;
+}
 import { buildWhatsAppLink, buildMailtoLink, getTravelerQrLink } from '../utils/share';
 import GroupMembersEditor, { emptyMember, validateMembers } from '../components/GroupMembersEditor';
 import { Button } from '@/components/ui/button';
@@ -142,10 +174,7 @@ export default function TravelerDetails({ role }) {
     ? new Date(traveler.checkedInAt).toLocaleString('fr-FR')
     : null;
 
-  const isCheckedIn = traveler.status === 'checked_in';
-  const initials = (traveler.displayName || '?')
-    .split(/\s+/).filter(Boolean).slice(0, 2)
-    .map(w => w[0]).join('') || '?';
+  const isGroup = traveler.type === 'group' || traveler.type === 'couple' || traveler.type === 'family';
 
   return (
     <div>
@@ -159,16 +188,15 @@ export default function TravelerDetails({ role }) {
       </Button>
 
       <section className="detail-hero">
-        <span className={`avatar avatar--lg ${isCheckedIn ? 'avatar--success' : 'avatar--neutral'}`}>
-          {initials}
-        </span>
         <div className="detail-hero__body">
           <div className="detail-hero__name">{traveler.displayName}</div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
             <StatusBadge status={traveler.status} />
-            <span className={`traveler-row__chip ${typeLabel === 'Groupe' ? 'chip-success' : 'chip-warning'}`} style={{ background: 'var(--surface-1)', color: 'var(--text-secondary)' }}>
-              <TypeIcon size={11} /> {typeLabel} · {traveler.peopleCount} pers.
-            </span>
+            {isGroup && (
+              <span className="traveler-row__chip chip-success" style={{ background: 'var(--surface-1)', color: 'var(--text-secondary)' }}>
+                <Users size={11} /> Groupe · {traveler.peopleCount} pers.
+              </span>
+            )}
           </div>
         </div>
         <div className="detail-hero__actions">
@@ -190,8 +218,12 @@ export default function TravelerDetails({ role }) {
           </div>
 
           <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '12px 16px', margin: 0 }}>
-            <Field icon={TypeIcon} label="Type">{typeLabel}</Field>
-            <Field icon={Users} label="Personnes">{traveler.peopleCount}</Field>
+            {isGroup && (
+              <>
+                <Field icon={TypeIcon} label="Type">{typeLabel}</Field>
+                <Field icon={Users} label="Personnes">{traveler.peopleCount}</Field>
+              </>
+            )}
             <Field icon={Phone} label="Téléphone">
               {traveler.phone ? (
                 <a href={`tel:${traveler.phone}`} className="traveler-info-link">{traveler.phone}</a>
@@ -222,17 +254,6 @@ export default function TravelerDetails({ role }) {
           </dl>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
-            {traveler.phone ? (
-              <Button asChild variant="outline" className="traveler-action-button">
-                <a href={`tel:${traveler.phone}`} title="Appeler">
-                  <Phone /> Appeler
-                </a>
-              </Button>
-            ) : (
-              <Button variant="outline" disabled className="traveler-action-disabled" title="Téléphone manquant">
-                <Phone /> Appeler
-              </Button>
-            )}
             {wa ? (
               <Button asChild variant="outline" className="traveler-action-button">
                 <a href={wa} target="_blank" rel="noopener noreferrer" title="WhatsApp">
@@ -444,8 +465,10 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
         ? traveler.groupMembers
         : Array.from({ length: initialCount }, (_, i) => (traveler?.groupMembers?.[i] || emptyMember())))
     : [];
+  const initialNames = splitDisplayName(traveler?.displayName);
   const [form, setForm] = useState({
-    displayName: traveler?.displayName || '',
+    firstName: initialNames.firstName,
+    lastName: initialNames.lastName,
     type: initialType,
     peopleCount: initialCount,
     peopleCountInput: String(initialCount),
@@ -466,8 +489,10 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
             (Array.isArray(traveler.groupMembers) ? traveler.groupMembers[i] : null) || emptyMember()
           )
         : [];
+      const names = splitDisplayName(traveler.displayName);
       setForm({
-        displayName: traveler.displayName || '',
+        firstName: names.firstName,
+        lastName: names.lastName,
         type: t,
         peopleCount: count,
         peopleCountInput: String(count),
@@ -483,6 +508,8 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    const formErr = validateEditForm(form);
+    if (formErr) { setError(formErr); return; }
     setSaving(true);
     try {
       // Backend enforces "person = 1" and "group >= 2"; we still send a clean value.
@@ -494,7 +521,8 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
         if (memberErr) { setError(memberErr); setSaving(false); return; }
       }
       await onSave({
-        displayName: form.displayName,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
         type: form.type,
         peopleCount,
         phone: form.phone,
@@ -525,14 +553,27 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-5">
-          <div className="grid gap-2">
-            <Label htmlFor="edit-display-name">Nom d'affichage</Label>
-            <Input
-              id="edit-display-name"
-              required
-              value={form.displayName}
-              onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-            />
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-first-name">Prénom *</Label>
+              <Input
+                id="edit-first-name"
+                required
+                maxLength={50}
+                value={form.firstName}
+                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-last-name">Nom *</Label>
+              <Input
+                id="edit-last-name"
+                required
+                maxLength={50}
+                value={form.lastName}
+                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+              />
+            </div>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="grid gap-2">
@@ -620,6 +661,8 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               placeholder="05....."
+              maxLength={20}
+              inputMode="tel"
             />
           </div>
           <div className="grid gap-2">
@@ -629,6 +672,7 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
+              maxLength={120}
             />
           </div>
           <div className="grid gap-2">
@@ -636,6 +680,7 @@ function EditTravelerModal({ isOpen, onClose, traveler, onSave }) {
             <Textarea
               id="edit-notes"
               rows={3}
+              maxLength={500}
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />

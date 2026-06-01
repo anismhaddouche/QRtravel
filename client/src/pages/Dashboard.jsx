@@ -50,11 +50,36 @@ function useIsMobile(breakpoint = 768) {
 }
 
 const EMPTY_FORM = {
-  displayName: '', type: 'person',
+  firstName: '', lastName: '', type: 'person',
   peopleCount: 1, peopleCountInput: '1',
   notes: '', phone: '', email: '',
   groupMembers: [],
 };
+
+const PERSON_NAME_RE = /^[A-Za-zÀ-ÖØ-öø-ÿĀ-žḀ-ỿ'’\- ]{2,50}$/u;
+const PHONE_RE = /^\+?[\d][\d\s.\-]{7,18}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_NOTES_UI = 500;
+
+function validateTravelerForm({ firstName, lastName, phone, email, notes }) {
+  const fn = (firstName || '').trim();
+  const ln = (lastName || '').trim();
+  if (!fn || !PERSON_NAME_RE.test(fn)) return 'Le prénom contient des caractères non autorisés ou est invalide (2 à 50 caractères).';
+  if (!ln || !PERSON_NAME_RE.test(ln)) return 'Le nom contient des caractères non autorisés ou est invalide (2 à 50 caractères).';
+  if (phone) {
+    const p = phone.trim();
+    const digits = p.replace(/\D/g, '');
+    if (!PHONE_RE.test(p) || digits.length < 8 || digits.length > 15) {
+      return 'Numéro de téléphone invalide.';
+    }
+  }
+  if (email) {
+    const e = email.trim().toLowerCase();
+    if (e.length > 120 || !EMAIL_RE.test(e)) return 'Email invalide.';
+  }
+  if (notes && notes.length > MAX_NOTES_UI) return `Les notes ne doivent pas dépasser ${MAX_NOTES_UI} caractères.`;
+  return null;
+}
 
 export default function Dashboard({ tripId, lastMessage, trip }) {
   const [stats, setStats] = useState(null);
@@ -848,6 +873,8 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
   const submitManual = async (e) => {
     e.preventDefault();
     setError('');
+    const formErr = validateTravelerForm(form);
+    if (formErr) { setError(formErr); return; }
     const isGroup = form.type === 'group';
     const peopleCount = isGroup ? Math.max(2, Number(form.peopleCount) || 2) : 1;
     if (isGroup) {
@@ -856,17 +883,21 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
     }
     setSubmitting(true);
     try {
+      const firstName = form.firstName.trim();
+      const lastName = form.lastName.trim();
       const payload = {
-        ...form,
+        firstName,
+        lastName,
+        type: form.type,
         tripId,
         peopleCount,
-        phone: form.phone || undefined,
-        email: form.email || undefined,
-        notes: form.notes || undefined,
+        phone: form.phone ? form.phone.trim() : undefined,
+        email: form.email ? form.email.trim() : undefined,
+        notes: form.notes ? form.notes.trim() : undefined,
         groupMembers: isGroup ? form.groupMembers : undefined,
       };
       await api.createTraveler(payload);
-      onDone(`${form.displayName} ajouté(e)`);
+      onDone(`${firstName} ${lastName} ajouté(e)`);
       onClose();
     } catch (e) {
       setError(e.message || 'Erreur lors de l\'ajout');
@@ -925,14 +956,27 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
 
       {mode === 'manual' ? (
         <form onSubmit={submitManual} className="grid gap-5">
-          <div className="grid gap-2">
-            <Label htmlFor="add-display-name">Nom d'affichage *</Label>
-            <Input
-              id="add-display-name"
-              required
-              value={form.displayName}
-              onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-            />
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="add-first-name">Prénom *</Label>
+              <Input
+                id="add-first-name"
+                required
+                maxLength={50}
+                value={form.firstName}
+                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="add-last-name">Nom *</Label>
+              <Input
+                id="add-last-name"
+                required
+                maxLength={50}
+                value={form.lastName}
+                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+              />
+            </div>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="grid gap-2">
@@ -1022,6 +1066,8 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 placeholder="05....."
+                maxLength={20}
+                inputMode="tel"
               />
             </div>
             <div className="grid gap-2">
@@ -1031,6 +1077,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
+                maxLength={120}
               />
             </div>
           </div>
@@ -1039,6 +1086,7 @@ function AddTravelersModal({ isOpen, onClose, tripId, onDone }) {
             <Textarea
               id="add-notes"
               rows={3}
+              maxLength={500}
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />

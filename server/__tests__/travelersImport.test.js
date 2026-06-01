@@ -229,7 +229,7 @@ test('CSV import: semicolon separator also works', async () => {
   setDbStubs(stubsForImport({ insertSink: inserts }));
   const app = buildApp('agency_admin', 'agency-A');
   const csv = `type;nom;prenom;tel;mail
-Individuel;Dupont;Karim;0555;karim@example.com`;
+Individuel;Dupont;Karim;0555555555;karim@example.com`;
   await withServer(app, async (base) => {
     const res = await postCsv(base, 'trip-1', csv);
     assert.equal(res.status, 200);
@@ -243,8 +243,8 @@ test('CSV import: missing nom on a line → per-line error', async () => {
   setDbStubs(stubsForImport());
   const app = buildApp('agency_admin', 'agency-A');
   const csv = `type,nom,prenom,tel,mail
-Individuel,,Karim,0555,karim@example.com
-Individuel,Dupont,Sara,0666,sara@example.com`;
+Individuel,,Karim,0555555555,karim@example.com
+Individuel,Dupont,Sara,0666666666,sara@example.com`;
   await withServer(app, async (base) => {
     const res = await postCsv(base, 'trip-1', csv);
     assert.equal(res.status, 200);
@@ -260,8 +260,8 @@ test('CSV import: invalid email on a line → per-line error', async () => {
   setDbStubs(stubsForImport());
   const app = buildApp('agency_admin', 'agency-A');
   const csv = `type,nom,prenom,tel,mail
-Individuel,Dupont,Karim,0555,nope-not-email
-Individuel,Benali,Sara,0666,sara@example.com`;
+Individuel,Dupont,Karim,0555555555,nope-not-email
+Individuel,Benali,Sara,0666666666,sara@example.com`;
   await withServer(app, async (base) => {
     const res = await postCsv(base, 'trip-1', csv);
     assert.equal(res.status, 200);
@@ -401,7 +401,7 @@ test('CSV import: missing column on every row → per-line message names it', as
     },
   });
   const app = buildApp('agency_admin', 'agency-A');
-  const csv = `type,nom,prenom,tel,mail\nIndividuel,Dupont,Karim,0555,karim@example.com`;
+  const csv = `type,nom,prenom,tel,mail\nIndividuel,Dupont,Karim,0555555555,karim@example.com`;
   await withServer(app, async (base) => {
     const res = await fetch(`${base}/api/travelers/import-csv?tripId=trip-1`, {
       method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: csv,
@@ -531,9 +531,9 @@ test('POST /travelers: missing groupMembers column (42703) → DB_MIGRATION_REQU
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        referenceCode: 'TRV-MIG', displayName: 'G', type: 'group',
+        referenceCode: 'TRV-MIG', firstName: 'Groupe', lastName: 'Test', type: 'group',
         peopleCount: 2,
-        groupMembers: [{ firstName: 'A', lastName: 'A' }, { firstName: 'B', lastName: 'B' }],
+        groupMembers: [{ firstName: 'Ali', lastName: 'Ben' }, { firstName: 'Sara', lastName: 'Yacef' }],
         tripId: 'trip-1',
       }),
     });
@@ -559,16 +559,16 @@ test('POST /travelers: type=group with 4 members → stored as JSON', async () =
   const app = buildApp('agency_admin', 'agency-A');
   await withServer(app, async (base) => {
     const members = [
-      { firstName: 'A', lastName: 'A1', phone: '', email: '' },
-      { firstName: 'B', lastName: 'B1', phone: '0550000000', email: '' },
-      { firstName: 'C', lastName: 'C1', phone: '', email: 'c@example.com' },
-      { firstName: 'D', lastName: 'D1', phone: '', email: '' },
+      { firstName: 'Ali', lastName: 'Ben', phone: '', email: '' },
+      { firstName: 'Bob', lastName: 'Smith', phone: '0550000000', email: '' },
+      { firstName: 'Carla', lastName: 'Diaz', phone: '', email: 'c@example.com' },
+      { firstName: 'Dan', lastName: 'Lopez', phone: '', email: '' },
     ];
     const res = await fetch(`${base}/api/travelers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        referenceCode: 'TRV-GM', displayName: 'Groupe X', type: 'group',
+        referenceCode: 'TRV-GM', firstName: 'Groupe', lastName: 'Test', type: 'group',
         peopleCount: 4, groupMembers: members, tripId: 'trip-1',
       }),
     });
@@ -624,11 +624,11 @@ test('POST /travelers: group with invalid member email → 400 VALIDATION', asyn
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        referenceCode: 'TRV-GE', displayName: 'G', type: 'group',
+        referenceCode: 'TRV-GE', firstName: 'Groupe', lastName: 'Test', type: 'group',
         peopleCount: 2,
         groupMembers: [
-          { firstName: 'A', lastName: 'A' },
-          { firstName: 'B', lastName: 'B', email: 'not-an-email' },
+          { firstName: 'Ali', lastName: 'Ben' },
+          { firstName: 'Sara', lastName: 'Yacef', email: 'not-an-email' },
         ],
         tripId: 'trip-1',
       }),
@@ -654,9 +654,9 @@ test('POST /travelers: group groupMembers length != peopleCount → 400', async 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        referenceCode: 'TRV-GL', displayName: 'G', type: 'group',
+        referenceCode: 'TRV-GL', firstName: 'Groupe', lastName: 'Test', type: 'group',
         peopleCount: 3,
-        groupMembers: [{ firstName: 'A', lastName: 'A' }, { firstName: 'B', lastName: 'B' }],
+        groupMembers: [{ firstName: 'Ali', lastName: 'Ben' }, { firstName: 'Sara', lastName: 'Yacef' }],
         tripId: 'trip-1',
       }),
     });
@@ -713,8 +713,8 @@ test('PUT /travelers/:id: group updates groupMembers JSON', async () => {
         type: 'group',
         peopleCount: 2,
         groupMembers: [
-          { firstName: 'A', lastName: 'A' },
-          { firstName: 'B', lastName: 'B' },
+          { firstName: 'Ali', lastName: 'Ben' },
+          { firstName: 'Sara', lastName: 'Yacef' },
         ],
       }),
     });
@@ -724,7 +724,7 @@ test('PUT /travelers/:id: group updates groupMembers JSON', async () => {
     assert.equal(typeof stored, 'string');
     const parsed = JSON.parse(stored);
     assert.equal(parsed.length, 2);
-    assert.equal(parsed[0].firstName, 'A');
+    assert.equal(parsed[0].firstName, 'Ali');
   });
 });
 

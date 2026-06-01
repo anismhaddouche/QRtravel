@@ -14,8 +14,8 @@
     "build": "cd client && npm install --include=dev && npm run build",
     "start": "node server/index.js",
     "generate-cert": "node server/generate-cert.js",
-    "test": "node --test server/__tests__/rateLimit.test.js server/__tests__/credentialsWarning.test.js server/__tests__/checkinValidators.test.js server/__tests__/rolesValidation.test.js server/__tests__/tenantIsolation.test.js server/__tests__/travelersImport.test.js server/__tests__/travelersBulkDelete.test.js server/__tests__/tripDateValidation.test.js",
-    "test:unit": "node --test server/__tests__/rateLimit.test.js server/__tests__/credentialsWarning.test.js server/__tests__/checkinValidators.test.js server/__tests__/rolesValidation.test.js server/__tests__/tenantIsolation.test.js server/__tests__/travelersImport.test.js server/__tests__/travelersBulkDelete.test.js server/__tests__/tripDateValidation.test.js",
+    "test": "node --test server/__tests__/rateLimit.test.js server/__tests__/credentialsWarning.test.js server/__tests__/checkinValidators.test.js server/__tests__/rolesValidation.test.js server/__tests__/tenantIsolation.test.js server/__tests__/travelersImport.test.js server/__tests__/travelersBulkDelete.test.js server/__tests__/tripDateValidation.test.js server/__tests__/travelerValidation.test.js",
+    "test:unit": "node --test server/__tests__/rateLimit.test.js server/__tests__/credentialsWarning.test.js server/__tests__/checkinValidators.test.js server/__tests__/rolesValidation.test.js server/__tests__/tenantIsolation.test.js server/__tests__/travelersImport.test.js server/__tests__/travelersBulkDelete.test.js server/__tests__/tripDateValidation.test.js server/__tests__/travelerValidation.test.js",
     "postinstall": "cd client && npm install --include=dev"
   },
   "dependencies": {
