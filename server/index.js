@@ -147,6 +147,35 @@ app.get('/api/debug/db-test', debugGuard, async (req, res) => {
   }
 });
 
+// ─── Lazy DB schema init on first /api request ───
+// Must be registered BEFORE any /api route mount, otherwise routes
+// match first and the schema/migrations never run on a cold serverless
+// instance — causing 500s on /api/auth/login when the users/sessions
+// columns are missing.
+let dbInitialized = false;
+let dbInitPromise = null;
+app.use('/api', async (req, res, next) => {
+  if (dbInitialized) return next();
+  if (!dbInitPromise) {
+    dbInitPromise = initDb()
+      .then(() => { dbInitialized = true; })
+      .catch((err) => {
+        console.error('[SERVER] Database initialization failed:', err.message);
+        dbInitPromise = null;
+        throw err;
+      });
+  }
+  try {
+    await dbInitPromise;
+    next();
+  } catch (err) {
+    res.status(500).json({
+      error: 'Database is starting up or temporarily unavailable',
+      details: err.message,
+    });
+  }
+});
+
 app.use('/api/auth', require('./routes/auth'));
 
 // ─── Protected routes ───
@@ -282,32 +311,6 @@ if (fs.existsSync(clientBuildPath)) {
     }
   });
 }
-
-// ─── Lazy DB schema init on first /api request ───
-let dbInitialized = false;
-let dbInitPromise = null;
-
-app.use('/api', async (req, res, next) => {
-  if (dbInitialized) return next();
-  if (!dbInitPromise) {
-    dbInitPromise = initDb()
-      .then(() => { dbInitialized = true; })
-      .catch((err) => {
-        console.error('[SERVER] Database initialization failed:', err.message);
-        dbInitPromise = null;
-        throw err;
-      });
-  }
-  try {
-    await dbInitPromise;
-    next();
-  } catch (err) {
-    res.status(500).json({
-      error: 'Database is starting up or temporarily unavailable',
-      details: err.message,
-    });
-  }
-});
 
 // ─── Local dev: start HTTP server ───
 if (process.env.NODE_ENV !== 'production' || process.env.LOCAL_SERVER === 'true') {

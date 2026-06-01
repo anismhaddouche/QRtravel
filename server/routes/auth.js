@@ -143,10 +143,27 @@ router.post('/login', loginLimiter, async (req, res) => {
   } catch (err) {
     clearTimeout(timeout);
     if (res.headersSent) return;
-    console.error('[AUTH] Login error:', err.message);
+    // Surface the actual Postgres failure in logs (no password ever
+    // touches this scope). pg errors carry code/detail/table/column/
+    // constraint; plain JS errors only have message.
+    console.error('[AUTH] Login error:', {
+      code: err.code,
+      message: err.message,
+      detail: err.detail,
+      table: err.table,
+      column: err.column,
+      constraint: err.constraint,
+      routine: err.routine,
+    });
     res.status(500).json({
       error: 'Database error during login. Please try again.',
       code: 'LOGIN_DB_ERROR',
+      // Surfaced only when ENABLE_DEBUG_ENDPOINTS=true so we can read
+      // it in the Network tab during incident response, without leaking
+      // the SQL detail by default.
+      ...(process.env.ENABLE_DEBUG_ENDPOINTS === 'true'
+        ? { debug: { code: err.code, message: err.message, table: err.table, column: err.column } }
+        : {}),
     });
   }
 });
