@@ -166,7 +166,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip }) {
             id="btn-add-trip"
             title={trips.length >= TRIP_LIMIT ? TRIP_LIMIT_MESSAGE : 'Créer un nouveau voyage'}
           >
-            <Plus /> Nouveau voyage
+            <Plus /> Nouveau
           </Button>
         </div>
       </div>
