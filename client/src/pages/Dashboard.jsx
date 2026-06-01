@@ -7,7 +7,7 @@ import {
   Users, UserCheck, UserX, LayoutDashboard, History, RefreshCw,
   MessageCircle, Mail, Copy, Phone, ChevronDown, ChevronUp, MoreHorizontal,
   Plus, Upload, Trash2, Check, CornerUpLeft, Send, AlertCircle, X, Search,
-  Plane, Calendar,
+  Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -74,6 +74,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
   const [activityOpen, setActivityOpen] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 768 : true
   );
+  const [travelersOpen, setTravelersOpen] = useState(true);
   const navigate = useNavigate();
 
   const fetchData = useCallback(async (isRefresh = false) => {
@@ -282,25 +283,44 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
         />
       )}
 
-      {/* Travelers list */}
-      <div className="list-shell">
-        <div className="section-head">
-          <h2 className="section-head__title">
-            <CurrentIcon size={16} style={{ color: 'var(--accent)' }} />
-            {current.label}
-            <span className="section-head__count">· {filteredTravelers.length}</span>
-          </h2>
-          <Button
-            onClick={() => setShowAdd(true)}
-            disabled={!tripId}
-            title={tripId ? 'Ajouter des voyageurs' : 'Sélectionnez d\'abord un voyage'}
-            className={isMobile ? 'hidden' : ''}
+      {/* Travelers — collapsible (same design as Activité récente) */}
+      <div className="glass-card" style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => setTravelersOpen(v => !v)}
+            aria-expanded={travelersOpen}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
           >
-            <Plus /> Ajouter
-          </Button>
+            <h2 className="glass-card-title" style={{ margin: 0 }}>
+              <Users size={20} /> Voyageurs ({filteredTravelers.length})
+            </h2>
+            {travelersOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+          {!isMobile && (
+            <Button
+              onClick={() => setShowAdd(true)}
+              disabled={!tripId}
+              title={tripId ? 'Ajouter des voyageurs' : 'Sélectionnez d\'abord un voyage'}
+              size="sm"
+            >
+              <Plus /> Ajouter
+            </Button>
+          )}
         </div>
 
-        <div className="toolbar">
+      {travelersOpen && (<>
+        <div className="toolbar" style={{ marginTop: '12px' }}>
           <div className="toolbar__search">
             <Search size={16} className="toolbar__search-icon" />
             <input
@@ -403,6 +423,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             </ul>
           </>
         )}
+      </>)}
       </div>
 
       {/* Recent Activity — collapsible */}
@@ -558,7 +579,6 @@ function TripHero({ trip, stats, refreshing, onRefresh }) {
     <section className="trip-hero trip-hero--compact" aria-label="Voyage actif">
       <div className="trip-hero__body">
         <div className="trip-hero__left">
-          <span className="trip-hero__eyebrow"><Plane size={11} /> Voyage actif</span>
           <div className="trip-hero__title">{trip?.name || 'Voyage'}</div>
           <div className="trip-hero__meta">
             {trip?.date && (
@@ -611,9 +631,6 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
   const wa = buildWhatsAppLink({ traveler: t, trip, qrLink, agencyName });
   const mt = buildMailtoLink({ traveler: t, trip, qrLink, agencyName });
   const isCheckedIn = t.status === 'checked_in';
-  const initials = (t.displayName || '?')
-    .split(/\s+/).filter(Boolean).slice(0, 2)
-    .map(w => w[0]).join('') || '?';
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -648,9 +665,6 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
           aria-label={`Sélectionner ${t.displayName}`}
         />
       </div>
-      <span className={`avatar avatar--md ${isCheckedIn ? 'avatar--success' : 'avatar--neutral'}`}>
-        {initials}
-      </span>
       <div className="board-row__main">
         <div className="board-row__name">{t.displayName}</div>
         <div className="board-row__sub">

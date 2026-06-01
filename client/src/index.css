@@ -1310,7 +1310,7 @@
    .board-row {
      position: relative;
      display: grid;
-     grid-template-columns: auto auto 1fr auto auto;
+     grid-template-columns: auto 1fr auto auto;
      align-items: center;
      gap: 12px;
      padding: 12px 14px 12px 18px;
@@ -1560,7 +1560,7 @@
    /* Mobile: stack board-row a bit, hide overflow menu trigger sizing */
    @media (max-width: 640px) {
      .board-row {
-       grid-template-columns: auto auto 1fr auto auto;
+       grid-template-columns: auto 1fr auto auto;
        gap: 10px;
        padding: 12px 12px 12px 16px;
      }
