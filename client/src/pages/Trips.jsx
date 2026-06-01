@@ -18,7 +18,7 @@ import {
 
 const TRIP_LIMIT = 3;
 const TRIP_LIMIT_MESSAGE = 'Limite atteinte : cette agence a déjà 3 voyages. Supprimez un voyage existant avant d\'en créer un nouveau.';
-const PAST_DATE_MESSAGE = 'La date du voyage ne peut pas être dans le passé.';
+const PAST_DATE_MESSAGE = 'Un voyage en cours ne peut pas avoir une date passée.';
 const CREATED_MESSAGE = 'Voyage créé avec succès. Veuillez aller dans le menu Tableau de bord pour importer la liste des voyageurs.';
 
 // Status interne 'active' conservé pour compatibilité backend ; label UI = "En cours".
@@ -81,7 +81,9 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip }) {
       return;
     }
 
-    if (isPastDate(form.date)) {
+    // Past-date rule only applies to "En cours" (active) trips.
+    // Completed/Archived trips may carry a retroactive date.
+    if (form.status === 'active' && isPastDate(form.date)) {
       setFormError(PAST_DATE_MESSAGE);
       return;
     }
@@ -217,7 +219,7 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip }) {
               <Input
                 id="input-trip-date"
                 type="date"
-                min={editingId ? undefined : todayYYYYMMDD()}
+                min={form.status === 'active' && !editingId ? todayYYYYMMDD() : undefined}
                 value={form.date}
                 onChange={e => setForm({ ...form, date: e.target.value })}
               />

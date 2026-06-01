@@ -115,19 +115,57 @@ test('POST /api/trips: future date is accepted', async () => {
   });
 });
 
-test('POST /api/trips: past date is rejected with 400 VALIDATION', async () => {
+test('POST /api/trips: active + past date is rejected with 400 VALIDATION', async () => {
   setDbStubs({ get: async () => ({ count: '0' }) });
   const app = buildApp();
   await withServer(app, async (base) => {
     const res = await fetch(`${base}/api/trips`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Past Trip', date: shiftDays(todayISO(), -1) }),
+      body: JSON.stringify({ name: 'Past Trip', date: shiftDays(todayISO(), -1), status: 'active' }),
     });
     assert.equal(res.status, 400);
     const body = await res.json();
     assert.equal(body.code, 'VALIDATION');
-    assert.match(body.error, /pass/i);
+    assert.match(body.error, /en cours/i);
+  });
+});
+
+test('POST /api/trips: completed + past date is accepted', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/COUNT\(\*\) AS count FROM trips/.test(sql)) return { count: '0' };
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-new', agencyId: 'agency-A', name: 'OK' };
+      return null;
+    },
+  });
+  const app = buildApp();
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/trips`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Past Completed', date: shiftDays(todayISO(), -10), status: 'completed' }),
+    });
+    assert.equal(res.status, 201);
+  });
+});
+
+test('POST /api/trips: archived + past date is accepted', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/COUNT\(\*\) AS count FROM trips/.test(sql)) return { count: '0' };
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-new', agencyId: 'agency-A', name: 'OK' };
+      return null;
+    },
+  });
+  const app = buildApp();
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/trips`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Past Archived', date: shiftDays(todayISO(), -100), status: 'archived' }),
+    });
+    assert.equal(res.status, 201);
   });
 });
 
@@ -151,9 +189,9 @@ test('POST /api/trips: no date is accepted (defaults to today)', async () => {
 });
 
 // ─── PUT /api/trips/:id ────────────────────────────────────────────
-test('PUT /api/trips/:id: past date is rejected with 400 VALIDATION', async () => {
+test('PUT /api/trips/:id: active + past date is rejected with 400 VALIDATION', async () => {
   setDbStubs({
-    get: async () => ({ id: 'trip-1', agencyId: 'agency-A', name: 'Existing' }),
+    get: async () => ({ id: 'trip-1', agencyId: 'agency-A', name: 'Existing', status: 'active' }),
   });
   const app = buildApp();
   await withServer(app, async (base) => {
@@ -165,6 +203,52 @@ test('PUT /api/trips/:id: past date is rejected with 400 VALIDATION', async () =
     assert.equal(res.status, 400);
     const body = await res.json();
     assert.equal(body.code, 'VALIDATION');
+    assert.match(body.error, /en cours/i);
+  });
+});
+
+test('PUT /api/trips/:id: completed + past date is accepted', async () => {
+  setDbStubs({
+    get: async () => ({ id: 'trip-1', agencyId: 'agency-A', name: 'Existing', status: 'active' }),
+  });
+  const app = buildApp();
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/trips/trip-1`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: shiftDays(todayISO(), -5), status: 'completed' }),
+    });
+    assert.equal(res.status, 200);
+  });
+});
+
+test('PUT /api/trips/:id: archived + past date is accepted', async () => {
+  setDbStubs({
+    get: async () => ({ id: 'trip-1', agencyId: 'agency-A', name: 'Existing', status: 'active' }),
+  });
+  const app = buildApp();
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/trips/trip-1`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: shiftDays(todayISO(), -30), status: 'archived' }),
+    });
+    assert.equal(res.status, 200);
+  });
+});
+
+test('PUT /api/trips/:id: already-completed trip + past date (no status change) is accepted', async () => {
+  setDbStubs({
+    get: async () => ({ id: 'trip-1', agencyId: 'agency-A', name: 'Existing', status: 'completed' }),
+  });
+  const app = buildApp();
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/trips/trip-1`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: shiftDays(todayISO(), -3) }),
+    });
+    assert.equal(res.status, 200);
   });
 });
 

@@ -26,15 +26,21 @@ function todayYYYYMMDD() {
   return `${y}-${m}-${day}`;
 }
 
-// Refuse dates strictement passées au format YYYY-MM-DD.
-// null/undefined/'' = pas de validation (champ optionnel).
-// Format non YYYY-MM-DD = pas de validation (compatibilité données existantes).
-function validateTripDate(date) {
+// Refuse dates strictement passées au format YYYY-MM-DD UNIQUEMENT pour
+// les voyages dont le statut est 'active' ("En cours"). Les voyages
+// 'completed' et 'archived' peuvent porter une date passée (clôture
+// rétroactive, archivage). status null/undefined → on assume 'active'
+// (statut par défaut côté backend).
+//   - null/undefined/'' pour `date` = pas de validation (champ optionnel).
+//   - Format non YYYY-MM-DD = pas de validation (compat données existantes).
+function validateTripDate(date, status) {
   if (date === null || date === undefined || date === '') return;
   if (typeof date !== 'string') return;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  const effectiveStatus = status || 'active';
+  if (effectiveStatus !== 'active') return;
   if (date < todayYYYYMMDD()) {
-    const err = new Error('La date du voyage ne peut pas être dans le passé.');
+    const err = new Error('Un voyage en cours ne peut pas avoir une date passée.');
     err.statusCode = 400;
     throw err;
   }
@@ -106,7 +112,11 @@ router.post('/', async (req, res) => {
     const name = cleanStr(body.name, MAX_NAME);
     if (!name) return res.status(400).json({ error: 'name is required', code: 'VALIDATION' });
     const date = cleanStr(body.date, MAX_DATE);
-    validateTripDate(date);
+    // Honor the requested status (defaulting to 'active'). Past dates
+    // are only rejected for 'active' trips; completed/archived trips
+    // may carry a retroactive date.
+    const status = validateStatus(body.status) || 'active';
+    validateTripDate(date, status);
     const notes = body.notes === undefined ? '' : (cleanStr(body.notes, MAX_NOTES) || '');
 
     // agencyId selection:
@@ -144,7 +154,7 @@ router.post('/', async (req, res) => {
 
     await run(
       `INSERT INTO trips (id, name, date, notes, status, "agencyId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [id, name, date || now.split('T')[0], notes, 'active', agencyId, now, now]
+      [id, name, date || now.split('T')[0], notes, status, agencyId, now, now]
     );
 
     const trip = await get('SELECT * FROM trips WHERE id = $1', [id]);
@@ -164,8 +174,15 @@ router.put('/:id', async (req, res) => {
     const body = req.body || {};
     const name = body.name === undefined ? null : cleanStr(body.name, MAX_NAME);
     const date = body.date === undefined ? null : cleanStr(body.date, MAX_DATE);
-    if (body.date !== undefined) validateTripDate(date);
     const status = validateStatus(body.status);
+    // Validate the date against the EFFECTIVE status after the PUT —
+    // i.e. the incoming status if provided, otherwise the existing one.
+    // This way, switching to 'completed'/'archived' lifts the past-date
+    // restriction even when both the date and the status change together.
+    if (body.date !== undefined) {
+      const effectiveStatus = status || trip.status || 'active';
+      validateTripDate(date, effectiveStatus);
+    }
     const notes = body.notes === undefined ? null : (cleanStr(body.notes, MAX_NOTES) || '');
     const now = new Date().toISOString();
 
