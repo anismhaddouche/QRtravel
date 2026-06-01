@@ -357,20 +357,18 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
           </div>
         </div>
 
-        {/* Selection bar */}
-        {selectionCount > 0 && (
-          <SelectionBar
-            count={selectionCount}
-            selectedTravelers={selectedTravelers}
-            onClear={clearSelection}
-            onDelete={() => setShowDeleteConfirm(true)}
-            onShareWhatsApp={() => setShareMode('whatsapp')}
-            onShareEmail={() => setShareMode('email')}
-            onBulkCheckIn={handleBulkCheckIn}
-            onBulkUndo={handleBulkUndo}
-            isMobile={isMobile}
-          />
-        )}
+        {/* Selection bar — always visible while accordion is open */}
+        <SelectionBar
+          count={selectionCount}
+          selectedTravelers={selectedTravelers}
+          onClear={clearSelection}
+          onDelete={() => setShowDeleteConfirm(true)}
+          onShareWhatsApp={() => setShareMode('whatsapp')}
+          onShareEmail={() => setShareMode('email')}
+          onBulkCheckIn={handleBulkCheckIn}
+          onBulkUndo={handleBulkUndo}
+          isMobile={isMobile}
+        />
 
         {filteredTravelers.length === 0 ? (
           search.trim() ? (
@@ -544,12 +542,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
         <div
           role="status"
           aria-live="polite"
-          style={{
-            position: 'fixed', bottom: '88px', left: '50%', transform: 'translateX(-50%)',
-            background: 'var(--surface-2, rgba(0,0,0,0.85))', color: 'var(--white)',
-            padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--border-subtle)',
-            fontSize: '0.85rem', zIndex: 1000, boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-          }}
+          className="dashboard-toast"
         >
           {toast}
         </div>
@@ -757,22 +750,28 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
     return () => document.removeEventListener('mousedown', onDoc);
   }, [moreOpen]);
 
+  const hasSelection = count > 0;
   return (
     <div className="selection-bar--v2">
       <div className="sel-count">
-        <span className="badge-num">{count}</span>
-        <span>{isMobile ? 'sélection' : 'sélectionné(s)'}</span>
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={onClear}
-          aria-label="Tout désélectionner"
-          style={{ width: 28, height: 28 }}
-        >
-          <X size={14} />
-        </button>
+        <span className={`sel-count__chip${hasSelection ? ' sel-count__chip--active' : ''}`}>
+          {count}
+        </span>
+        <span className="sel-count__label">sélection</span>
+        {hasSelection && (
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onClear}
+            aria-label="Tout désélectionner"
+            title="Tout désélectionner"
+            style={{ width: 28, height: 28 }}
+          >
+            <X size={14} />
+          </button>
+        )}
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      <div className="sel-actions">
         <Button
           size="sm"
           onClick={onBulkCheckIn}
@@ -781,18 +780,23 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
         >
           <Check /> Embarquer
         </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onBulkUndo}
+          disabled={!hasCheckedIn}
+        >
+          <CornerUpLeft /> Désembarquer
+        </Button>
         {!isMobile && (
           <>
-            <Button size="sm" variant="outline" onClick={onBulkUndo} disabled={!hasCheckedIn}>
-              <CornerUpLeft /> Désembarquer
-            </Button>
             <Button size="sm" variant="outline" onClick={onShareWhatsApp} disabled={!hasPhone}>
               <MessageCircle /> WhatsApp
             </Button>
             <Button size="sm" variant="outline" onClick={onShareEmail} disabled={!hasEmail}>
               <Mail /> Email
             </Button>
-            <Button size="sm" variant="destructive" onClick={onDelete}>
+            <Button size="sm" variant="destructive" onClick={onDelete} disabled={!hasSelection}>
               <Trash2 /> Supprimer
             </Button>
           </>
@@ -805,14 +809,15 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
               onClick={() => setMoreOpen(v => !v)}
               aria-haspopup="menu"
               aria-expanded={moreOpen}
+              aria-label="Plus d'actions"
+              title="Plus d'actions"
+              disabled={!hasSelection}
+              className="sel-more"
             >
-              <MoreHorizontal /> Plus
+              <MoreHorizontal />
             </Button>
             {moreOpen && (
               <div className="popover" style={{ right: 0, top: 'calc(100% + 6px)' }} role="menu">
-                <button type="button" disabled={!hasCheckedIn} onClick={() => { setMoreOpen(false); onBulkUndo(); }}>
-                  <CornerUpLeft size={15} /> Désembarquer
-                </button>
                 <button type="button" disabled={!hasPhone} onClick={() => { setMoreOpen(false); onShareWhatsApp(); }}>
                   <MessageCircle size={15} /> WhatsApp
                 </button>
