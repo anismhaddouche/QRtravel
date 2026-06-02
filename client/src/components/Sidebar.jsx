@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ScanLine, Map, LogOut, Plane, Shield, Building2, RefreshCw, Clock } from 'lucide-react';
+import { LayoutDashboard, ScanLine, Map, LogOut, Shield, Building2, RefreshCw, Clock } from 'lucide-react';
 import { api, getActiveAgencyId, setActiveAgencyId, onActiveAgencyChange } from '../utils/api';
 import ThemeToggle from './ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -40,7 +40,6 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
       borderRight: '1px solid var(--border)',
     }}>
       <div className="brand" style={{ marginBottom: '20px' }}>
-        <span className="brand__mark"><Plane size={22} /></span>
         <div>
           <div className="brand__name">VoyageCheck</div>
           <div className="brand__sub">Check-in QR</div>
@@ -111,40 +110,29 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
       </nav>
 
       <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '8px', height: '8px', borderRadius: '50%',
-              background: isOnline ? 'var(--success)' : 'var(--danger)',
-              boxShadow: isOnline ? '0 0 8px var(--success)' : 'none'
-            }} />
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              {isOnline ? 'En direct' : 'Hors ligne'}
-            </span>
-          </div>
-          {queueLength > 0 && (
+        {/* Offline sync queue indicator — only shown when there is something
+            pending, so no empty space when everything is synced. */}
+        {queueLength > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
             <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
               {syncStatus === 'syncing' ? <RefreshCw size={12} /> : <Clock size={12} />} {queueLength}
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {username && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '10px',
+            display: 'flex', flexDirection: 'column', gap: '2px',
             padding: '10px', borderRadius: '14px',
             background: 'var(--surface-1)',
             border: '1px solid var(--border-subtle)',
             marginBottom: '10px',
           }}>
-            <span className="avatar avatar--sm">{(username || '?').slice(0, 1)}</span>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {username}
-              </div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                {role === 'super_admin' ? 'Super administrateur' : (role === 'agency_admin' || role === 'admin') ? 'Administrateur d’agence' : role}
-              </div>
+            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {username}
+            </div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+              {role === 'super_admin' ? 'Super administrateur' : (role === 'agency_admin' || role === 'admin') ? 'Administrateur d’agence' : role}
             </div>
           </div>
         )}
