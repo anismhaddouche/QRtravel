@@ -1811,26 +1811,45 @@
      background: var(--primary);
      filter: brightness(0.92);
    }
-   .trip-hero__add { width: 40px; height: 40px; border-radius: 10px; }
-   @media (max-width: 480px) {
-     .trip-hero__add { width: 44px; height: 44px; }
+   /* "+ Nouveau" CTA — lives in the capsule row, aligned right next to
+      the stats. margin-left:auto pushes it to the far right; it wraps to
+      its own line (still right-aligned) when space is tight on mobile. */
+   .capsule-add-btn {
+     margin-left: auto;
+     display: inline-flex;
+     align-items: center;
+     gap: 6px;
+     padding: 6px 14px;
+     border-radius: 999px;
+     border: 1px solid var(--primary);
+     background: var(--primary);
+     color: #FFFFFF;
+     font-size: 0.8rem;
+     font-weight: 600;
+     line-height: 1.2;
+     cursor: pointer;
+     white-space: nowrap;
+     transition: background 0.15s ease, filter 0.15s ease;
    }
+   .capsule-add-btn svg { color: #FFFFFF; stroke: #FFFFFF; }
+   .capsule-add-btn:hover { filter: brightness(0.92); }
 
    /* Light mode: force a solid blue fill so the CTA stands out against
       the pale hero background (the shadcn --primary token resolves to
       white in this theme, hence the explicit override). */
-   :root[data-theme="light"] .trip-hero__add {
+   :root[data-theme="light"] .capsule-add-btn {
      background: #2563EB !important;
      border-color: #2563EB !important;
      color: #FFFFFF !important;
    }
-   :root[data-theme="light"] .trip-hero__add svg {
+   :root[data-theme="light"] .capsule-add-btn svg {
      color: #FFFFFF !important;
      stroke: #FFFFFF !important;
    }
-   :root[data-theme="light"] .trip-hero__add:hover {
+   :root[data-theme="light"] .capsule-add-btn:hover {
      background: #1D4ED8 !important;
      border-color: #1D4ED8 !important;
+     filter: none;
    }
 
    /* Shared feedback toast — used by Dashboard and TravelerDetails.
@@ -1946,6 +1965,7 @@
    /* Capsule row replaces the progress bar */
    .capsule-row {
      display: flex;
+     align-items: center;
      gap: 8px;
      padding: 0 16px 14px;
      flex-wrap: wrap;

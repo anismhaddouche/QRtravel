@@ -590,15 +590,6 @@ function TripHero({ trip, stats, onAddTravelers }) {
             </div>
           )}
         </div>
-        <button
-          type="button"
-          className="icon-btn icon-btn--primary trip-hero__add"
-          onClick={onAddTravelers}
-          aria-label="Ajouter des voyageurs"
-          title="Ajouter des voyageurs"
-        >
-          <Plus size={18} />
-        </button>
       </div>
       <div className="capsule-row" role="group" aria-label="Statistiques voyage">
         <span className="capsule">
@@ -613,6 +604,16 @@ function TripHero({ trip, stats, onAddTravelers }) {
           <span className="capsule__label">Restants</span>
           <span className="capsule__value">{left}</span>
         </span>
+        <button
+          type="button"
+          className="capsule-add-btn"
+          onClick={onAddTravelers}
+          aria-label="Ajouter des voyageurs"
+          title="Ajouter des voyageurs"
+        >
+          <Plus size={16} />
+          <span>Nouveau</span>
+        </button>
       </div>
     </section>
   );
