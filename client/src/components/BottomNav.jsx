@@ -165,23 +165,14 @@ function MobileMenu({ isSuperAdmin, isAgencyAdmin, username, role, onClose, onLo
         )}
 
         <div className="flex flex-col gap-1">
-          <Button variant="ghost" className={menuItemClass} onClick={() => go('/')}>
-            <LayoutDashboard /> Tableau de bord
-          </Button>
+          {/* Accueil / Voyages / Scanner / Personnel are primary tabs in the
+              bottom nav, so they are intentionally not duplicated here. The
+              Plus sheet only holds secondary actions. */}
           {isSuperAdmin && (
             <Button variant="ghost" className={menuItemClass} onClick={() => go('/agencies')}>
               <Building2 /> Agences
             </Button>
           )}
-          <Button variant="ghost" className={menuItemClass} onClick={() => go('/trips')}>
-            <Map /> Voyages
-          </Button>
-          <Button variant="ghost" className={menuItemClass} onClick={() => go('/scanner')}>
-            <ScanLine /> Scanner
-          </Button>
-          {/* Personnel now lives as a primary tab in the bottom nav, so it is
-              intentionally not duplicated here. */}
-          <div className="my-2 border-t border-border" />
           <ThemeToggle variant="menu-item" />
           <Button
             variant="ghost"
