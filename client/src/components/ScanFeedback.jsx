@@ -6,45 +6,18 @@ import { CheckCircle2, AlertTriangle, XCircle, Clock } from 'lucide-react';
 // fades.
 const FEEDBACK_VISIBLE_MS = 1700;
 
-// Simple beep using Web Audio API (works offline, no file needed).
-function playBeep(frequency = 800, duration = 150) {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.frequency.value = frequency;
-    oscillator.type = 'sine';
-    gain.gain.value = 0.3;
-    oscillator.start();
-    oscillator.stop(ctx.currentTime + duration / 1000);
-  } catch {
-    /* audio unavailable — silent fallback */
-  }
-}
-
+// Scan feedback is silent by design — no beep / Web Audio. Only the visual
+// toast below conveys the result.
 const TYPE_CONFIG = {
-  success:   { icon: CheckCircle2,  color: 'var(--success)',       sound: 'success' },
-  duplicate: { icon: AlertTriangle, color: 'var(--warning)',       sound: 'warn' },
-  warning:   { icon: Clock,         color: 'var(--warning-light)', sound: 'warn' },
-  error:     { icon: XCircle,       color: 'var(--danger)',        sound: 'error' },
+  success:   { icon: CheckCircle2,  color: 'var(--success)' },
+  duplicate: { icon: AlertTriangle, color: 'var(--warning)' },
+  warning:   { icon: Clock,         color: 'var(--warning-light)' },
+  error:     { icon: XCircle,       color: 'var(--danger)' },
 };
 
 export default function ScanFeedback({ result, onDismiss }) {
   useEffect(() => {
     if (!result) return;
-
-    const cfg = TYPE_CONFIG[result.type] || TYPE_CONFIG.error;
-    if (cfg.sound === 'success') {
-      playBeep(880, 120);
-      setTimeout(() => playBeep(1100, 150), 140);
-    } else if (cfg.sound === 'warn') {
-      playBeep(400, 250);
-    } else {
-      playBeep(300, 350);
-    }
-
     const timer = setTimeout(() => onDismiss(), FEEDBACK_VISIBLE_MS);
     return () => clearTimeout(timer);
   }, [result, onDismiss]);
