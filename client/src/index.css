@@ -1866,6 +1866,51 @@
      filter: none;
    }
 
+   /* Dark mode: same fix as light — the shadcn --primary token resolves to
+      a near-white in the dark theme, which made the button look white with a
+      faint "+". Force the solid blue CTA so it stays clearly visible. */
+   :root[data-theme="dark"] .compact-add-button {
+     background: #2563EB !important;
+     border-color: #2563EB !important;
+     color: #FFFFFF !important;
+   }
+   :root[data-theme="dark"] .compact-add-button svg {
+     color: #FFFFFF !important;
+     stroke: #FFFFFF !important;
+   }
+   :root[data-theme="dark"] .compact-add-button:hover {
+     background: #1D4ED8 !important;
+     border-color: #1D4ED8 !important;
+     color: #FFFFFF !important;
+     filter: none;
+   }
+
+   /* Disabled (e.g. trip limit reached): muted but the "+" stays legible. */
+   .compact-add-button:disabled {
+     cursor: not-allowed;
+     opacity: 0.55;
+   }
+   :root[data-theme="dark"] .compact-add-button:disabled {
+     background: #334155 !important;
+     border-color: #334155 !important;
+     color: #E2E8F0 !important;
+     opacity: 1;
+   }
+   :root[data-theme="dark"] .compact-add-button:disabled svg {
+     color: #E2E8F0 !important;
+     stroke: #E2E8F0 !important;
+   }
+   :root[data-theme="light"] .compact-add-button:disabled {
+     background: #CBD5E1 !important;
+     border-color: #CBD5E1 !important;
+     color: #475569 !important;
+     opacity: 1;
+   }
+   :root[data-theme="light"] .compact-add-button:disabled svg {
+     color: #475569 !important;
+     stroke: #475569 !important;
+   }
+
    /* Shared feedback toast — used by Dashboard and TravelerDetails.
       Readable in light and dark, fixed at the bottom-center. */
    .app-toast,
