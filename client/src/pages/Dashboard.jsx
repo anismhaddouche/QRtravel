@@ -606,13 +606,12 @@ function TripHero({ trip, stats, onAddTravelers }) {
         </span>
         <button
           type="button"
-          className="capsule-add-btn"
+          className="compact-add-button"
           onClick={onAddTravelers}
           aria-label="Ajouter des voyageurs"
           title="Ajouter des voyageurs"
         >
-          <Plus size={16} />
-          <span>Nouveau</span>
+          <Plus size={20} />
         </button>
       </div>
     </section>

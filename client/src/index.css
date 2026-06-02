@@ -1816,42 +1816,42 @@
      background: var(--primary);
      filter: brightness(0.92);
    }
-   /* "+ Nouveau" CTA — lives in the capsule row, aligned right next to
-      the stats. margin-left:auto pushes it to the far right; it wraps to
-      its own line (still right-aligned) when space is tight on mobile. */
-   .capsule-add-btn {
+   /* Shared compact "+" add button — used by the Dashboard trip-hero
+      capsule row and the Voyages page header. Same square-ish primary
+      button in both places so they read as one control. */
+   .compact-add-button {
+     flex: 0 0 auto;
+     align-self: center;
      margin-left: auto;
+     width: 40px;
+     height: 40px;
+     padding: 0;
      display: inline-flex;
      align-items: center;
-     gap: 6px;
-     padding: 6px 14px;
-     border-radius: 999px;
+     justify-content: center;
+     border-radius: 12px;
      border: 1px solid var(--primary);
      background: var(--primary);
      color: #FFFFFF;
-     font-size: 0.8rem;
-     font-weight: 600;
-     line-height: 1.2;
      cursor: pointer;
-     white-space: nowrap;
      transition: background 0.15s ease, filter 0.15s ease;
    }
-   .capsule-add-btn svg { color: #FFFFFF; stroke: #FFFFFF; }
-   .capsule-add-btn:hover { filter: brightness(0.92); }
+   .compact-add-button svg { color: #FFFFFF; stroke: #FFFFFF; }
+   .compact-add-button:hover { filter: brightness(0.92); }
 
    /* Light mode: force a solid blue fill so the CTA stands out against
-      the pale hero background (the shadcn --primary token resolves to
-      white in this theme, hence the explicit override). */
-   :root[data-theme="light"] .capsule-add-btn {
+      the pale surface (the shadcn --primary token resolves to white in
+      this theme, hence the explicit override). */
+   :root[data-theme="light"] .compact-add-button {
      background: #2563EB !important;
      border-color: #2563EB !important;
      color: #FFFFFF !important;
    }
-   :root[data-theme="light"] .capsule-add-btn svg {
+   :root[data-theme="light"] .compact-add-button svg {
      color: #FFFFFF !important;
      stroke: #FFFFFF !important;
    }
-   :root[data-theme="light"] .capsule-add-btn:hover {
+   :root[data-theme="light"] .compact-add-button:hover {
      background: #1D4ED8 !important;
      border-color: #1D4ED8 !important;
      filter: none;

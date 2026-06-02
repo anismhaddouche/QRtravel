@@ -156,7 +156,9 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip }) {
           <p className="page-subtitle">{trips.length} voyage{trips.length !== 1 ? 's' : ''} au total</p>
         </div>
         <div className="page-header-actions">
-          <Button
+          <button
+            type="button"
+            className="compact-add-button"
             onClick={() => {
               if (trips.length >= TRIP_LIMIT) {
                 setShowLimit(true);
@@ -166,10 +168,11 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip }) {
               resetForm();
             }}
             id="btn-add-trip"
-            title={trips.length >= TRIP_LIMIT ? TRIP_LIMIT_MESSAGE : 'Créer un nouveau voyage'}
+            aria-label="Nouveau voyage"
+            title={trips.length >= TRIP_LIMIT ? TRIP_LIMIT_MESSAGE : 'Nouveau voyage'}
           >
-            <Plus /> Nouveau
-          </Button>
+            <Plus size={20} />
+          </button>
         </div>
       </div>
 
