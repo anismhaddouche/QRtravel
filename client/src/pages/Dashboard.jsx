@@ -328,7 +328,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
             }}
           >
             <h2 className="glass-card-title" style={{ margin: 0 }}>
-              <Users size={20} /> Voyageurs ({filteredTravelers.length})
+              <Users size={20} /> Voyageurs
             </h2>
             {travelersOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
@@ -687,7 +687,7 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
           aria-label={`Embarquer ${t.displayName}`}
           title={`Embarquer ${t.displayName}`}
         >
-          <UserX size={18} />
+          <X size={18} />
         </button>
       )}
       <div style={{ position: 'relative' }} onClick={stop}>
