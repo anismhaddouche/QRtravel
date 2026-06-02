@@ -1199,6 +1199,11 @@
      align-items: end;
      justify-items: stretch;
    }
+   /* 5 columns: Accueil | Voyages | Scanner | Personnel | Plus.
+      Scanner sits in column 3 — the exact centre of the bar. */
+   .bottom-nav-floating--5col {
+     grid-template-columns: repeat(5, 1fr);
+   }
    :root[data-theme="light"] .bottom-nav-floating {
      box-shadow: 0 -1px 0 var(--border), 0 -8px 24px rgba(15,23,42,0.04);
    }

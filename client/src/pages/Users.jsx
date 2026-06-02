@@ -21,6 +21,10 @@ const ROLE_LABEL = {
   admin: 'Administrateur',          // legacy
 };
 
+// Per-agency cap, mirrors AGENCY_USER_LIMIT on the server. The backend is
+// the source of truth; this only drives the UI hint and disables the button.
+const AGENCY_USER_LIMIT = 3;
+
 function emptyForm(isSuperAdmin) {
   return {
     email: '',
@@ -132,19 +136,41 @@ export default function Users({ currentUsername, currentRole }) {
 
   if (loading) return <LoadingState message="Chargement des utilisateurs..." />;
 
+  // Agency admins are capped per agency. Their list only ever contains their
+  // own agency's non-super accounts, so the count maps directly to the limit.
+  const limitReached = !isSuperAdmin && users.length >= AGENCY_USER_LIMIT;
+
   return (
     <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <UsersIcon size={28} />
-          <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>Comptes</h1>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>
+              {isSuperAdmin ? 'Comptes' : 'Personnel'}
+            </h1>
+            {!isSuperAdmin && (
+              <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Gérez les accès de votre agence.
+              </p>
+            )}
+          </div>
         </div>
-        <Button onClick={() => { setForm(emptyForm(isSuperAdmin)); setFormError(''); setShowForm(true); }}>
+        <Button
+          disabled={limitReached}
+          onClick={() => { setForm(emptyForm(isSuperAdmin)); setFormError(''); setShowForm(true); }}
+        >
           <Plus /> Nouveau compte
         </Button>
       </div>
 
       {error && <div className="form-error">{error}</div>}
+
+      {limitReached && (
+        <div className="form-error" role="status">
+          Vous avez atteint la limite de comptes pour votre agence ({AGENCY_USER_LIMIT} maximum).
+        </div>
+      )}
 
       {users.length === 0 ? (
         <EmptyState

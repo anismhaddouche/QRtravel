@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { all, get, run } = require('../db');
-const { isSuperAdmin, isAgencyAdmin, effectiveAgencyId, requireSuperAdmin } = require('../lib/scope');
+const { isSuperAdmin, isAgencyAdmin, effectiveAgencyId, requireManageUsers, AGENCY_USER_LIMIT } = require('../lib/scope');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Internally stored roles. Legacy 'admin' is still accepted on read; new
@@ -22,9 +22,10 @@ function sanitize(u) {
   };
 }
 
-// User management is restricted to super_admin only.
-// agency_admin / staff (removed) / any other role → 403 FORBIDDEN.
-router.use(requireSuperAdmin);
+// User management is open to super_admin (global) and agency_admin (own
+// agency only). Per-handler logic below forces agencyId, blocks creating
+// super_admin from an agency_admin, and scopes every read/write by agency.
+router.use(requireManageUsers);
 
 router.get('/', async (req, res) => {
   try {
@@ -84,8 +85,25 @@ router.post('/', async (req, res) => {
       if (role === 'super_admin') {
         return res.status(403).json({ error: 'Cannot create super_admin', code: 'FORBIDDEN' });
       }
+      // agencyId is always forced from the session — any client-supplied
+      // agencyId is ignored, so an agency_admin can never target another agency.
       agencyId = effectiveAgencyId(req.user);
       if (!agencyId) return res.status(403).json({ error: 'No agency on account', code: 'NO_AGENCY' });
+
+      // Per-agency cap: at most AGENCY_USER_LIMIT non-super accounts. There is
+      // no soft-delete in this schema, so we count every live user of the
+      // agency except super_admins (who never belong to an agency anyway).
+      const cnt = await get(
+        `SELECT COUNT(*)::int AS n FROM users WHERE "agencyId" = $1 AND role <> 'super_admin'`,
+        [agencyId]
+      );
+      if (cnt && cnt.n >= AGENCY_USER_LIMIT) {
+        return res.status(409).json({
+          error: `Limite atteinte : cette agence peut avoir au maximum ${AGENCY_USER_LIMIT} comptes personnel.`,
+          code: 'USER_LIMIT_REACHED',
+          limit: AGENCY_USER_LIMIT,
+        });
+      }
     } else {
       return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
     }

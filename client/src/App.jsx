@@ -91,6 +91,8 @@ export default function App() {
 
 function AuthenticatedApp({ username, role, onLogout }) {
   const isSuperAdmin = role === 'super_admin';
+  const isAgencyAdmin = role === 'agency_admin' || role === 'admin';
+  const canManageUsers = isSuperAdmin || isAgencyAdmin;
   const { status: isOnline, lastMessage } = usePolling();
   const tripCtx = useTripContext();
   const offlineQueue = useOfflineQueue(isOnline, tripCtx.selectedTripId);
@@ -162,8 +164,8 @@ function AuthenticatedApp({ username, role, onLogout }) {
             {isSuperAdmin && (
               <Route path="/agencies" element={<Agencies />} />
             )}
-            {/* Personnel is super_admin only — agency_admin cannot manage users. */}
-            {isSuperAdmin && (
+            {/* Personnel: super_admin (all agencies) and agency_admin (own agency). */}
+            {canManageUsers && (
               <Route path="/users" element={<Users currentUsername={username} currentRole={role} />} />
             )}
           </Routes>

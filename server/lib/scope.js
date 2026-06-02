@@ -70,6 +70,23 @@ function requireAgencyScope(req, res, next) {
   next();
 }
 
+// User-management gate: super_admin (global) OR agency_admin (own agency).
+// An agency_admin without an agencyId is a misconfigured account and is
+// refused, so it can never fall through to an unscoped query.
+function requireManageUsers(req, res, next) {
+  if (isSuperAdmin(req.user)) return next();
+  if (isAgencyAdmin(req.user)) {
+    if (!req.user?.agencyId) {
+      return res.status(403).json({ error: 'No agency on account', code: 'NO_AGENCY' });
+    }
+    return next();
+  }
+  return res.status(403).json({ error: 'User management requires admin privileges', code: 'FORBIDDEN' });
+}
+
+// Per-agency cap on personnel accounts. super_admin is exempt.
+const AGENCY_USER_LIMIT = 3;
+
 module.exports = {
   isSuperAdmin,
   isAgencyAdmin,
@@ -79,4 +96,6 @@ module.exports = {
   scopeAgency,
   requireSuperAdmin,
   requireAgencyScope,
+  requireManageUsers,
+  AGENCY_USER_LIMIT,
 };

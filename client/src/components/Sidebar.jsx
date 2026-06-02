@@ -14,6 +14,8 @@ import {
 
 export default function Sidebar({ isOnline, queueLength, syncStatus, trips, selectedTrip, onSelectTrip, username, role, onLogout }) {
   const isSuperAdmin = role === 'super_admin';
+  const isAgencyAdmin = role === 'agency_admin' || role === 'admin';
+  const canManageUsers = isSuperAdmin || isAgencyAdmin;
   const [agencies, setAgencies] = useState([]);
   const [activeAgencyId, setActiveAgencyIdState] = useState(() => getActiveAgencyId());
 
@@ -102,8 +104,8 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
         <NavItem to="/scanner" icon={<ScanLine size={18} />} label="Scanner" />
         <NavItem to="/trips" icon={<Map size={18} />} label="Voyages" />
         {isSuperAdmin && <NavItem to="/agencies" icon={<Building2 size={18} />} label="Agences" />}
-        {/* Personnel is super_admin only — agency_admin cannot manage users. */}
-        {isSuperAdmin && (
+        {/* Personnel: super_admin (all agencies) and agency_admin (own agency). */}
+        {canManageUsers && (
           <NavItem to="/users" icon={<Shield size={18} />} label="Personnel" />
         )}
       </nav>

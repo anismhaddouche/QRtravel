@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ScanLine, MoreHorizontal,
-  Building2, Map, Shield, LogOut, X,
+  Building2, Map, UserCog, LogOut, X,
 } from 'lucide-react';
 import { api, getActiveAgencyId, setActiveAgencyId, onActiveAgencyChange } from '../utils/api';
 import ThemeToggle from './ThemeToggle';
@@ -19,15 +19,21 @@ import { Label } from '@/components/ui/label';
 export default function BottomNav({ role, username, onLogout }) {
   const isSuperAdmin = role === 'super_admin';
   const isAgencyAdmin = role === 'agency_admin' || role === 'admin';
+  const canManageUsers = isSuperAdmin || isAgencyAdmin;
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Close the sheet when route changes
   const location = useLocation();
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);
 
+  // Scanner must stay the dead-centre tab. With Personnel visible we run a
+  // 5-column grid (Accueil | Voyages | Scanner | Personnel | Plus); without
+  // it we fall back to the 4-column layout.
+  const colsClass = canManageUsers ? ' bottom-nav-floating--5col' : '';
+
   return (
     <>
-      <nav className="bottom-nav bottom-nav-floating bottom-nav-floating--has-cta" aria-label="Navigation principale">
+      <nav className={`bottom-nav bottom-nav-floating bottom-nav-floating--has-cta${colsClass}`} aria-label="Navigation principale">
         <NavItem to="/" icon={<LayoutDashboard size={22} />} label="Accueil" end />
         <NavItem to="/trips" icon={<Map size={22} />} label="Voyages" />
         <NavLink
@@ -38,6 +44,9 @@ export default function BottomNav({ role, username, onLogout }) {
           <span className="nav-tab__cta-bubble"><ScanLine size={22} /></span>
           <span>Scanner</span>
         </NavLink>
+        {canManageUsers && (
+          <NavItem to="/users" icon={<UserCog size={22} />} label="Personnel" />
+        )}
         <button
           onClick={() => setMenuOpen(true)}
           aria-label="Ouvrir le menu"
@@ -170,12 +179,8 @@ function MobileMenu({ isSuperAdmin, isAgencyAdmin, username, role, onClose, onLo
           <Button variant="ghost" className={menuItemClass} onClick={() => go('/scanner')}>
             <ScanLine /> Scanner
           </Button>
-          {/* Personnel is super_admin only — agency_admin cannot manage users. */}
-          {isSuperAdmin && (
-            <Button variant="ghost" className={menuItemClass} onClick={() => go('/users')}>
-              <Shield /> Personnel
-            </Button>
-          )}
+          {/* Personnel now lives as a primary tab in the bottom nav, so it is
+              intentionally not duplicated here. */}
           <div className="my-2 border-t border-border" />
           <ThemeToggle variant="menu-item" />
           <Button
