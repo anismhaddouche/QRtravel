@@ -143,6 +143,64 @@ test('agency_admin GET /api/users does not leak other agencies (WHERE agencyId =
   });
 });
 
+test('agency_admin GET /api/users excludes super_admins (role <> super_admin in SQL)', async () => {
+  let capturedSql = null;
+  setDbStubs({ all: async (sql) => { capturedSql = sql; return []; } });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/users`);
+    assert.equal(res.status, 200);
+    assert.match(capturedSql, /role <> 'super_admin'/);
+  });
+});
+
+test('agency_admin GET /api/users ignores agencyId in the query string', async () => {
+  let listParams = null;
+  setDbStubs({ all: async (sql, params) => { listParams = params; return []; } });
+  const app = buildApp('agency_admin', 'agency-A');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/users?agencyId=agency-OTHER`);
+    assert.equal(res.status, 200);
+    assert.deepEqual(listParams, ['agency-A'], 'must scope to the session agency, not the query');
+  });
+});
+
+// Regression for the reported bug: a legacy 'admin' row that lost its
+// agencyId used to be treated as a platform admin and received the GLOBAL
+// list (own + super_admin + other agency). It must now expose nothing.
+test('legacy admin without agencyId → GET /api/users returns [] (no global leak)', async () => {
+  let globalQueried = false;
+  setDbStubs({
+    all: async (sql) => {
+      if (!/WHERE "agencyId"/.test(sql)) globalQueried = true;
+      return [{ id: 's', email: 's@x.co', role: 'super_admin', agencyId: null }];
+    },
+  });
+  const app = buildApp('admin', null); // legacy admin, no agency
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/users`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.deepEqual(body, [], 'must not return the global user list');
+    assert.equal(globalQueried, false, 'must not run the unscoped global query');
+  });
+});
+
+test('legacy admin WITH agencyId → GET /api/users scoped to that agency', async () => {
+  let listParams = null;
+  let capturedSql = null;
+  setDbStubs({
+    all: async (sql, params) => { capturedSql = sql; listParams = params; return []; },
+  });
+  const app = buildApp('admin', 'agency-A'); // legacy admin bound to an agency
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/users`);
+    assert.equal(res.status, 200);
+    assert.match(capturedSql, /WHERE "agencyId" = \$1 AND role <> 'super_admin'/);
+    assert.deepEqual(listParams, ['agency-A']);
+  });
+});
+
 test('agency_admin POST /api/users → 201 and agencyId forced from session', async () => {
   let inserted = null;
   setDbStubs({

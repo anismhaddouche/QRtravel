@@ -29,15 +29,42 @@ router.use(requireManageUsers);
 
 router.get('/', async (req, res) => {
   try {
+    const role = req.user?.role;
+    const reqAgencyId = req.user?.agencyId || null;
+    // Only a *true* super_admin gets the global, unscoped list. A legacy
+    // 'admin' without an agencyId is NOT treated as global here: that path
+    // historically leaked every account (incl. super_admins and other
+    // agencies) to misconfigured accounts. Anyone else is scoped to their
+    // own agency, and super_admins are never returned to them.
+    const globalScope = role === 'super_admin';
     let rows;
-    if (isSuperAdmin(req.user)) {
-      rows = await all(`SELECT id, email, role, "agencyId", "createdAt", "updatedAt" FROM users ORDER BY "createdAt" ASC`);
-    } else {
+    let scope;
+    if (globalScope) {
+      scope = 'global';
       rows = await all(
-        `SELECT id, email, role, "agencyId", "createdAt", "updatedAt" FROM users WHERE "agencyId" = $1 ORDER BY "createdAt" ASC`,
-        [effectiveAgencyId(req.user)]
+        `SELECT id, email, role, "agencyId", "createdAt", "updatedAt" FROM users ORDER BY "createdAt" ASC`
       );
+    } else if (reqAgencyId) {
+      scope = 'agency';
+      // Own agency only. The agencyId comes from the session — any agencyId
+      // sent in the query string is ignored. super_admins are excluded so an
+      // agency admin can never see a platform account, and NULL-agency rows
+      // can't match because the comparison is against a concrete agencyId.
+      rows = await all(
+        `SELECT id, email, role, "agencyId", "createdAt", "updatedAt"
+           FROM users
+          WHERE "agencyId" = $1 AND role <> 'super_admin'
+          ORDER BY "createdAt" ASC`,
+        [reqAgencyId]
+      );
+    } else {
+      // Manage-users caller without an agency and not a super_admin →
+      // expose nothing rather than falling back to the global list.
+      scope = 'none';
+      rows = [];
     }
+    // Temporary diagnostic (no secrets): confirms which scope was applied.
+    console.log(`[USERS] list role=${role || 'null'} agencyId=${reqAgencyId || 'null'} scope=${scope} count=${rows.length}`);
     res.json(rows.map(sanitize));
   } catch (err) {
     console.error('[USERS] list error:', err.message);
