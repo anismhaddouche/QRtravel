@@ -1839,6 +1839,15 @@
    .compact-add-button svg { color: #FFFFFF; stroke: #FFFFFF; }
    .compact-add-button:hover { filter: brightness(0.92); }
 
+   /* Active-trip card row (Voyages, mobile): select grows, "+" stays right.
+      min-width:0 on the flex children prevents the select from overflowing
+      its container on narrow screens. */
+   .active-trip-row {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+   }
+
    /* Light mode: force a solid blue fill so the CTA stands out against
       the pale surface (the shadcn --primary token resolves to white in
       this theme, hence the explicit override). */

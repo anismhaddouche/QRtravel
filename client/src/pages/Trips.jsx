@@ -72,6 +72,17 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip }) {
     setEditingId(null);
   };
 
+  // Open the "Nouveau voyage" modal, respecting the per-agency trip limit.
+  // Shared by the desktop header button and the mobile active-trip card.
+  const handleAddTrip = () => {
+    if (trips.length >= TRIP_LIMIT) {
+      setShowLimit(true);
+      return;
+    }
+    setShowForm(true);
+    resetForm();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -155,46 +166,55 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip }) {
           <h1 className="page-title">Voyages</h1>
           <p className="page-subtitle">{trips.length} voyage{trips.length !== 1 ? 's' : ''} au total</p>
         </div>
-        <div className="page-header-actions">
-          <button
-            type="button"
-            className="compact-add-button"
-            onClick={() => {
-              if (trips.length >= TRIP_LIMIT) {
-                setShowLimit(true);
-                return;
-              }
-              setShowForm(true);
-              resetForm();
-            }}
-            id="btn-add-trip"
-            aria-label="Nouveau voyage"
-            title={trips.length >= TRIP_LIMIT ? TRIP_LIMIT_MESSAGE : 'Nouveau voyage'}
-          >
-            <Plus size={20} />
-          </button>
-        </div>
+        {/* Desktop: the "+" lives in the header (there is no active-trip
+            card on desktop — that selector is in the sidebar). On mobile it
+            moves into the "Voyage actif" card next to the select. */}
+        {window.innerWidth >= 1024 && (
+          <div className="page-header-actions">
+            <button
+              type="button"
+              className="compact-add-button"
+              onClick={handleAddTrip}
+              id="btn-add-trip"
+              aria-label="Nouveau voyage"
+              title={trips.length >= TRIP_LIMIT ? TRIP_LIMIT_MESSAGE : 'Nouveau voyage'}
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Sélecteur mobile du voyage actif */}
       {trips.length > 0 && window.innerWidth < 1024 && (
         <div className="glass-card mb-6 grid gap-2">
           <Label htmlFor="mobile-trip-select">Voyage actif pour cette session</Label>
-          <Select
-            value={selectedTripId || ''}
-            onValueChange={(id) => onSelectTrip(id)}
-          >
-            <SelectTrigger id="mobile-trip-select" className="w-full">
-              <SelectValue placeholder="— Sélectionner un voyage —" />
-            </SelectTrigger>
-            <SelectContent>
-              {trips.map(t => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.name} {t.date ? `(${t.date})` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="active-trip-row">
+            <Select
+              value={selectedTripId || ''}
+              onValueChange={(id) => onSelectTrip(id)}
+            >
+              <SelectTrigger id="mobile-trip-select" className="flex-1 min-w-0">
+                <SelectValue placeholder="— Sélectionner un voyage —" />
+              </SelectTrigger>
+              <SelectContent>
+                {trips.map(t => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name} {t.date ? `(${t.date})` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button
+              type="button"
+              className="compact-add-button"
+              onClick={handleAddTrip}
+              aria-label="Nouveau voyage"
+              title={trips.length >= TRIP_LIMIT ? TRIP_LIMIT_MESSAGE : 'Nouveau voyage'}
+            >
+              <Plus size={20} />
+            </button>
+          </div>
         </div>
       )}
 

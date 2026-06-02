@@ -6,7 +6,7 @@ import EmptyState from '../components/EmptyState';
 import {
   Users, UserCheck, UserX, LayoutDashboard, History,
   MessageCircle, Mail, Copy, Phone, ChevronDown, ChevronUp, MoreHorizontal,
-  Plus, Upload, Trash2, Check, CornerUpLeft, Send, AlertCircle, X, Search,
+  Plus, Upload, Trash2, Check, Send, AlertCircle, X, Search,
   Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -824,7 +824,7 @@ function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhat
           disabled={!hasCheckedIn}
           className="sel-action sel-action--undo"
         >
-          <CornerUpLeft /> Désembarquer
+          <X /> Désembarquer
         </Button>
         {!isMobile && (
           <>
