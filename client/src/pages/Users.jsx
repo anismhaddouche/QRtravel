@@ -156,12 +156,16 @@ export default function Users({ currentUsername, currentRole }) {
             )}
           </div>
         </div>
-        <Button
+        <button
+          type="button"
+          className="compact-add-button"
           disabled={limitReached}
           onClick={() => { setForm(emptyForm(isSuperAdmin)); setFormError(''); setShowForm(true); }}
+          aria-label="Nouveau compte"
+          title="Nouveau compte"
         >
-          <Plus /> Nouveau compte
-        </Button>
+          <Plus size={20} />
+        </button>
       </div>
 
       {error && <div className="form-error">{error}</div>}

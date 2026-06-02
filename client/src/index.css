@@ -1885,7 +1885,8 @@
      filter: none;
    }
 
-   /* Disabled (e.g. trip limit reached): muted but the "+" stays legible. */
+   /* Disabled (e.g. trip/account limit reached): muted but the "+" stays
+      legible. Shared by Dashboard, Voyages and Personnel "+" buttons. */
    .compact-add-button:disabled {
      cursor: not-allowed;
      opacity: 0.55;
