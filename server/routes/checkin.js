@@ -116,6 +116,7 @@ router.post('/', async (req, res) => {
 
 router.post('/undo', async (req, res) => {
   try {
+    const t0 = Date.now();
     const body = req.body || {};
     const referenceCode = normalizeRefCode(body.referenceCode);
     if (!referenceCode) return badRequest(res, 'referenceCode is required', 'referenceCode');
@@ -158,6 +159,9 @@ router.post('/undo', async (req, res) => {
 
     const updatedTraveler = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
 
+    const ms = Date.now() - t0;
+    if (ms > 250) console.warn(`[CHECKIN.undo] slow ${ms}ms trip=${tripId}`);
+
     res.json({
       success: true,
       message: `${updatedTraveler.displayName} check-in undone`,
@@ -172,6 +176,7 @@ router.post('/undo', async (req, res) => {
 
 router.post('/manual', async (req, res) => {
   try {
+    const t0 = Date.now();
     const body = req.body || {};
     const travelerId = normalizeId(body.travelerId);
     if (!travelerId) return badRequest(res, 'travelerId is required', 'travelerId');
@@ -213,6 +218,11 @@ router.post('/manual', async (req, res) => {
     );
 
     const updatedTraveler = await get('SELECT * FROM travelers WHERE id = $1', [traveler.id]);
+
+    // Safe perf signal: only logs when the DB work is unusually slow, so it
+    // stays quiet in normal operation but flags real latency.
+    const ms = Date.now() - t0;
+    if (ms > 250) console.warn(`[CHECKIN.manual] slow ${ms}ms trip=${tripId}`);
 
     res.json({
       success: true,

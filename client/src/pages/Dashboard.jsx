@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, onActiveAgencyChange } from '../utils/api';
 import { SkeletonStats, SkeletonTable } from '../components/Skeleton';
@@ -139,17 +139,19 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
     return off;
   }, []);
 
-  const showToast = (msg) => {
+  const toastTimer = useRef(null);
+  const showToast = useCallback((msg) => {
     setToast(msg);
-    setTimeout(() => setToast(''), 2400);
-  };
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(''), 2400);
+  }, []);
 
-  const copyText = async (text, label) => {
+  const copyText = useCallback(async (text, label) => {
     try {
       if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
       showToast(label || 'Copié');
     } catch { showToast('Copie impossible'); }
-  };
+  }, [showToast]);
 
   const filteredTravelers = useMemo(() => {
     let list = travelers;
@@ -173,67 +175,124 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
     [travelers, selectedIds]
   );
 
-  const toggleSelect = (id) => {
+  const toggleSelect = useCallback((id) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
-  };
-  const selectAllVisible = () => setSelectedIds(new Set(visibleIds));
-  const clearSelection = () => setSelectedIds(new Set());
+  }, []);
+  const selectAllVisible = useCallback(() => setSelectedIds(new Set(visibleIds)), [visibleIds]);
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
-  // ─── Check-in / Undo ────────────────────────────────────────────
-  const handleCheckIn = async (t) => {
+  // ─── Optimistic helpers ─────────────────────────────────────────
+  // Flip one traveler's status in place (new object only for that row, so
+  // memoized BoardRows for unchanged rows don't re-render).
+  const setTravelerStatus = useCallback((id, status) => {
+    setTravelers(prev => prev.map(t => (
+      t.id === id
+        ? { ...t, status, checkedInAt: status === 'checked_in' ? new Date().toISOString() : null }
+        : t
+    )));
+  }, []);
+  // Move `deltaPeople` head-count and `deltaUnits` rows between the
+  // Embarqués / Restants counters (the hero shows the *people* totals).
+  const adjustStats = useCallback((deltaPeople, deltaUnits) => {
+    setStats(s => (s ? {
+      ...s,
+      checkedInPeople: Math.max(0, (s.checkedInPeople || 0) + deltaPeople),
+      checkedInUnits: Math.max(0, (s.checkedInUnits || 0) + deltaUnits),
+      missingPeople: Math.max(0, (s.missingPeople || 0) - deltaPeople),
+      missingUnits: Math.max(0, (s.missingUnits || 0) - deltaUnits),
+    } : s));
+  }, []);
+
+  // ─── Check-in / Undo (optimistic) ───────────────────────────────
+  // Update local state immediately, fire the API in the background, and
+  // roll back just that row + counters on failure. No blocking refetch.
+  const handleCheckIn = useCallback(async (t) => {
+    if (t.status === 'checked_in') return;
+    const n = t.peopleCount || 1;
+    const optimEvent = { id: `optim-${t.id}-${Date.now()}`, referenceCode: t.referenceCode, action: 'check_in', timestamp: new Date().toISOString() };
+    setTravelerStatus(t.id, 'checked_in');
+    adjustStats(n, 1);
+    setEvents(ev => [optimEvent, ...ev].slice(0, 10));
+    showToast(`${t.displayName} embarqué(e)`);
     try {
       await api.manualCheckIn(t.id, tripId);
-      showToast(`${t.displayName} embarqué(e)`);
-      fetchData(true);
     } catch (e) {
+      setTravelerStatus(t.id, 'not_checked_in');
+      adjustStats(-n, -1);
+      setEvents(ev => ev.filter(x => x.id !== optimEvent.id));
       showToast(e.message || 'Erreur lors de l\'embarquement');
     }
-  };
-  const handleUndo = async (t) => {
+  }, [tripId, setTravelerStatus, adjustStats, showToast]);
+
+  const handleUndo = useCallback(async (t) => {
+    if (t.status !== 'checked_in') return;
+    const n = t.peopleCount || 1;
+    const optimEvent = { id: `optim-${t.id}-${Date.now()}`, referenceCode: t.referenceCode, action: 'undo_check_in', timestamp: new Date().toISOString() };
+    setTravelerStatus(t.id, 'not_checked_in');
+    adjustStats(-n, -1);
+    setEvents(ev => [optimEvent, ...ev].slice(0, 10));
+    showToast(`${t.displayName} dés-embarqué(e)`);
     try {
       await api.undoCheckIn(t.referenceCode, tripId);
-      showToast(`${t.displayName} dés-embarqué(e)`);
-      fetchData(true);
     } catch (e) {
+      setTravelerStatus(t.id, 'checked_in');
+      adjustStats(n, 1);
+      setEvents(ev => ev.filter(x => x.id !== optimEvent.id));
       showToast(e.message || 'Erreur lors du dés-embarquement');
     }
-  };
+  }, [tripId, setTravelerStatus, adjustStats, showToast]);
 
-  // ─── Bulk check-in / undo ───────────────────────────────────────
-  const handleBulkCheckIn = async () => {
-    const ids = selectedTravelers.filter(t => t.status === 'not_checked_in').map(t => t.id);
-    if (ids.length === 0) return;
+  // ─── Bulk check-in / undo (optimistic + silent reconcile) ───────
+  // Apply locally for instantly-eligible rows, call the API, then refetch
+  // silently in the background to reconcile any server-side skips. On error
+  // we restore the pre-action snapshot of the affected rows.
+  const handleBulkCheckIn = useCallback(async () => {
+    const targets = selectedTravelers.filter(t => t.status === 'not_checked_in');
+    if (targets.length === 0) return;
+    const ids = targets.map(t => t.id);
+    const people = targets.reduce((sum, t) => sum + (t.peopleCount || 1), 0);
+    setTravelers(prev => prev.map(t => (ids.includes(t.id) ? { ...t, status: 'checked_in', checkedInAt: new Date().toISOString() } : t)));
+    adjustStats(people, ids.length);
+    clearSelection();
     try {
       const r = await api.bulkManualCheckIn(ids, tripId);
-      const skipped = selectedIds.size - r.updated;
+      const skipped = ids.length - r.updated;
       showToast(skipped > 0
         ? `${r.updated} voyageur(s) embarqué(s), ${skipped} ignoré(s)`
         : `${r.updated} voyageur(s) embarqué(s)`);
-      clearSelection();
-      fetchData(true);
+      fetchData(); // silent reconcile (no spinner, UI already updated)
     } catch (e) {
+      setTravelers(prev => prev.map(t => (ids.includes(t.id) ? { ...t, status: 'not_checked_in', checkedInAt: null } : t)));
+      adjustStats(-people, -ids.length);
       showToast(e.message || 'Erreur lors de l\'embarquement');
     }
-  };
-  const handleBulkUndo = async () => {
-    const ids = selectedTravelers.filter(t => t.status === 'checked_in').map(t => t.id);
-    if (ids.length === 0) return;
+  }, [selectedTravelers, tripId, adjustStats, clearSelection, showToast, fetchData]);
+
+  const handleBulkUndo = useCallback(async () => {
+    const targets = selectedTravelers.filter(t => t.status === 'checked_in');
+    if (targets.length === 0) return;
+    const ids = targets.map(t => t.id);
+    const people = targets.reduce((sum, t) => sum + (t.peopleCount || 1), 0);
+    setTravelers(prev => prev.map(t => (ids.includes(t.id) ? { ...t, status: 'not_checked_in', checkedInAt: null } : t)));
+    adjustStats(-people, -ids.length);
+    clearSelection();
     try {
       const r = await api.bulkUndoCheckIn(ids, tripId);
-      const skipped = selectedIds.size - r.updated;
+      const skipped = ids.length - r.updated;
       showToast(skipped > 0
         ? `${r.updated} voyageur(s) désembarqué(s), ${skipped} ignoré(s)`
         : `${r.updated} voyageur(s) désembarqué(s)`);
-      clearSelection();
-      fetchData(true);
+      fetchData(); // silent reconcile
     } catch (e) {
+      setTravelers(prev => prev.map(t => (ids.includes(t.id) ? { ...t, status: 'checked_in', checkedInAt: new Date().toISOString() } : t)));
+      adjustStats(people, ids.length);
       showToast(e.message || 'Erreur lors du désembarquement');
     }
-  };
+  }, [selectedTravelers, tripId, adjustStats, clearSelection, showToast, fetchData]);
 
   // ─── Bulk delete ────────────────────────────────────────────────
   const handleBulkDelete = async () => {
@@ -253,10 +312,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
     }
   };
 
-  const goToTraveler = (id) => navigate(`/travelers/${id}`);
-  const rowKeyDown = (e, id) => {
-    if (e.key === 'Enter') { e.preventDefault(); goToTraveler(id); }
-  };
+  const goToTraveler = useCallback((id) => navigate(`/travelers/${id}`), [navigate]);
 
   // ───────────────────────────────────────────────────────────────
   // Render
@@ -426,11 +482,11 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
                   trip={trip}
                   agencyName={agencyName}
                   checked={selectedIds.has(t.id)}
-                  onSelect={() => toggleSelect(t.id)}
-                  onOpen={() => goToTraveler(t.id)}
-                  onCheckIn={() => handleCheckIn(t)}
-                  onUndo={() => handleUndo(t)}
-                  onCopy={(text, label) => copyText(text, label)}
+                  onSelect={toggleSelect}
+                  onOpen={goToTraveler}
+                  onCheckIn={handleCheckIn}
+                  onUndo={handleUndo}
+                  onCopy={copyText}
                 />
               ))}
             </ul>
@@ -619,13 +675,22 @@ function TripHero({ trip, stats, onAddTravelers }) {
 }
 
 // ─── Boarding-style traveler row ───────────────────────────────────
-function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, onCheckIn, onUndo, onCopy }) {
+function BoardRowImpl({ traveler: t, trip, agencyName, checked, onSelect, onOpen, onCheckIn, onUndo, onCopy }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const rootRef = useRef(null);
-  const qrLink = getTravelerQrLink(t.referenceCode);
-  const wa = buildWhatsAppLink({ traveler: t, trip, qrLink, agencyName });
-  const mt = buildMailtoLink({ traveler: t, trip, qrLink, agencyName });
   const isCheckedIn = t.status === 'checked_in';
+
+  // Build the share links only while the menu is open — these used to run
+  // for every row on every render (string building + URL encoding).
+  const { qrLink, wa, mt } = useMemo(() => {
+    if (!menuOpen) return { qrLink: null, wa: null, mt: null };
+    const link = getTravelerQrLink(t.referenceCode);
+    return {
+      qrLink: link,
+      wa: buildWhatsAppLink({ traveler: t, trip, qrLink: link, agencyName }),
+      mt: buildMailtoLink({ traveler: t, trip, qrLink: link, agencyName }),
+    };
+  }, [menuOpen, t, trip, agencyName]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -649,14 +714,14 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
       data-status={t.status}
       role="button"
       tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onOpen(); } }}
+      onClick={() => onOpen(t.id)}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onOpen(t.id); } }}
     >
       <div className="board-row__check" onClick={stop}>
         <input
           type="checkbox"
           checked={checked}
-          onChange={onSelect}
+          onChange={() => onSelect(t.id)}
           aria-label={`Sélectionner ${t.displayName}`}
         />
       </div>
@@ -672,7 +737,7 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
         <button
           type="button"
           className="board-row__action board-row__action--checked"
-          onClick={(e) => { stop(e); onUndo(); }}
+          onClick={(e) => { stop(e); onUndo(t); }}
           aria-label={`Désembarquer ${t.displayName}`}
           title={`Désembarquer ${t.displayName}`}
         >
@@ -682,7 +747,7 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
         <button
           type="button"
           className="board-row__action board-row__action--remaining"
-          onClick={(e) => { stop(e); onCheckIn(); }}
+          onClick={(e) => { stop(e); onCheckIn(t); }}
           aria-label={`Embarquer ${t.displayName}`}
           title={`Embarquer ${t.displayName}`}
         >
@@ -725,7 +790,7 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
             <div className="popover__divider" />
             <button
               type="button"
-              onClick={() => { setMenuOpen(false); onOpen(); }}
+              onClick={() => { setMenuOpen(false); onOpen(t.id); }}
             >
               <LayoutDashboard size={15} /> Voir la fiche
             </button>
@@ -735,6 +800,10 @@ function BoardRow({ traveler: t, trip, agencyName, checked, onSelect, onOpen, on
     </li>
   );
 }
+
+// Memoized so toggling selection / checking in one row re-renders only the
+// rows whose props actually changed, not the whole list.
+const BoardRow = memo(BoardRowImpl);
 
 // ─── Selection bar ─────────────────────────────────────────────────
 function SelectionBar({ count, selectedTravelers, onClear, onDelete, onShareWhatsApp, onShareEmail, onBulkCheckIn, onBulkUndo, isMobile }) {

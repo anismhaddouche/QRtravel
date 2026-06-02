@@ -229,6 +229,12 @@ async function initDb() {
       // Optional per-member details for Groupe travelers. NULL for
       // Individuel and for older groups created before this column.
       `ALTER TABLE travelers ADD COLUMN IF NOT EXISTS "groupMembers" JSONB`,
+      // Composite indexes for the activity feed: the dashboard/events query
+      // filters by tripId (or agencyId) then ORDER BY timestamp DESC LIMIT n.
+      // A (col, timestamp DESC) index lets Postgres satisfy filter + sort
+      // from the index instead of sorting the matched rows each time.
+      `CREATE INDEX IF NOT EXISTS idx_scan_events_trip_ts   ON scan_events("tripId", timestamp DESC)`,
+      `CREATE INDEX IF NOT EXISTS idx_scan_events_agency_ts ON scan_events("agencyId", timestamp DESC)`,
     ];
     for (const sql of migrations) {
       try {

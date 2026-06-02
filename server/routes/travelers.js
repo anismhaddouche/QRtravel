@@ -324,18 +324,30 @@ router.get('/stats/summary', async (req, res) => {
     const trip = await fetchScopedTrip(req.user, tripId);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
 
-    const total = await get('SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1', [tripId]);
-    const checkedIn = await get(`SELECT COUNT(*) as count FROM travelers WHERE "tripId" = $1 AND status = 'checked_in'`, [tripId]);
-    const totalPeople = await get('SELECT COALESCE(SUM("peopleCount"), 0) as count FROM travelers WHERE "tripId" = $1', [tripId]);
-    const checkedInPeople = await get(`SELECT COALESCE(SUM("peopleCount"), 0) as count FROM travelers WHERE "tripId" = $1 AND status = 'checked_in'`, [tripId]);
+    // Single aggregate pass instead of four sequential COUNT/SUM queries —
+    // one DB round-trip on a path the dashboard hits on every refresh.
+    const row = await get(
+      `SELECT
+         COUNT(*)                                                          AS "totalUnits",
+         COUNT(*) FILTER (WHERE status = 'checked_in')                     AS "checkedInUnits",
+         COALESCE(SUM("peopleCount"), 0)                                   AS "totalPeople",
+         COALESCE(SUM("peopleCount") FILTER (WHERE status = 'checked_in'), 0) AS "checkedInPeople"
+       FROM travelers WHERE "tripId" = $1`,
+      [tripId]
+    );
+
+    const totalUnits = parseInt(row.totalUnits, 10) || 0;
+    const checkedInUnits = parseInt(row.checkedInUnits, 10) || 0;
+    const totalPeople = parseInt(row.totalPeople, 10) || 0;
+    const checkedInPeople = parseInt(row.checkedInPeople, 10) || 0;
 
     res.json({
-      totalUnits: parseInt(total.count),
-      checkedInUnits: parseInt(checkedIn.count),
-      missingUnits: parseInt(total.count) - parseInt(checkedIn.count),
-      totalPeople: parseInt(totalPeople.count),
-      checkedInPeople: parseInt(checkedInPeople.count),
-      missingPeople: parseInt(totalPeople.count) - parseInt(checkedInPeople.count),
+      totalUnits,
+      checkedInUnits,
+      missingUnits: totalUnits - checkedInUnits,
+      totalPeople,
+      checkedInPeople,
+      missingPeople: totalPeople - checkedInPeople,
     });
   } catch (err) {
     console.error('Error fetching stats:', err.message);
