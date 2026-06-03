@@ -360,7 +360,6 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
         <TripHero
           trip={trip}
           stats={stats}
-          onAddTravelers={() => setShowAdd(true)}
         />
       )}
 
@@ -426,6 +425,15 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            className="compact-add-button"
+            onClick={() => setShowAdd(true)}
+            aria-label="Ajouter des voyageurs"
+            title="Ajouter des voyageurs"
+          >
+            <Plus size={20} />
+          </button>
         </div>
 
         {/* Selection bar — always visible while accordion is open */}
@@ -624,7 +632,7 @@ export default function Dashboard({ tripId, lastMessage, trip }) {
 }
 
 // ─── Trip Hero (compact header — no progress bar) ──────────────────
-function TripHero({ trip, stats, onAddTravelers }) {
+function TripHero({ trip, stats }) {
   const total = stats.totalPeople || 0;
   const done = stats.checkedInPeople || 0;
   const left = stats.missingPeople || 0;
@@ -660,15 +668,6 @@ function TripHero({ trip, stats, onAddTravelers }) {
           <span className="capsule__label">Restants</span>
           <span className="capsule__value">{left}</span>
         </span>
-        <button
-          type="button"
-          className="compact-add-button"
-          onClick={onAddTravelers}
-          aria-label="Ajouter des voyageurs"
-          title="Ajouter des voyageurs"
-        >
-          <Plus size={20} />
-        </button>
       </div>
     </section>
   );
