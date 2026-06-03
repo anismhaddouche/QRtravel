@@ -115,6 +115,10 @@ export default function Trips({ onTripChange, selectedTripId, onSelectTrip }) {
       if (err && err.code === 'TRIP_LIMIT_REACHED') {
         setShowForm(false);
         setShowLimit(true);
+      } else if (err && (err.code === 'AGENCY_REQUIRED' || err.code === 'NO_AGENCY')) {
+        setFormError('Veuillez sélectionner une agence avant de créer un voyage.');
+      } else if (err && err.code === 'AGENCY_NOT_FOUND') {
+        setFormError('Agence introuvable. Sélectionnez une agence valide.');
       } else {
         setFormError(err.message);
       }

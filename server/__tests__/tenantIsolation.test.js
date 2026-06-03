@@ -393,6 +393,116 @@ test('super_admin POST /api/users role=staff → 400 VALIDATION', async () => {
   });
 });
 
+// ─── super_admin: full access in the context of a chosen agency ────
+test('super_admin POST /api/trips with agencyId → 201', async () => {
+  let inserted = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM agencies WHERE id/.test(sql)) return { id: 'agency-B' };
+      if (/COUNT\(\*\) AS count FROM trips/.test(sql)) return { count: '0' };
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-new', name: 'Voyage', agencyId: 'agency-B' };
+      return null;
+    },
+    run: async (sql, params) => { if (/INSERT INTO trips/.test(sql)) inserted = params; },
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/trips`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Voyage', agencyId: 'agency-B' }),
+    });
+    assert.equal(res.status, 201);
+    assert.equal(inserted[5], 'agency-B', 'trip is created in the chosen agency');
+  });
+});
+
+test('super_admin POST /api/trips without agencyId → 400 AGENCY_REQUIRED', async () => {
+  setDbStubs();
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/trips`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Voyage' }),
+    });
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.code, 'AGENCY_REQUIRED');
+  });
+});
+
+test('super_admin POST /api/trips with unknown agencyId → 400 AGENCY_NOT_FOUND', async () => {
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM agencies WHERE id/.test(sql)) return null; // agency does not exist
+      return null;
+    },
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/trips`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Voyage', agencyId: 'ghost-agency' }),
+    });
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.code, 'AGENCY_NOT_FOUND');
+  });
+});
+
+test('super_admin POST /api/travelers in another agency trip → 201', async () => {
+  let inserted = null;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-OTHER' };
+      if (/FROM travelers WHERE id/.test(sql)) return { id: 'trv-new', displayName: 'X', agencyId: 'agency-OTHER', tripId: 'trip-1' };
+      return null;
+    },
+    all: async (sql) => (/FROM travelers WHERE "agencyId"/.test(sql) ? [] : []),
+    run: async (sql, params) => { if (/INSERT INTO travelers/.test(sql)) inserted = params; },
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/travelers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName: 'X', type: 'person', tripId: 'trip-1' }),
+    });
+    assert.equal(res.status, 201, 'super_admin can add a traveler to any agency trip');
+    assert.equal(inserted[9], 'agency-OTHER', 'traveler inherits the trip agency');
+  });
+});
+
+test('super_admin POST /api/checkin/manual in another agency → 200', async () => {
+  let travelerFetches = 0;
+  setDbStubs({
+    get: async (sql) => {
+      if (/FROM trips WHERE id/.test(sql)) return { id: 'trip-1', agencyId: 'agency-OTHER' };
+      if (/FROM travelers WHERE id/.test(sql)) {
+        travelerFetches += 1;
+        return {
+          id: 'trv-1', referenceCode: 'TRV-1', displayName: 'Alice',
+          tripId: 'trip-1', agencyId: 'agency-OTHER',
+          status: travelerFetches === 1 ? 'not_checked_in' : 'checked_in',
+        };
+      }
+      return null;
+    },
+    run: async () => {},
+  });
+  const app = buildApp('super_admin');
+  await withServer(app, async (base) => {
+    const res = await fetch(`${base}/api/checkin/manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ travelerId: 'trv-1', tripId: 'trip-1' }),
+    });
+    assert.equal(res.status, 200, 'super_admin can check in a traveler from any agency');
+  });
+});
+
 // ─── /api/trips: agency_admin scope enforced ───────────────────────
 test('agency_admin sees only own-agency trips (WHERE agencyId = own)', async () => {
   let capturedWhere = null;

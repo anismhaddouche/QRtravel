@@ -126,10 +126,15 @@ router.post('/', async (req, res) => {
     if (isSuperAdmin(req.user)) {
       agencyId = typeof body.agencyId === 'string' && body.agencyId.trim() ? body.agencyId.trim() : null;
       if (!agencyId) {
-        return res.status(400).json({ error: 'agencyId is required for super_admin', code: 'VALIDATION' });
+        // super_admin acts in the context of an active agency. The client
+        // should attach it; if it didn't, surface a clean, actionable code.
+        return res.status(400).json({
+          error: 'Veuillez sélectionner une agence avant de créer un voyage.',
+          code: 'AGENCY_REQUIRED',
+        });
       }
       const ag = await get('SELECT id FROM agencies WHERE id = $1', [agencyId]);
-      if (!ag) return res.status(400).json({ error: 'Unknown agencyId', code: 'VALIDATION' });
+      if (!ag) return res.status(400).json({ error: 'Agence introuvable.', code: 'AGENCY_NOT_FOUND' });
     } else {
       agencyId = req.user.agencyId;
       if (!agencyId) return res.status(403).json({ error: 'No agency on account', code: 'NO_AGENCY' });

@@ -126,7 +126,14 @@ export const api = {
   // Trips
   getTrips: () => request(appendAgencyParam('/trips')),
   getTrip: (id) => request(`/trips/${id}`),
-  createTrip: (data) => request('/trips', { method: 'POST', body: data }),
+  // super_admin creates trips in the context of the active agency. Attach
+  // its id so the backend knows the target agency. agency_admin has no
+  // active agency (getActiveAgencyId() === null) and the backend forces
+  // their own agencyId, so the body value is ignored for them.
+  createTrip: (data) => {
+    const agencyId = getActiveAgencyId();
+    return request('/trips', { method: 'POST', body: agencyId ? { ...data, agencyId } : data });
+  },
   updateTrip: (id, data) => request(`/trips/${id}`, { method: 'PUT', body: data }),
   deleteTrip: (id) => request(`/trips/${id}`, { method: 'DELETE' }),
 
