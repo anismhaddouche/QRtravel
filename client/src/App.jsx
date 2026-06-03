@@ -16,11 +16,18 @@ import { usePolling } from './hooks/usePolling';
 import { useOfflineQueue } from './hooks/useOfflineQueue';
 import { useTripContext } from './hooks/useTripContext';
 import { api, setAuthErrorHandler } from './utils/api';
+import { setCurrentUser, getCurrentUserKey, clearLegacyGlobalKeys } from './utils/sessionState';
 
 export default function App() {
   const [authState, setAuthState] = useState('checking'); // checking | authenticated | unauthenticated
   const [username, setUsername] = useState(null);
   const [role, setRole] = useState(null);
+  // Stable per-account key used to scope persisted UI state and to remount
+  // the authenticated tree (so no React state leaks between accounts).
+  const [userKey, setUserKey] = useState(null);
+
+  // One-time: drop legacy GLOBAL keys that used to be shared across accounts.
+  useEffect(() => { clearLegacyGlobalKeys(); }, []);
 
   // Check authentication on mount
   useEffect(() => {
@@ -29,9 +36,14 @@ export default function App() {
         // null = no active session (401 expected on first load / after
         // logout). Anything else means we're logged in.
         if (!data) {
+          setCurrentUser(null);
           setAuthState('unauthenticated');
           return;
         }
+        // Bind the user-scoped storage BEFORE the authenticated tree mounts
+        // so it reads this account's state, never the previous one's.
+        setCurrentUser({ id: data.id, username: data.username });
+        setUserKey(getCurrentUserKey());
         setUsername(data.username);
         setRole(data.role || 'admin');
         setAuthState('authenticated');
@@ -39,6 +51,7 @@ export default function App() {
       .catch(() => {
         // Network / unexpected error — still treat as unauthenticated
         // so the user lands on the login screen instead of a blank app.
+        setCurrentUser(null);
         setAuthState('unauthenticated');
       });
   }, []);
@@ -46,13 +59,17 @@ export default function App() {
   // Register global 401 handler
   useEffect(() => {
     setAuthErrorHandler(() => {
+      setCurrentUser(null);
+      setUserKey(null);
       setAuthState('unauthenticated');
       setUsername(null);
       setRole(null);
     });
   }, []);
 
-  const handleLogin = useCallback((user, userRole) => {
+  const handleLogin = useCallback((user, userRole, userId) => {
+    setCurrentUser({ id: userId, username: user });
+    setUserKey(getCurrentUserKey());
     setUsername(user);
     setRole(userRole || 'admin');
     setAuthState('authenticated');
@@ -60,6 +77,11 @@ export default function App() {
 
   const handleLogout = useCallback(async () => {
     try { await api.logout(); } catch (e) { /* ignore */ }
+    // Drop the in-memory user binding so nothing of this account can be
+    // read by the next login. Persisted per-user keys stay on disk so the
+    // same account finds its own state again later.
+    setCurrentUser(null);
+    setUserKey(null);
     setUsername(null);
     setRole(null);
     setAuthState('unauthenticated');
@@ -81,10 +103,13 @@ export default function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  // Authenticated — render the full app
+  // Authenticated — render the full app. `key={userKey}` forces a full
+  // remount when the account changes, so every page's React state (trips,
+  // travelers, events, users, selectedIds, active trip) starts clean and
+  // no data from the previous account can appear, even briefly.
   return (
     <ToastProvider>
-      <AuthenticatedApp username={username} role={role} onLogout={handleLogout} />
+      <AuthenticatedApp key={userKey || 'anon'} username={username} role={role} onLogout={handleLogout} />
     </ToastProvider>
   );
 }

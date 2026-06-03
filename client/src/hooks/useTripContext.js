@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api, onActiveAgencyChange } from '../utils/api';
+import { getScoped, setScoped } from '../utils/sessionState';
 
-const SELECTED_TRIP_KEY = 'qr_checkin_selected_trip';
+// Active trip is persisted per-user (see sessionState) so two admins of the
+// same agency keep their own active trip on the same browser.
+const SELECTED_TRIP_BASE = 'activeTripId';
 
 export function useTripContext() {
   const [trips, setTrips] = useState([]);
-  const [selectedTripId, setSelectedTripId] = useState(() => {
-    return localStorage.getItem(SELECTED_TRIP_KEY) || null;
-  });
+  const [selectedTripId, setSelectedTripId] = useState(() => getScoped(SELECTED_TRIP_BASE));
   const [loading, setLoading] = useState(true);
 
   const fetchTrips = useCallback(async () => {
@@ -19,13 +20,13 @@ export function useTripContext() {
       let nextSelectedId = selectedTripId;
       if (selectedTripId && !data.find(t => t.id === selectedTripId)) {
         nextSelectedId = null;
-        localStorage.removeItem(SELECTED_TRIP_KEY);
+        setScoped(SELECTED_TRIP_BASE, null);
         setSelectedTripId(null);
       }
       if (!nextSelectedId && data.length > 0) {
         const active = data.find(t => t.status === 'active') || data[0];
         setSelectedTripId(active.id);
-        localStorage.setItem(SELECTED_TRIP_KEY, active.id);
+        setScoped(SELECTED_TRIP_BASE, active.id);
       }
     } catch (e) {
       console.error('Failed to fetch trips:', e);
@@ -43,7 +44,7 @@ export function useTripContext() {
 
   const selectTrip = useCallback((tripId) => {
     setSelectedTripId(tripId);
-    localStorage.setItem(SELECTED_TRIP_KEY, tripId);
+    setScoped(SELECTED_TRIP_BASE, tripId);
   }, []);
 
   const selectedTrip = trips.find(t => t.id === selectedTripId) || null;

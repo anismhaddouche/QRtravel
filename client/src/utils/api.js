@@ -18,6 +18,8 @@ export function getWsUrl() {
   return `${protocol}//${host}`;
 }
 
+import { getScoped, setScoped } from './sessionState';
+
 // Global auth state callback — set by App.jsx
 let onAuthError = null;
 export function setAuthErrorHandler(handler) {
@@ -25,19 +27,17 @@ export function setAuthErrorHandler(handler) {
 }
 
 // ─── Super-admin selected agency ─────────────────────────────────────
-// Persisted in localStorage. agency_admin users ignore this entirely
-// (the backend forces their scope). Only used to inject ?agencyId=
-// onto super_admin reads so they can browse one agency at a time.
-const ACTIVE_AGENCY_KEY = 'qr_super_admin_active_agency_id';
+// Persisted per-user (see sessionState): two accounts on the same browser
+// never share an active agency. agency_admin users ignore this entirely
+// (the backend forces their scope). Only used to inject ?agencyId= onto
+// super_admin reads so they can browse one agency at a time.
+const ACTIVE_AGENCY_BASE = 'activeAgencyId';
 const agencyListeners = new Set();
 export function getActiveAgencyId() {
-  try { return localStorage.getItem(ACTIVE_AGENCY_KEY) || null; } catch { return null; }
+  return getScoped(ACTIVE_AGENCY_BASE);
 }
 export function setActiveAgencyId(id) {
-  try {
-    if (id) localStorage.setItem(ACTIVE_AGENCY_KEY, id);
-    else localStorage.removeItem(ACTIVE_AGENCY_KEY);
-  } catch { /* ignore */ }
+  setScoped(ACTIVE_AGENCY_BASE, id || null);
   for (const fn of agencyListeners) { try { fn(id || null); } catch { /* ignore */ } }
 }
 export function onActiveAgencyChange(fn) {

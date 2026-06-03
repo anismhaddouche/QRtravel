@@ -115,6 +115,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       console.log(`[AUTH] DB login success: ${dbUser.email} (${dbUser.role})`);
       return res.json({
         success: true,
+        id: dbUser.id,
         username: dbUser.email,
         role: dbUser.role,
         agencyId: dbUser.agencyId || null,
@@ -135,7 +136,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       clearTimeout(timeout);
       if (res.headersSent) return;
       console.log(`[AUTH] Env-fallback admin login: ${ADMIN_USERNAME}`);
-      return res.json({ success: true, username: ADMIN_USERNAME, role: 'super_admin', agencyId: null });
+      return res.json({ success: true, id: null, username: ADMIN_USERNAME, role: 'super_admin', agencyId: null });
     }
 
     clearTimeout(timeout);
@@ -200,6 +201,7 @@ router.get('/me', meLimiter, async (req, res) => {
     }
 
     res.json({
+      id: session.userId || null,
       username: session.username,
       role: session.role || 'admin',
       agencyId: session.agencyId || null,
