@@ -15,14 +15,17 @@ import { getActiveAgencyId, onActiveAgencyChange } from './utils/api';
 import { usePolling } from './hooks/usePolling';
 import { useOfflineQueue } from './hooks/useOfflineQueue';
 import { useTripContext } from './hooks/useTripContext';
-import { api, setAuthErrorHandler } from './utils/api';
+import { api, setAuthErrorHandler, setTrialExpiredHandler } from './utils/api';
 import { authClient } from './utils/auth-client';
 import { setCurrentUser, getCurrentUserKey, clearLegacyGlobalKeys } from './utils/sessionState';
+import { Button } from '@/components/ui/button';
+import { ShieldAlert, LogOut } from 'lucide-react';
 
 export default function App() {
-  const [authState, setAuthState] = useState('checking'); // checking | authenticated | unauthenticated
+  const [authState, setAuthState] = useState('checking'); // checking | authenticated | unauthenticated | trial_expired
   const [username, setUsername] = useState(null);
   const [role, setRole] = useState(null);
+  const [trialExpiredMessage, setTrialExpiredMessage] = useState('');
   // Stable per-account key used to scope persisted UI state and to remount
   // the authenticated tree (so no React state leaks between accounts).
   const [userKey, setUserKey] = useState(null);
@@ -40,10 +43,25 @@ export default function App() {
           return;
         }
         const user = data.user;
+        const isSuper = user.role === 'super_admin' || (user.role === 'admin' && !user.agencyId);
+
         setCurrentUser({ id: user.id, username: user.email });
         setUserKey(getCurrentUserKey());
         setUsername(user.email);
         setRole(user.role || 'admin');
+
+        if (user.banned) {
+          setTrialExpiredMessage(user.banReason || "Votre compte est bloqué.");
+          setAuthState('trial_expired');
+          return;
+        }
+
+        if (!isSuper && user.trialExpiresAt && new Date() > new Date(user.trialExpiresAt)) {
+          setTrialExpiredMessage("Votre période d'essai est terminée, merci de nous contacter au XXXXXX ou par mail anis.haddouche@sofia-data.com afin de renouveler votre abonnement, 2000 DA par mois ou 20000 DA par 12 mois.");
+          setAuthState('trial_expired');
+          return;
+        }
+
         setAuthState('authenticated');
       })
       .catch(() => {
@@ -63,11 +81,34 @@ export default function App() {
     });
   }, []);
 
-  const handleLogin = useCallback((user, userRole, userId) => {
-    setCurrentUser({ id: userId, username: user });
+  // Register global 403 (trial expired) handler
+  useEffect(() => {
+    setTrialExpiredHandler((message) => {
+      setTrialExpiredMessage(message || "Votre période d'essai est terminée, merci de nous contacter au XXXXXX ou par mail anis.haddouche@sofia-data.com afin de renouveler votre abonnement, 2000 DA par mois ou 20000 DA par 12 mois.");
+      setAuthState('trial_expired');
+    });
+  }, []);
+
+  const handleLogin = useCallback((user) => {
+    const isSuper = user.role === 'super_admin' || (user.role === 'admin' && !user.agencyId);
+
+    setCurrentUser({ id: user.id, username: user.email });
     setUserKey(getCurrentUserKey());
-    setUsername(user);
-    setRole(userRole || 'admin');
+    setUsername(user.email);
+    setRole(user.role || 'admin');
+
+    if (user.banned) {
+      setTrialExpiredMessage(user.banReason || "Votre compte est bloqué.");
+      setAuthState('trial_expired');
+      return;
+    }
+
+    if (!isSuper && user.trialExpiresAt && new Date() > new Date(user.trialExpiresAt)) {
+      setTrialExpiredMessage("Votre période d'essai est terminée, merci de nous contacter au XXXXXX ou par mail anis.haddouche@sofia-data.com afin de renouveler votre abonnement, 2000 DA par mois ou 20000 DA par 12 mois.");
+      setAuthState('trial_expired');
+      return;
+    }
+
     setAuthState('authenticated');
   }, []);
 
@@ -99,6 +140,11 @@ export default function App() {
     return <Login onLogin={handleLogin} />;
   }
 
+  // Show trial expired page if trial/subscription is expired
+  if (authState === 'trial_expired') {
+    return <TrialExpiredScreen message={trialExpiredMessage} onLogout={handleLogout} />;
+  }
+
   // Authenticated — render the full app. `key={userKey}` forces a full
   // remount when the account changes, so every page's React state (trips,
   // travelers, events, users, selectedIds, active trip) starts clean and
@@ -113,7 +159,7 @@ export default function App() {
 function AuthenticatedApp({ username, role, onLogout }) {
   const isSuperAdmin = role === 'super_admin';
   const isAgencyAdmin = role === 'agency_admin' || role === 'admin';
-  const canManageUsers = isSuperAdmin || isAgencyAdmin;
+  const canManageUsers = isSuperAdmin || role === 'agency_admin';
   const { status: isOnline, lastMessage } = usePolling();
   const tripCtx = useTripContext();
   const offlineQueue = useOfflineQueue(isOnline, tripCtx.selectedTripId);
@@ -204,6 +250,53 @@ function AgencyPrompt() {
         Sélectionnez une agence dans la barre latérale (ou ouvrez la page <strong>Agences</strong>)
         pour gérer ses voyages et voyageurs.
       </p>
+    </div>
+  );
+}
+
+function TrialExpiredScreen({ message, onLogout }) {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center p-5"
+      style={{ background: 'var(--bg-page)' }}
+    >
+      <div className="w-full max-w-md glass-card" style={{ padding: '32px', textAlign: 'center' }}>
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            background: 'rgba(239, 68, 68, 0.1)',
+            color: 'rgb(239, 68, 68)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 20px',
+          }}
+        >
+          <ShieldAlert size={28} />
+        </div>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-primary)' }}>
+          Période d&apos;essai expirée
+        </h2>
+        <p style={{
+          fontSize: '0.95rem',
+          lineHeight: '1.6',
+          color: 'var(--text-muted)',
+          marginBottom: '24px',
+          whiteSpace: 'pre-line'
+        }}>
+          {message}
+        </p>
+        <Button
+          onClick={onLogout}
+          variant="outline"
+          className="w-full flex items-center justify-center gap-2"
+        >
+          <LogOut size={16} />
+          Se déconnecter
+        </Button>
+      </div>
     </div>
   );
 }

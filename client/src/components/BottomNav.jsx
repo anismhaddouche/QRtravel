@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 export default function BottomNav({ role, username, onLogout }) {
   const isSuperAdmin = role === 'super_admin';
   const isAgencyAdmin = role === 'agency_admin' || role === 'admin';
-  const canManageUsers = isSuperAdmin || isAgencyAdmin;
+  const canManageUsers = isSuperAdmin || role === 'agency_admin';
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Close the sheet when route changes
@@ -131,7 +131,7 @@ function MobileMenu({ isSuperAdmin, isAgencyAdmin, username, role, onClose, onLo
           <div>
             <div style={{ fontWeight: 700 }}>{username}</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              {role === 'super_admin' ? 'Super admin' : (role === 'agency_admin' || role === 'admin') ? 'Admin agence' : role}
+              {role === 'super_admin' ? 'Super administrateur' : role === 'agency_admin' ? 'Responsable d’agence' : role === 'admin' ? 'Administrateur (Personnel)' : role}
             </div>
           </div>
           <Button

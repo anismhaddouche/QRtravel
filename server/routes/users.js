@@ -3,12 +3,12 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { all, get, run } = require('../db');
-const { isSuperAdmin, isAgencyAdmin, effectiveAgencyId, requireManageUsers, AGENCY_USER_LIMIT } = require('../lib/scope');
+const { isSuperAdmin, isAgencyAdmin, effectiveAgencyId, requireManageUsers, requireSuperAdmin, AGENCY_USER_LIMIT } = require('../lib/scope');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Internally stored roles. Legacy 'admin' is still accepted on read; new
 // users created here must use one of these.
-const VALID_ROLES = new Set(['super_admin', 'agency_admin']);
+const VALID_ROLES = new Set(['super_admin', 'agency_admin', 'admin']);
 
 function sanitize(u) {
   if (!u) return null;
@@ -17,6 +17,7 @@ function sanitize(u) {
     email: u.email,
     role: u.role,
     agencyId: u.agencyId || null,
+    trialExpiresAt: u.trialExpiresAt || null,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
   };
@@ -42,7 +43,7 @@ router.get('/', async (req, res) => {
     if (globalScope) {
       scope = 'global';
       rows = await all(
-        `SELECT id, email, role, "agencyId", "createdAt", "updatedAt" FROM users ORDER BY "createdAt" ASC`
+        `SELECT id, email, role, "agencyId", "trialExpiresAt", "createdAt", "updatedAt" FROM "user" WHERE role IN ('agency_admin', 'super_admin') ORDER BY "createdAt" ASC`
       );
     } else if (reqAgencyId) {
       scope = 'agency';
@@ -51,9 +52,9 @@ router.get('/', async (req, res) => {
       // agency admin can never see a platform account, and NULL-agency rows
       // can't match because the comparison is against a concrete agencyId.
       rows = await all(
-        `SELECT id, email, role, "agencyId", "createdAt", "updatedAt"
-           FROM users
-          WHERE "agencyId" = $1 AND role <> 'super_admin'
+        `SELECT id, email, role, "agencyId", "trialExpiresAt", "createdAt", "updatedAt"
+           FROM "user"
+          WHERE "agencyId" = $1 AND role = 'admin'
           ORDER BY "createdAt" ASC`,
         [reqAgencyId]
       );
@@ -77,9 +78,7 @@ router.post('/', async (req, res) => {
     const body = req.body || {};
     const email = typeof body.email === 'string' ? body.email.trim() : '';
     const password = typeof body.password === 'string' ? body.password : '';
-    let role = typeof body.role === 'string' ? body.role : 'agency_admin';
-    // Legacy alias: accept 'admin' from old UI, map to agency_admin.
-    if (role === 'admin') role = 'agency_admin';
+    let role = typeof body.role === 'string' ? body.role : 'admin';
     // Explicit removal: 'staff' role no longer supported.
     if (role === 'staff') {
       return res.status(400).json({ error: 'Role "staff" is no longer supported', code: 'VALIDATION' });
@@ -109,8 +108,8 @@ router.post('/', async (req, res) => {
         if (!ag) return res.status(400).json({ error: 'Unknown agencyId' });
       }
     } else if (isAgencyAdmin(req.user)) {
-      if (role === 'super_admin') {
-        return res.status(403).json({ error: 'Cannot create super_admin', code: 'FORBIDDEN' });
+      if (role !== 'admin') {
+        return res.status(403).json({ error: 'Un administrateur d\'agence ne peut créer que des comptes de type personnel (admin).', code: 'FORBIDDEN' });
       }
       // agencyId is always forced from the session — any client-supplied
       // agencyId is ignored, so an agency_admin can never target another agency.
@@ -121,7 +120,7 @@ router.post('/', async (req, res) => {
       // no soft-delete in this schema, so we count every live user of the
       // agency except super_admins (who never belong to an agency anyway).
       const cnt = await get(
-        `SELECT COUNT(*)::int AS n FROM users WHERE "agencyId" = $1 AND role <> 'super_admin'`,
+        `SELECT COUNT(*)::int AS n FROM "user" WHERE "agencyId" = $1 AND role = 'admin'`,
         [agencyId]
       );
       if (cnt && cnt.n >= AGENCY_USER_LIMIT) {
@@ -135,22 +134,30 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
     }
 
-    const existing = await get(`SELECT id FROM users WHERE LOWER(email) = LOWER($1)`, [email]);
+    const existing = await get(`SELECT id FROM "user" WHERE LOWER(email) = LOWER($1)`, [email]);
     if (existing) {
       return res.status(409).json({ error: 'A user with this email already exists' });
     }
 
     const id = uuidv4();
-    const now = new Date().toISOString();
-    const passwordHash = await bcrypt.hash(password, 10);
+    const now = new Date();
+    const rawHash = await bcrypt.hash(password, 10);
+    const passwordHash = rawHash.startsWith('$2a$') ? rawHash.replace('$2a$', '$2b$') : rawHash;
 
     await run(
-      `INSERT INTO users (id, email, "passwordHash", role, "agencyId", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [id, email, passwordHash, role, agencyId, now, now]
+      `INSERT INTO "user" (id, name, email, "emailVerified", image, "createdAt", "updatedAt", role, banned, "trialExpiresAt", "agencyId")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [id, email.split('@')[0], email, false, null, now, now, role, false, null, agencyId]
     );
 
-    res.status(201).json(sanitize({ id, email, role, agencyId, createdAt: now, updatedAt: now }));
+    const accountId = uuidv4();
+    await run(
+      `INSERT INTO "account" (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [accountId, id, 'credential', id, passwordHash, now, now]
+    );
+
+    res.status(201).json(sanitize({ id, email, role, agencyId, createdAt: now.toISOString(), updatedAt: now.toISOString() }));
   } catch (err) {
     console.error('[USERS] create error:', err.message);
     res.status(500).json({ error: 'Failed to create user' });
@@ -166,7 +173,7 @@ router.post('/:id/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Password must be 8–200 characters' });
     }
 
-    const user = await get(`SELECT id, "agencyId", role FROM users WHERE id = $1`, [id]);
+    const user = await get(`SELECT id, "agencyId", role FROM "user" WHERE id = $1`, [id]);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     if (!isSuperAdmin(req.user)) {
@@ -176,15 +183,16 @@ router.post('/:id/reset-password', async (req, res) => {
       }
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    const now = new Date().toISOString();
+    const rawHash = await bcrypt.hash(password, 10);
+    const passwordHash = rawHash.startsWith('$2a$') ? rawHash.replace('$2a$', '$2b$') : rawHash;
+    const now = new Date();
 
     await run(
-      `UPDATE users SET "passwordHash" = $1, "updatedAt" = $2 WHERE id = $3`,
+      `UPDATE "account" SET password = $1, "updatedAt" = $2 WHERE "userId" = $3 AND "providerId" = 'credential'`,
       [passwordHash, now, id]
     );
 
-    await run(`DELETE FROM sessions WHERE "userId" = $1`, [id]);
+    await run(`DELETE FROM "session" WHERE "userId" = $1`, [id]);
 
     res.json({ success: true });
   } catch (err) {
@@ -201,7 +209,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ error: 'You cannot delete your own account' });
     }
 
-    const user = await get(`SELECT id, role, "agencyId" FROM users WHERE id = $1`, [id]);
+    const user = await get(`SELECT id, role, "agencyId" FROM "user" WHERE id = $1`, [id]);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     if (!isSuperAdmin(req.user)) {
@@ -211,23 +219,32 @@ router.delete('/:id', async (req, res) => {
       }
     }
 
-    // Prevent deleting last super_admin (this guard is critical — it is
-    // the only role that can recreate admins).
+    // Prevent deleting last super_admin
     if (user.role === 'super_admin') {
-      const c = await get(`SELECT COUNT(*)::int AS n FROM users WHERE role = 'super_admin'`);
+      const c = await get(`SELECT COUNT(*)::int AS n FROM "user" WHERE role = 'super_admin'`);
       if (c && c.n <= 1) return res.status(400).json({ error: 'Cannot delete the last super_admin' });
     }
-    // Legacy 'admin' (env-fallback shape) — same protection.
-    if (user.role === 'admin' && !user.agencyId) {
-      const c = await get(`SELECT COUNT(*)::int AS n FROM users WHERE role IN ('admin','super_admin') AND "agencyId" IS NULL`);
-      if (c && c.n <= 1) return res.status(400).json({ error: 'Cannot delete the last admin user' });
-    }
-    // NOTE: super_admin is allowed to delete the last agency_admin of an
-    // agency. The agency can run without an admin until super_admin
-    // creates a new one or deletes the agency.
 
-    await run(`DELETE FROM sessions WHERE "userId" = $1`, [id]);
-    await run(`DELETE FROM users WHERE id = $1`, [id]);
+    // If deleting the main agency owner (agency_admin), delete all associated personnel accounts
+    if (user.role === 'agency_admin' && user.agencyId) {
+      await run(
+        `DELETE FROM "session" WHERE "userId" IN (SELECT id FROM "user" WHERE "agencyId" = $1 AND role IN ('agency_admin', 'admin'))`,
+        [user.agencyId]
+      );
+      await run(
+        `DELETE FROM "account" WHERE "userId" IN (SELECT id FROM "user" WHERE "agencyId" = $1 AND role IN ('agency_admin', 'admin'))`,
+        [user.agencyId]
+      );
+      await run(
+        `DELETE FROM "user" WHERE "agencyId" = $1 AND role IN ('agency_admin', 'admin')`,
+        [user.agencyId]
+      );
+    } else {
+      // Normal single user delete
+      await run(`DELETE FROM "session" WHERE "userId" = $1`, [id]);
+      await run(`DELETE FROM "account" WHERE "userId" = $1`, [id]);
+      await run(`DELETE FROM "user" WHERE id = $1`, [id]);
+    }
     res.json({ success: true });
   } catch (err) {
     console.error('[USERS] delete error:', err.message);
@@ -235,25 +252,41 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-router.post('/:id/extend-trial', async (req, res) => {
+router.post('/:id/extend-trial', requireSuperAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { auth } = require('../auth');
+    const { months } = req.body || {};
+    const monthsInt = parseInt(months, 10);
 
-    // Only allow manage users (already checked by requireManageUsers middleware)
-    
-    const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + 30);
-    
-    // Use adapter to update custom field
-    await auth.adapter.update({
-      model: 'user',
-      where: [{ field: 'id', value: id }],
-      update: { trialExpiresAt: trialEnd }
-    });
+    if (isNaN(monthsInt) || monthsInt < 1 || monthsInt > 24) {
+      return res.status(400).json({ error: 'Le nombre de mois doit être compris entre 1 et 24.', code: 'VALIDATION' });
+    }
+
+    // Fetch the target user's current trialExpiresAt
+    const user = await get('SELECT "trialExpiresAt" FROM "user" WHERE id = $1', [id]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    let baseDate = new Date();
+    if (user.trialExpiresAt) {
+      const currentExpiry = new Date(user.trialExpiresAt);
+      if (currentExpiry > baseDate) {
+        baseDate = currentExpiry;
+      }
+    }
+
+    baseDate.setMonth(baseDate.getMonth() + monthsInt);
+
+    // Update in database directly
+    await run(
+      'UPDATE "user" SET "trialExpiresAt" = $1, "updatedAt" = $2 WHERE id = $3',
+      [baseDate, new Date(), id]
+    );
 
     // Unban the user in case they were banned due to trial expiration
     try {
+      const { auth } = require('../auth');
       await auth.api.unbanUser({
         headers: req.headers,
         body: { userId: id }
@@ -262,7 +295,7 @@ router.post('/:id/extend-trial', async (req, res) => {
       // Ignore error if user is not banned
     }
 
-    res.json({ success: true, trialExpiresAt: trialEnd });
+    res.json({ success: true, trialExpiresAt: baseDate });
   } catch (err) {
     console.error('[USERS] extend-trial error:', err.message);
     res.status(500).json({ error: 'Failed to extend trial' });

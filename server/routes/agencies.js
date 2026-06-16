@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
   try {
     const rows = await all(`
       SELECT a.*,
-        (SELECT COUNT(*)::int FROM users     u WHERE u."agencyId" = a.id) AS "userCount",
+        (SELECT COUNT(*)::int FROM "user"     u WHERE u."agencyId" = a.id) AS "userCount",
         (SELECT COUNT(*)::int FROM trips     t WHERE t."agencyId" = a.id) AS "tripCount",
         (SELECT COUNT(*)::int FROM travelers v WHERE v."agencyId" = a.id) AS "travelerCount"
       FROM agencies a
@@ -146,7 +146,7 @@ router.post('/with-admin', async (req, res) => {
   const dupAgency = await get(`SELECT id FROM agencies WHERE LOWER(name) = LOWER($1) LIMIT 1`, [name]);
   if (dupAgency) return res.status(409).json({ error: 'An agency with this name already exists' });
 
-  const dupUser = await get(`SELECT id FROM users WHERE LOWER(email) = LOWER($1)`, [adminEmail]);
+  const dupUser = await get(`SELECT id FROM "user" WHERE LOWER(email) = LOWER($1)`, [adminEmail]);
   if (dupUser) return res.status(409).json({ error: 'A user with this email already exists' });
 
   const passwordHash = await bcrypt.hash(adminPassword, 10);
@@ -163,9 +163,15 @@ router.post('/with-admin', async (req, res) => {
       [agencyId, name, aEmail, aPhone, now]
     );
     await client.query(
-      `INSERT INTO users (id, email, "passwordHash", role, "agencyId", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, 'agency_admin', $4, $5, $5)`,
-      [userId, adminEmail, passwordHash, agencyId, now]
+      `INSERT INTO "user" (id, name, email, "emailVerified", image, "createdAt", "updatedAt", role, banned, "trialExpiresAt", "agencyId")
+       VALUES ($1, $2, $3, false, null, $4, $4, 'agency_admin', false, $5, $6)`,
+      [userId, adminEmail.split('@')[0], adminEmail, new Date(now), new Date(new Date(now).getTime() + 7 * 24 * 60 * 60 * 1000), agencyId]
+    );
+    const accountId = uuidv4();
+    await client.query(
+      `INSERT INTO "account" (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
+       VALUES ($1, $2, 'credential', $3, $4, $5, $5)`,
+      [accountId, userId, userId, passwordHash, new Date(now)]
     );
     await client.query('COMMIT');
   } catch (err) {
@@ -177,7 +183,7 @@ router.post('/with-admin', async (req, res) => {
   }
 
   const agency = await get(`SELECT * FROM agencies WHERE id = $1`, [agencyId]);
-  const admin  = await get(`SELECT id, email, role, "agencyId", "createdAt", "updatedAt" FROM users WHERE id = $1`, [userId]);
+  const admin  = await get(`SELECT id, email, role, "agencyId", "createdAt", "updatedAt" FROM "user" WHERE id = $1`, [userId]);
   res.status(201).json({ agency, admin });
 });
 
@@ -192,7 +198,7 @@ router.delete('/:id', async (req, res) => {
 
     const counts = await get(`
       SELECT
-        (SELECT COUNT(*)::int FROM users        WHERE "agencyId" = $1) AS users,
+        (SELECT COUNT(*)::int FROM "user"        WHERE "agencyId" = $1) AS users,
         (SELECT COUNT(*)::int FROM trips        WHERE "agencyId" = $1) AS trips,
         (SELECT COUNT(*)::int FROM travelers    WHERE "agencyId" = $1) AS travelers,
         (SELECT COUNT(*)::int FROM scan_events  WHERE "agencyId" = $1) AS "scanEvents"
@@ -213,7 +219,7 @@ router.delete('/:id', async (req, res) => {
     // Hard refusal: never let a force-delete touch a super_admin row,
     // even if one is mis-bound to this agency.
     const trapped = await get(
-      `SELECT COUNT(*)::int AS n FROM users WHERE "agencyId" = $1 AND role = 'super_admin'`,
+      `SELECT COUNT(*)::int AS n FROM "user" WHERE "agencyId" = $1 AND role = 'super_admin'`,
       [req.params.id]
     );
     if (trapped && trapped.n > 0) {
@@ -228,7 +234,7 @@ router.delete('/:id', async (req, res) => {
       await client.query('BEGIN');
       // Revoke sessions of users in this agency.
       await client.query(
-        `DELETE FROM sessions WHERE "userId" IN (SELECT id FROM users WHERE "agencyId" = $1)`,
+        `DELETE FROM "session" WHERE "userId" IN (SELECT id FROM "user" WHERE "agencyId" = $1)`,
         [req.params.id]
       );
       // Purge child rows. agencyId FKs are ON DELETE CASCADE for the
@@ -240,7 +246,11 @@ router.delete('/:id', async (req, res) => {
       await client.query(`DELETE FROM trips       WHERE "agencyId" = $1`, [req.params.id]);
       // Only agency-scoped roles. NEVER super_admin (guarded above too).
       await client.query(
-        `DELETE FROM users WHERE "agencyId" = $1 AND role IN ('agency_admin','admin')`,
+        `DELETE FROM "account" WHERE "userId" IN (SELECT id FROM "user" WHERE "agencyId" = $1 AND role IN ('agency_admin','admin'))`,
+        [req.params.id]
+      );
+      await client.query(
+        `DELETE FROM "user" WHERE "agencyId" = $1 AND role IN ('agency_admin','admin')`,
         [req.params.id]
       );
       await client.query(`DELETE FROM agencies WHERE id = $1`, [req.params.id]);

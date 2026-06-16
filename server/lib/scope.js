@@ -23,7 +23,6 @@ function isSuperAdmin(user) {
 function isAgencyAdmin(user) {
   if (!user) return false;
   if (user.role === 'agency_admin') return true;
-  if (user.role === 'admin' && user.agencyId) return true;
   return false;
 }
 

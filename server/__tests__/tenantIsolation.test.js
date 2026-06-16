@@ -143,14 +143,14 @@ test('agency_admin GET /api/users does not leak other agencies (WHERE agencyId =
   });
 });
 
-test('agency_admin GET /api/users excludes super_admins (role <> super_admin in SQL)', async () => {
+test('agency_admin GET /api/users excludes non-admins (role = admin in SQL)', async () => {
   let capturedSql = null;
   setDbStubs({ all: async (sql) => { capturedSql = sql; return []; } });
   const app = buildApp('agency_admin', 'agency-A');
   await withServer(app, async (base) => {
     const res = await fetch(`${base}/api/users`);
     assert.equal(res.status, 200);
-    assert.match(capturedSql, /role <> 'super_admin'/);
+    assert.match(capturedSql, /role = 'admin'/);
   });
 });
 
@@ -186,18 +186,12 @@ test('legacy admin without agencyId → GET /api/users returns [] (no global lea
   });
 });
 
-test('legacy admin WITH agencyId → GET /api/users scoped to that agency', async () => {
-  let listParams = null;
-  let capturedSql = null;
-  setDbStubs({
-    all: async (sql, params) => { capturedSql = sql; listParams = params; return []; },
-  });
-  const app = buildApp('admin', 'agency-A'); // legacy admin bound to an agency
+test('admin with agencyId (personnel) GET /api/users → 403 Forbidden', async () => {
+  setDbStubs();
+  const app = buildApp('admin', 'agency-A');
   await withServer(app, async (base) => {
     const res = await fetch(`${base}/api/users`);
-    assert.equal(res.status, 200);
-    assert.match(capturedSql, /WHERE "agencyId" = \$1 AND role <> 'super_admin'/);
-    assert.deepEqual(listParams, ['agency-A']);
+    assert.equal(res.status, 403);
   });
 });
 
@@ -205,21 +199,21 @@ test('agency_admin POST /api/users → 201 and agencyId forced from session', as
   let inserted = null;
   setDbStubs({
     get: async (sql) => {
-      if (/COUNT\(\*\)::int AS n FROM users WHERE "agencyId"/.test(sql)) return { n: 0 };
+      if (/COUNT\(\*\)::int AS n FROM "user" WHERE "agencyId"/.test(sql)) return { n: 0 };
       return null; // no existing email
     },
-    run: async (sql, params) => { if (/INSERT INTO users/.test(sql)) inserted = params; },
+    run: async (sql, params) => { if (/INSERT INTO "user"/.test(sql)) inserted = params; },
   });
   const app = buildApp('agency_admin', 'agency-A');
   await withServer(app, async (base) => {
     const res = await fetch(`${base}/api/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'new@y.co', password: 'password123', role: 'agency_admin' }),
+      body: JSON.stringify({ email: 'new@y.co', password: 'password123', role: 'admin' }),
     });
     assert.equal(res.status, 201);
-    // INSERT params: (id, email, passwordHash, role, agencyId, createdAt, updatedAt)
-    assert.equal(inserted[4], 'agency-A', 'agencyId must come from the session');
+    // INSERT params: (id, name, email, emailVerified, image, createdAt, updatedAt, role, banned, trialExpiresAt, agencyId) -> agencyId is index 10
+    assert.equal(inserted[10], 'agency-A', 'agencyId must come from the session');
   });
 });
 
@@ -227,20 +221,20 @@ test('agency_admin POST /api/users: client-supplied agencyId is ignored', async 
   let inserted = null;
   setDbStubs({
     get: async (sql) => {
-      if (/COUNT\(\*\)::int AS n FROM users WHERE "agencyId"/.test(sql)) return { n: 0 };
+      if (/COUNT\(\*\)::int AS n FROM "user" WHERE "agencyId"/.test(sql)) return { n: 0 };
       return null;
     },
-    run: async (sql, params) => { if (/INSERT INTO users/.test(sql)) inserted = params; },
+    run: async (sql, params) => { if (/INSERT INTO "user"/.test(sql)) inserted = params; },
   });
   const app = buildApp('agency_admin', 'agency-A');
   await withServer(app, async (base) => {
     const res = await fetch(`${base}/api/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'new@y.co', password: 'password123', role: 'agency_admin', agencyId: 'agency-OTHER' }),
+      body: JSON.stringify({ email: 'new@y.co', password: 'password123', role: 'admin', agencyId: 'agency-OTHER' }),
     });
     assert.equal(res.status, 201);
-    assert.equal(inserted[4], 'agency-A', 'must never create under the agencyId sent by the client');
+    assert.equal(inserted[10], 'agency-A', 'must never create under the agencyId sent by the client');
   });
 });
 
@@ -263,7 +257,7 @@ test('agency_admin POST /api/users: blocked at 3 accounts with USER_LIMIT_REACHE
   let countParams = null;
   setDbStubs({
     get: async (sql, params) => {
-      if (/COUNT\(\*\)::int AS n FROM users WHERE "agencyId"/.test(sql)) { countParams = params; return { n: 3 }; }
+      if (/COUNT\(\*\)::int AS n FROM "user" WHERE "agencyId"/.test(sql)) { countParams = params; return { n: 3 }; }
       return null;
     },
   });
@@ -272,7 +266,7 @@ test('agency_admin POST /api/users: blocked at 3 accounts with USER_LIMIT_REACHE
     const res = await fetch(`${base}/api/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'fourth@y.co', password: 'password123', role: 'agency_admin' }),
+      body: JSON.stringify({ email: 'fourth@y.co', password: 'password123', role: 'admin' }),
     });
     assert.equal(res.status, 409);
     const body = await res.json();
@@ -286,17 +280,17 @@ test('agency_admin POST /api/users: allowed when agency has 2 accounts', async (
   let inserted = null;
   setDbStubs({
     get: async (sql) => {
-      if (/COUNT\(\*\)::int AS n FROM users WHERE "agencyId"/.test(sql)) return { n: 2 };
+      if (/COUNT\(\*\)::int AS n FROM "user" WHERE "agencyId"/.test(sql)) return { n: 2 };
       return null;
     },
-    run: async (sql, params) => { if (/INSERT INTO users/.test(sql)) inserted = params; },
+    run: async (sql, params) => { if (/INSERT INTO "user"/.test(sql)) inserted = params; },
   });
   const app = buildApp('agency_admin', 'agency-A');
   await withServer(app, async (base) => {
     const res = await fetch(`${base}/api/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'third@y.co', password: 'password123', role: 'agency_admin' }),
+      body: JSON.stringify({ email: 'third@y.co', password: 'password123', role: 'admin' }),
     });
     assert.equal(res.status, 201);
     assert.notEqual(inserted, null);
@@ -306,7 +300,7 @@ test('agency_admin POST /api/users: allowed when agency has 2 accounts', async (
 test('agency_admin cannot reset-password of another agency user → 403', async () => {
   setDbStubs({
     get: async (sql) => {
-      if (/FROM users WHERE id/.test(sql)) return { id: 'u-other', agencyId: 'agency-OTHER', role: 'agency_admin' };
+      if (/FROM "user" WHERE id/.test(sql)) return { id: 'u-other', agencyId: 'agency-OTHER', role: 'admin' };
       return null;
     },
   });
@@ -326,7 +320,7 @@ test('agency_admin cannot reset-password of another agency user → 403', async 
 test('agency_admin cannot delete a user of another agency → 403', async () => {
   setDbStubs({
     get: async (sql) => {
-      if (/FROM users WHERE id/.test(sql)) return { id: 'u-other', role: 'agency_admin', agencyId: 'agency-OTHER' };
+      if (/FROM "user" WHERE id/.test(sql)) return { id: 'u-other', role: 'admin', agencyId: 'agency-OTHER' };
       return null;
     },
   });
@@ -343,7 +337,7 @@ test('agency_admin can delete a user of own agency → 200', async () => {
   const deletes = [];
   setDbStubs({
     get: async (sql) => {
-      if (/FROM users WHERE id/.test(sql)) return { id: 'u-own', role: 'agency_admin', agencyId: 'agency-A' };
+      if (/FROM "user" WHERE id/.test(sql)) return { id: 'u-own', role: 'admin', agencyId: 'agency-A' };
       return null;
     },
     run: async (sql, params) => { deletes.push(sql); },
@@ -352,7 +346,7 @@ test('agency_admin can delete a user of own agency → 200', async () => {
   await withServer(app, async (base) => {
     const res = await fetch(`${base}/api/users/u-own`, { method: 'DELETE' });
     assert.equal(res.status, 200);
-    assert.equal(deletes.some(s => /DELETE FROM users WHERE id/.test(s)), true);
+    assert.equal(deletes.some(s => /DELETE FROM "user" WHERE id/.test(s)), true);
   });
 });
 
@@ -1085,10 +1079,10 @@ test('DELETE agency: empty agency → 200', async () => {
   setDbStubs({
     get: async (sql, params) => {
       if (/FROM agencies WHERE id/.test(sql)) return { id: 'agency-A', name: 'A' };
-      if (/COUNT\(\*\)::int FROM users\s*WHERE "agencyId" = \$1\) AS users/.test(sql)) {
+      if (/COUNT\(\*\)::int FROM "user"\s*WHERE "agencyId" = \$1\) AS users/.test(sql)) {
         return { users: 0, trips: 0, travelers: 0, scanEvents: 0 };
       }
-      if (/COUNT\(\*\)::int AS n FROM users WHERE "agencyId" = \$1 AND role = 'super_admin'/.test(sql)) {
+      if (/COUNT\(\*\)::int AS n FROM "user" WHERE "agencyId" = \$1 AND role = 'super_admin'/.test(sql)) {
         return { n: 0 };
       }
       return null;
@@ -1155,11 +1149,11 @@ test('DELETE non-empty agency with force=true → transactional purge', async ()
     assert.equal(res.status, 200);
     const joined = txCalls.join(' | ');
     assert.match(joined, /BEGIN/);
-    assert.match(joined, /DELETE FROM sessions/);
+    assert.match(joined, /DELETE FROM "session"/);
     assert.match(joined, /DELETE FROM scan_events/);
     assert.match(joined, /DELETE FROM travelers/);
     assert.match(joined, /DELETE FROM trips/);
-    assert.match(joined, /DELETE FROM users.*'agency_admin'/);
+    assert.match(joined, /DELETE FROM "user".*'agency_admin'/);
     assert.match(joined, /DELETE FROM agencies/);
     assert.match(joined, /COMMIT/);
   });
@@ -1197,7 +1191,7 @@ test('DELETE user: super_admin can delete an agency_admin', async () => {
   const deletes = [];
   setDbStubs({
     get: async (sql) => {
-      if (/FROM users WHERE id/.test(sql)) return { id: 'user-X', role: 'agency_admin', agencyId: 'agency-A' };
+      if (/FROM "user" WHERE id/.test(sql)) return { id: 'user-X', role: 'agency_admin', agencyId: 'agency-A' };
       return null;
     },
     run: async (sql, params) => { deletes.push({ sql, params }); },
@@ -1206,16 +1200,16 @@ test('DELETE user: super_admin can delete an agency_admin', async () => {
   await withServer(app, async (base) => {
     const res = await fetch(`${base}/api/users/user-X`, { method: 'DELETE' });
     assert.equal(res.status, 200);
-    assert.equal(deletes.some(d => /DELETE FROM sessions/.test(d.sql)), true);
-    assert.equal(deletes.some(d => /DELETE FROM users WHERE id/.test(d.sql)), true);
+    assert.equal(deletes.some(d => /DELETE FROM "session"/.test(d.sql)), true);
+    assert.equal(deletes.some(d => /DELETE FROM "user" WHERE "agencyId"/.test(d.sql)), true);
   });
 });
 
 test('DELETE user: cannot delete the last super_admin', async () => {
   setDbStubs({
     get: async (sql) => {
-      if (/FROM users WHERE id/.test(sql)) return { id: 'user-X', role: 'super_admin', agencyId: null };
-      if (/COUNT\(\*\)::int AS n FROM users WHERE role = 'super_admin'/.test(sql)) return { n: 1 };
+      if (/FROM "user" WHERE id/.test(sql)) return { id: 'user-X', role: 'super_admin', agencyId: null };
+      if (/COUNT\(\*\)::int AS n FROM "user" WHERE role = 'super_admin'/.test(sql)) return { n: 1 };
       return null;
     },
   });

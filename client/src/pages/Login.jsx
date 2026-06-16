@@ -17,6 +17,7 @@ export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -31,9 +32,7 @@ export default function Login({ onLogin }) {
         password,
       });
       if (error) throw new Error(error.message);
-      // Ensure role is mapped for legacy app compatibility
-      const role = data.user.role || 'user';
-      onLogin(data.user.email, role, data.user.id);
+      onLogin(data.user);
     } catch (err) {
       setError(err.message || 'Identifiants invalides');
     } finally {
@@ -44,6 +43,17 @@ export default function Login({ onLogin }) {
   const handleSignUp = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (name && name.length > 25) {
+      setError("Le nom de l'agence ne doit pas dépasser 25 caractères.");
+      return;
+    }
+
+    if (phone && !/^0\d{9}$/.test(phone)) {
+      setError("Le numéro de téléphone doit comporter 10 chiffres et commencer par 0.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -51,25 +61,15 @@ export default function Login({ onLogin }) {
         email,
         password,
         name: name || email.split('@')[0],
+        phone: phone || undefined,
       });
       if (error) throw new Error(error.message);
       
-      const role = data.user.role || 'user';
-      onLogin(data.user.email, role, data.user.id);
+      onLogin(data.user);
     } catch (err) {
       setError(err.message || 'Erreur lors de la création du compte');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      await authClient.signIn.social({
-        provider: 'google',
-      });
-    } catch (err) {
-      setError(err.message || 'Erreur de connexion Google');
     }
   };
 
@@ -157,13 +157,28 @@ export default function Login({ onLogin }) {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="signup-name">Nom complet</Label>
+                  <Label htmlFor="signup-name">Nom de l'agence</Label>
                   <Input
                     id="signup-name"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Entrez votre nom"
+                    placeholder="Agence de Voyages Express"
+                    maxLength={25}
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="signup-phone">Numéro de téléphone</Label>
+                  <Input
+                    id="signup-phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="0550805780"
+                    maxLength={10}
+                    required
                   />
                 </div>
                 
@@ -209,26 +224,6 @@ export default function Login({ onLogin }) {
               </form>
             </TabsContent>
           </Tabs>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">Ou</span>
-            </div>
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            className="w-full"
-            onClick={handleGoogleSignIn}
-          >
-            Continuer avec Google
-          </Button>
-
         </CardContent>
       </Card>
     </div>

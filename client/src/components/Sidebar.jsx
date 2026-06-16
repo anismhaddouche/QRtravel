@@ -15,7 +15,7 @@ import {
 export default function Sidebar({ isOnline, queueLength, syncStatus, trips, selectedTrip, onSelectTrip, username, role, onLogout }) {
   const isSuperAdmin = role === 'super_admin';
   const isAgencyAdmin = role === 'agency_admin' || role === 'admin';
-  const canManageUsers = isSuperAdmin || isAgencyAdmin;
+  const canManageUsers = isSuperAdmin || role === 'agency_admin';
   const [agencies, setAgencies] = useState([]);
   const [activeAgencyId, setActiveAgencyIdState] = useState(() => getActiveAgencyId());
 
@@ -132,7 +132,7 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
               {username}
             </div>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-              {role === 'super_admin' ? 'Super administrateur' : (role === 'agency_admin' || role === 'admin') ? 'Administrateur d’agence' : role}
+              {role === 'super_admin' ? 'Super administrateur' : role === 'agency_admin' ? 'Responsable d’agence' : role === 'admin' ? 'Administrateur (Personnel)' : role}
             </div>
           </div>
         )}

@@ -17,8 +17,8 @@ import {
 
 const ROLE_LABEL = {
   super_admin: 'Super administrateur',
-  agency_admin: 'Administrateur d’agence',
-  admin: 'Administrateur',          // legacy
+  agency_admin: 'Responsable d’agence',
+  admin: 'Administrateur (Personnel)',
 };
 
 // Per-agency cap, mirrors AGENCY_USER_LIMIT on the server. The backend is
@@ -29,7 +29,7 @@ function emptyForm(isSuperAdmin) {
   return {
     email: '',
     password: '',
-    role: 'agency_admin',
+    role: isSuperAdmin ? 'agency_admin' : 'admin',
     agencyId: isSuperAdmin ? '' : null,
   };
 }
@@ -48,6 +48,7 @@ export default function Users({ currentUsername, currentRole }) {
   const [resetTarget, setResetTarget] = useState(null);
   const [resetPassword, setResetPassword] = useState('');
   const [resetError, setResetError] = useState('');
+  const [selectedMonths, setSelectedMonths] = useState({});
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -134,6 +135,18 @@ export default function Users({ currentUsername, currentRole }) {
     }
   };
 
+  const handleExtendTrial = async (id, duration) => {
+    try {
+      setError('');
+      const res = await api.extendUserTrial(id, duration);
+      if (res.success) {
+        await fetchUsers();
+      }
+    } catch (err) {
+      setError(err.message || 'Échec de la prolongation');
+    }
+  };
+
   if (loading) return <LoadingState message="Chargement des utilisateurs..." />;
 
   // Agency admins are capped per agency. Their list only ever contains their
@@ -178,7 +191,7 @@ export default function Users({ currentUsername, currentRole }) {
 
       {users.length === 0 ? (
         <EmptyState
-          icon={<UsersIcon size={48} />}
+          icon={UsersIcon}
           title="Aucun compte"
           description="Créez un premier compte pour permettre à votre équipe de se connecter."
         />
@@ -215,9 +228,49 @@ export default function Users({ currentUsername, currentRole }) {
                       <> · {agencyName(u.agencyId)}</>
                     )}
                     {' · '}créé le {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}
+                    {u.trialExpiresAt && (
+                      <span className={new Date() > new Date(u.trialExpiresAt) ? 'text-destructive font-medium' : ''}>
+                        {' · '}Expire le {new Date(u.trialExpiresAt).toLocaleDateString()}
+                        {new Date() > new Date(u.trialExpiresAt) && ' (Expiré)'}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="row-actions flex gap-2">
+                <div className="row-actions flex gap-2 items-center">
+                  {isSuperAdmin && u.role !== 'super_admin' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <select
+                        value={selectedMonths[u.id] || 1}
+                        onChange={(e) => setSelectedMonths({ ...selectedMonths, [u.id]: parseInt(e.target.value, 10) })}
+                        style={{
+                          height: '28px',
+                          padding: '0 8px',
+                          fontSize: '0.75rem',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border)',
+                          backgroundColor: 'var(--bg-input, transparent)',
+                          color: 'var(--text-primary)',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {Array.from({ length: 24 }, (_, i) => i + 1).map((m) => (
+                          <option key={m} value={m} style={{ backgroundColor: 'var(--navy-surface, #0f172a)', color: 'white' }}>
+                            {m} mois
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        style={{ height: '28px', padding: '0 8px', fontSize: '0.75rem' }}
+                        onClick={() => handleExtendTrial(u.id, selectedMonths[u.id] || 1)}
+                        title="Prolonger l'abonnement"
+                      >
+                        Prolonger
+                      </Button>
+                    </div>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -281,8 +334,14 @@ export default function Users({ currentUsername, currentRole }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="agency_admin">Administrateur d&apos;agence</SelectItem>
-                  {isSuperAdmin && <SelectItem value="super_admin">Super administrateur</SelectItem>}
+                  {isSuperAdmin ? (
+                    <>
+                      <SelectItem value="agency_admin">Responsable d&apos;agence</SelectItem>
+                      <SelectItem value="super_admin">Super administrateur</SelectItem>
+                    </>
+                  ) : (
+                    <SelectItem value="admin">Administrateur (Personnel)</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

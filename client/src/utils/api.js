@@ -26,6 +26,11 @@ export function setAuthErrorHandler(handler) {
   onAuthError = handler;
 }
 
+let onTrialExpired = null;
+export function setTrialExpiredHandler(handler) {
+  onTrialExpired = handler;
+}
+
 // ─── Super-admin selected agency ─────────────────────────────────────
 // Persisted per-user (see sessionState): two accounts on the same browser
 // never share an active agency. agency_admin users ignore this entirely
@@ -74,6 +79,9 @@ async function request(url, options = {}) {
   const data = await response.json();
 
   if (!response.ok) {
+    if (response.status === 403 && (data.code === 'TRIAL_EXPIRED' || data.code === 'BANNED') && onTrialExpired) {
+      onTrialExpired(data.error);
+    }
     const error = new Error(data.error || 'Request failed');
     error.status = response.status;
     error.code = data.code;
@@ -164,6 +172,8 @@ export const api = {
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
   resetUserPassword: (id, password) =>
     request(`/users/${id}/reset-password`, { method: 'POST', body: { password } }),
+  extendUserTrial: (id, months) =>
+    request(`/users/${id}/extend-trial`, { method: 'POST', body: { months } }),
 
   // Health
   health: () => fetch(`${API_BASE}/health`).then(r => r.json()),

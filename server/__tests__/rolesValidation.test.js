@@ -17,9 +17,9 @@ test('legacy env-fallback admin (no agency) is treated as super_admin', () => {
   assert.equal(isSuperAdmin({ role: 'admin', agencyId: null }), true);
 });
 
-test('legacy admin with agencyId is treated as agency_admin, not super_admin', () => {
+test('admin with agencyId is treated as personnel, not agency_admin or super_admin', () => {
   assert.equal(isSuperAdmin({ role: 'admin', agencyId: 'a' }), false);
-  assert.equal(isAgencyAdmin({ role: 'admin', agencyId: 'a' }), true);
+  assert.equal(isAgencyAdmin({ role: 'admin', agencyId: 'a' }), false);
 });
 
 test('agency_admin is recognized', () => {
@@ -35,10 +35,9 @@ test('effectiveAgencyId returns null for super_admin and sentinel for missing sc
 
 // Mirror of the role-validation gate in routes/users.js — keeps the
 // "staff is rejected" guarantee under test.
-const VALID_ROLES = new Set(['super_admin', 'agency_admin']);
+const VALID_ROLES = new Set(['super_admin', 'agency_admin', 'admin']);
 function validateCreateRole(input) {
-  let role = typeof input === 'string' ? input : 'agency_admin';
-  if (role === 'admin') role = 'agency_admin';
+  let role = typeof input === 'string' ? input : 'admin';
   if (role === 'staff') return { ok: false, status: 400, code: 'VALIDATION' };
   if (!VALID_ROLES.has(role)) return { ok: false, status: 400, code: 'VALIDATION' };
   return { ok: true, role };
@@ -51,15 +50,10 @@ test('staff role is rejected on user creation', () => {
   assert.equal(r.code, 'VALIDATION');
 });
 
-test('agency_admin and super_admin are accepted', () => {
+test('agency_admin, admin and super_admin are accepted', () => {
   assert.equal(validateCreateRole('agency_admin').ok, true);
   assert.equal(validateCreateRole('super_admin').ok, true);
-});
-
-test('legacy "admin" is aliased to agency_admin', () => {
-  const r = validateCreateRole('admin');
-  assert.equal(r.ok, true);
-  assert.equal(r.role, 'agency_admin');
+  assert.equal(validateCreateRole('admin').ok, true);
 });
 
 // Mirror of POST /api/agencies/with-admin payload validation.

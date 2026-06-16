@@ -19,6 +19,7 @@
     "postinstall": "cd client && npm install --include=dev"
   },
   "dependencies": {
+    "@better-auth/infra": "^0.2.14",
     "bcryptjs": "^2.4.3",
     "better-auth": "^1.6.19",
     "cookie-parser": "^1.4.6",
