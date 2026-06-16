@@ -1,4 +1,4 @@
-# Travel QR Check-in
+# Qrtravel
 
 Application web de check-in par QR code pour la gestion des embarquements d'agences de voyage.
 
