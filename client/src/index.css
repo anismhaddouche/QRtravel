@@ -1,5 +1,5 @@
 /* ========================================
-   VoyageCheck — Glassmorphism Premium B2B
+   QRtravel — Glassmorphism Premium B2B
    ======================================== */
    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
    @import "tailwindcss";
@@ -10,7 +10,7 @@
    @custom-variant dark (&:is(.dark *));
 
    /* ============================================================
-      VoyageCheck — Travel Desk palette (LIGHT by default)
+      QRtravel — Travel Desk palette (LIGHT by default)
       ============================================================
       Identity: airline check-in / travel ops desk.
       Page = warm ivory. Surfaces = white. Accent = travel blue.

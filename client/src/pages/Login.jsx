@@ -47,7 +47,7 @@ export default function Login({ onLogin }) {
           >
             <Plane size={22} />
           </div>
-          <CardTitle className="text-xl">VoyageCheck</CardTitle>
+          <CardTitle className="text-xl">QRtravel</CardTitle>
           <CardDescription>Espace administration</CardDescription>
         </CardHeader>
 

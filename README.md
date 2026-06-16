@@ -55,7 +55,7 @@ postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-1-eu-central-1.pooler.supabas
 | `ADMIN_PASSWORD_HASH` | Hash bcrypt du mot de passe (préféré) | `$2a$10$...` |
 | `ADMIN_PASSWORD` | Mot de passe en clair (si pas de hash) — **doit être différent de `ADMIN123`** | mot de passe fort |
 | `SESSION_SECRET` | Chaîne aléatoire 32+ caractères | générer avec `openssl rand -hex 32` |
-| `ALLOWED_ORIGIN` | Origines CORS autorisées avec credentials | `https://voyagecheck.vercel.app` |
+| `ALLOWED_ORIGIN` | Origines CORS autorisées avec credentials | `https://qrtravel.vercel.app` |
 | `ENABLE_DEBUG_ENDPOINTS` | `true` pour exposer `/api/debug/*` (toujours admin-only) | `false` (défaut) |
 | `UPSTASH_REDIS_REST_URL` *(optionnel)* | Upstash REST URL pour rate-limit partagé | `https://...upstash.io` |
 | `UPSTASH_REDIS_REST_TOKEN` *(optionnel)* | Token Upstash | `AX...` |

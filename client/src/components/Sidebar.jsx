@@ -21,7 +21,7 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
 
   useEffect(() => {
     if (!isSuperAdmin) return;
-    api.getAgencies().then(setAgencies).catch(() => {});
+    api.getAgencies().then(setAgencies).catch(() => { });
   }, [isSuperAdmin]);
 
   useEffect(() => onActiveAgencyChange(setActiveAgencyIdState), []);
@@ -41,8 +41,8 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
     }}>
       <div className="brand" style={{ marginBottom: '20px' }}>
         <div>
-          <div className="brand__name">VoyageCheck</div>
-          <div className="brand__sub">Check-in QR</div>
+          <div className="brand__name">QRtravel</div>
+          <div className="brand__sub">Check-in avec QR code personnalisé</div>
         </div>
       </div>
 

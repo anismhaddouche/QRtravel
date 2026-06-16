@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 
-const STORAGE_KEY = 'voyagecheck.theme';
+const STORAGE_KEY = 'qrtravel.theme';
 const THEMES = ['dark', 'light'];
 
 function readInitialTheme() {

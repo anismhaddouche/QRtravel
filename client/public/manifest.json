@@ -1,6 +1,6 @@
 {
-  "name": "VoyageCheck — Check-in QR",
-  "short_name": "VoyageCheck",
+  "name": "QRtravel — Check-in QR",
+  "short_name": "QRtravel",
   "description": "Système de check-in par QR code pour agences de voyage",
   "start_url": "/",
   "display": "standalone",
@@ -21,5 +21,9 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["business", "travel", "utilities"]
+  "categories": [
+    "business",
+    "travel",
+    "utilities"
+  ]
 }
