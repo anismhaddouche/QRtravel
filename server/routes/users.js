@@ -235,4 +235,38 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+router.post('/:id/extend-trial', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { auth } = require('../auth');
+
+    // Only allow manage users (already checked by requireManageUsers middleware)
+    
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 30);
+    
+    // Use adapter to update custom field
+    await auth.adapter.update({
+      model: 'user',
+      where: [{ field: 'id', value: id }],
+      update: { trialExpiresAt: trialEnd }
+    });
+
+    // Unban the user in case they were banned due to trial expiration
+    try {
+      await auth.api.unbanUser({
+        headers: req.headers,
+        body: { userId: id }
+      });
+    } catch (e) {
+      // Ignore error if user is not banned
+    }
+
+    res.json({ success: true, trialExpiresAt: trialEnd });
+  } catch (err) {
+    console.error('[USERS] extend-trial error:', err.message);
+    res.status(500).json({ error: 'Failed to extend trial' });
+  }
+});
+
 module.exports = router;

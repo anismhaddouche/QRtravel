@@ -16,6 +16,7 @@ import { usePolling } from './hooks/usePolling';
 import { useOfflineQueue } from './hooks/useOfflineQueue';
 import { useTripContext } from './hooks/useTripContext';
 import { api, setAuthErrorHandler } from './utils/api';
+import { authClient } from './utils/auth-client';
 import { setCurrentUser, getCurrentUserKey, clearLegacyGlobalKeys } from './utils/sessionState';
 
 export default function App() {
@@ -31,26 +32,21 @@ export default function App() {
 
   // Check authentication on mount
   useEffect(() => {
-    api.me()
-      .then((data) => {
-        // null = no active session (401 expected on first load / after
-        // logout). Anything else means we're logged in.
-        if (!data) {
+    authClient.getSession()
+      .then(({ data, error }) => {
+        if (error || !data?.session) {
           setCurrentUser(null);
           setAuthState('unauthenticated');
           return;
         }
-        // Bind the user-scoped storage BEFORE the authenticated tree mounts
-        // so it reads this account's state, never the previous one's.
-        setCurrentUser({ id: data.id, username: data.username });
+        const user = data.user;
+        setCurrentUser({ id: user.id, username: user.email });
         setUserKey(getCurrentUserKey());
-        setUsername(data.username);
-        setRole(data.role || 'admin');
+        setUsername(user.email);
+        setRole(user.role || 'admin');
         setAuthState('authenticated');
       })
       .catch(() => {
-        // Network / unexpected error — still treat as unauthenticated
-        // so the user lands on the login screen instead of a blank app.
         setCurrentUser(null);
         setAuthState('unauthenticated');
       });
@@ -76,7 +72,7 @@ export default function App() {
   }, []);
 
   const handleLogout = useCallback(async () => {
-    try { await api.logout(); } catch (e) { /* ignore */ }
+    try { await authClient.signOut(); } catch (e) { /* ignore */ }
     // Drop the in-memory user binding so nothing of this account can be
     // read by the next login. Persisted per-user keys stay on disk so the
     // same account finds its own state again later.

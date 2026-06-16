@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { api } from '../utils/api';
 import { Plane, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Card,
   CardHeader,
@@ -11,25 +11,65 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card';
+import { authClient } from '../utils/auth-client';
 
 export default function Login({ onLogin }) {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const result = await api.login(username, password);
-      onLogin(result.username, result.role, result.id);
+      const { data, error } = await authClient.signIn.email({
+        email,
+        password,
+      });
+      if (error) throw new Error(error.message);
+      // Ensure role is mapped for legacy app compatibility
+      const role = data.user.role || 'user';
+      onLogin(data.user.email, role, data.user.id);
     } catch (err) {
       setError(err.message || 'Identifiants invalides');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const { data, error } = await authClient.signUp.email({
+        email,
+        password,
+        name: name || email.split('@')[0],
+      });
+      if (error) throw new Error(error.message);
+      
+      const role = data.user.role || 'user';
+      onLogin(data.user.email, role, data.user.id);
+    } catch (err) {
+      setError(err.message || 'Erreur lors de la création du compte');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await authClient.signIn.social({
+        provider: 'google',
+      });
+    } catch (err) {
+      setError(err.message || 'Erreur de connexion Google');
     }
   };
 
@@ -52,65 +92,143 @@ export default function Login({ onLogin }) {
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleSubmit} className="grid gap-4">
-            {error && (
-              <div
-                role="alert"
-                className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-              >
-                <AlertCircle size={16} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <div className="grid gap-2">
-              <Label htmlFor="login-username">Identifiant</Label>
-              <Input
-                id="login-username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Entrez votre identifiant"
-                required
-                autoFocus
-                autoComplete="username"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="login-password">Mot de passe</Label>
-              <Input
-                id="login-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Entrez votre mot de passe"
-                required
-                autoComplete="current-password"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              size="lg"
-              id="btn-login"
-              className="w-full"
-              disabled={loading || !username || !password}
+          {error && (
+            <div
+              role="alert"
+              className="mb-4 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin" />
-                  Connexion en cours...
-                </>
-              ) : (
-                'Se connecter'
-              )}
-            </Button>
+              <AlertCircle size={16} />
+              <span>{error}</span>
+            </div>
+          )}
 
-            <p className="text-center text-xs text-muted-foreground">
-              Accès réservé au personnel autorisé
-            </p>
-          </form>
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="login">Se connecter</TabsTrigger>
+              <TabsTrigger value="signup">S'inscrire</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="login">
+              <form onSubmit={handleLogin} className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="login-email">Email</Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Entrez votre email"
+                    required
+                    autoComplete="username"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="login-password">Mot de passe</Label>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Entrez votre mot de passe"
+                    required
+                    autoComplete="current-password"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full"
+                  disabled={loading || !email || !password}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="animate-spin mr-2" />
+                      Connexion...
+                    </>
+                  ) : (
+                    'Se connecter'
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="signup">
+              <form onSubmit={handleSignUp} className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="signup-name">Nom complet</Label>
+                  <Input
+                    id="signup-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Entrez votre nom"
+                  />
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Entrez votre email"
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="signup-password">Mot de passe</Label>
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Créez un mot de passe (min 8 car.)"
+                    required
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full"
+                  disabled={loading || !email || !password}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="animate-spin mr-2" />
+                      Création...
+                    </>
+                  ) : (
+                    "Créer mon compte (essai 7j)"
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Ou</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={handleGoogleSignIn}
+          >
+            Continuer avec Google
+          </Button>
+
         </CardContent>
       </Card>
     </div>

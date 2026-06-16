@@ -1,45 +1,41 @@
-const { get } = require('../db');
+const { auth } = require('../auth');
+const { checkTrialExpiry } = require('./trialCheck');
 
-async function requireAuth(req, res, next) {
-  const sessionId = req.cookies?.qr_session;
-
-  if (!sessionId) {
-    return res.status(401).json({ error: 'Authentication required', code: 'NO_SESSION' });
-  }
-
+async function requireAuthCore(req, res, next) {
   try {
-    const session = await get(
-      `SELECT * FROM sessions WHERE id = $1 AND "expiresAt" > $2`,
-      [sessionId, new Date().toISOString()]
-    );
+    const session = await auth.api.getSession({
+      headers: req.headers,
+    });
 
-    if (!session) {
-      res.clearCookie('qr_session', { path: '/' });
-      return res.status(401).json({ error: 'Session expired', code: 'SESSION_EXPIRED' });
+    if (!session?.user) {
+      return res.status(401).json({ error: 'Authentication required', code: 'NO_SESSION' });
     }
 
+    if (session.user.banned) {
+      return res.status(403).json({
+        error: session.user.banReason || 'Compte bloqué',
+        code: 'BANNED',
+      });
+    }
+
+    // Map Better Auth user to req.user for legacy compatibility
     req.user = {
-      id: session.userId || null,
-      username: session.username,
-      email: session.username,
-      role: session.role || 'admin',
-      agencyId: session.agencyId || null,
+      id: session.user.id,
+      username: session.user.email,
+      email: session.user.email,
+      role: session.user.role || 'user',
+      agencyId: session.user.agencyId || null,
     };
+    req.betterAuthSession = session;
     next();
   } catch (err) {
     console.error('[AUTH] middleware error:', err.message);
-    return res.status(500).json({ error: 'Authentication check failed' });
+    return res.status(401).json({ error: 'Authentication check failed' });
   }
 }
 
-// requireAdmin = any admin-capable role (super_admin, agency_admin, legacy 'admin').
-// For super-admin-only routes use requireSuperAdmin from lib/scope.
-function requireAdmin(req, res, next) {
-  const r = req.user?.role;
-  if (!req.user || (r !== 'admin' && r !== 'super_admin' && r !== 'agency_admin')) {
-    return res.status(403).json({ error: 'Admin privileges required', code: 'FORBIDDEN' });
-  }
-  next();
-}
+// Combine requireAuthCore and checkTrialExpiry
+const requireAuth = [requireAuthCore, checkTrialExpiry];
 
-module.exports = { requireAuth, requireAdmin };
+// For local testing logic, we might need a raw version, but usually requireAuth is all we need.
+module.exports = { requireAuth };
