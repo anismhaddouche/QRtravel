@@ -1,4 +1,4 @@
-const { auth } = require('../auth');
+
 const { get } = require('../db');
 const { isSuperAdmin } = require('../lib/scope');
 

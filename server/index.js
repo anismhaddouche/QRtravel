@@ -47,9 +47,16 @@ app.use(cors({
 
 // Bounded body size — prevents memory-exhaustion DoS via oversized JSON.
 // Better Auth handler DOIT être avant express.json() car il gère son propre body parsing
-const { toNodeHandler } = require('better-auth/node');
-const { auth } = require('./auth');
-app.all('/api/auth/*', toNodeHandler(auth));
+const { getAuth } = require('./auth');
+app.all('/api/auth/*', async (req, res, next) => {
+  try {
+    const { toNodeHandler } = await import('better-auth/node');
+    const auth = await getAuth();
+    return toNodeHandler(auth)(req, res);
+  } catch (err) {
+    next(err);
+  }
+});
 
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());

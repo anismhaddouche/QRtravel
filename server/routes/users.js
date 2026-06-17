@@ -311,7 +311,8 @@ router.post('/:id/extend-trial', requireSuperAdmin, async (req, res) => {
 
     // Unban the user in case they were banned due to trial expiration
     try {
-      const { auth } = require('../auth');
+      const { getAuth } = require('../auth');
+      const auth = await getAuth();
       await auth.api.unbanUser({
         headers: req.headers,
         body: { userId: id }

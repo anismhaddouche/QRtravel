@@ -1,8 +1,9 @@
-const { auth } = require('../auth');
+const { getAuth } = require('../auth');
 const { checkTrialExpiry } = require('./trialCheck');
 
 async function requireAuthCore(req, res, next) {
   try {
+    const auth = await getAuth();
     const session = await auth.api.getSession({
       headers: req.headers,
     });

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { v4: uuidv4 } = require('uuid');
 const { all, get, run, initDb } = require('./db');
-const { auth } = require('./auth');
+
 
 async function migrate() {
   try {
