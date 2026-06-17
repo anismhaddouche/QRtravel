@@ -14,11 +14,14 @@ async function getAuth() {
   const { betterAuth } = await import('better-auth');
   const { admin } = await import('better-auth/plugins');
 
+  const baseURL = (process.env.BETTER_AUTH_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const extraOrigins = (process.env.ALLOWED_ORIGIN || '').split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
+
   authInstance = betterAuth({
-    baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
+    baseURL,
     trustedOrigins: process.env.NODE_ENV !== 'production' 
-      ? ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175']
-      : [],
+      ? ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', ...extraOrigins]
+      : extraOrigins,
     basePath: '/api/auth',
     database: process.env.DATABASE_URL ? new Pool({
       connectionString: sanitizeDatabaseUrl(process.env.DATABASE_URL),
