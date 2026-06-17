@@ -81,12 +81,6 @@ export default function Landing() {
           Centralisez la gestion de vos voyages, suivez vos voyageurs en temps réel, et offrez une expérience premium. Développez votre activité sans vous soucier de la logistique.
         </p>
         
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Button size="lg" variant="secondary" className="w-full sm:w-auto text-base shadow-sm hover:shadow-md transition-all">
-            <Play className="mr-2 h-4 w-4" /> Vidéo de démonstration
-          </Button>
-        </div>
-        
         {/* Video Embedding */}
         <div className="mt-12 rounded-2xl border bg-white shadow-2xl p-2 mx-auto aspect-video max-w-5xl relative overflow-hidden group">
           <iframe 
