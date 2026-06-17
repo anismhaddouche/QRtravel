@@ -3,7 +3,7 @@ import { api } from '../utils/api';
 import Modal from '../components/Modal';
 import { LoadingState } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
-import { Users as UsersIcon, Plus, Trash2, KeyRound, Shield, User } from 'lucide-react';
+import { Users as UsersIcon, Plus, Trash2, KeyRound, Shield, User, Ban, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,6 +50,9 @@ export default function Users({ currentUsername, currentRole }) {
   const [resetPassword, setResetPassword] = useState('');
   const [resetError, setResetError] = useState('');
   const [selectedMonths, setSelectedMonths] = useState({});
+  const [banTarget, setBanTarget] = useState(null);
+  const [banReason, setBanReason] = useState('');
+  const [banError, setBanError] = useState('');
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -149,6 +152,29 @@ export default function Users({ currentUsername, currentRole }) {
     }
   };
 
+  const handleBan = async (e) => {
+    e.preventDefault();
+    setBanError('');
+    try {
+      await api.banUser(banTarget.id, banReason);
+      setBanTarget(null);
+      setBanReason('');
+      await fetchUsers();
+    } catch (err) {
+      setBanError(err.message || 'Échec du bannissement');
+    }
+  };
+
+  const handleUnban = async (u) => {
+    try {
+      setError('');
+      await api.unbanUser(u.id);
+      await fetchUsers();
+    } catch (err) {
+      setError(err.message || 'Échec du débannissement');
+    }
+  };
+
   if (loading) return <LoadingState message="Chargement des utilisateurs..." />;
 
   // Agency admins are capped per agency. Their list only ever contains their
@@ -221,8 +247,13 @@ export default function Users({ currentUsername, currentRole }) {
                   {isAdminish ? <Shield size={20} /> : <User size={20} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {u.email}
+                    {u.banned && (
+                      <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', fontWeight: 600 }}>
+                        Banni
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                     {ROLE_LABEL[u.role] || u.role}
@@ -283,6 +314,31 @@ export default function Users({ currentUsername, currentRole }) {
                   >
                     <KeyRound />
                   </Button>
+                  {currentUsername && u.email.toLowerCase() !== String(currentUsername).toLowerCase() && (
+                    u.banned ? (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-success hover:text-success"
+                        title="Débannir le compte"
+                        aria-label={`Débannir ${u.email}`}
+                        onClick={() => handleUnban(u)}
+                      >
+                        <Unlock size={18} />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-destructive hover:text-destructive"
+                        title="Bannir le compte"
+                        aria-label={`Bannir ${u.email}`}
+                        onClick={() => { setBanTarget(u); setBanReason(''); setBanError(''); }}
+                      >
+                        <Ban size={18} />
+                      </Button>
+                    )
+                  )}
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -423,6 +479,34 @@ export default function Users({ currentUsername, currentRole }) {
               Supprimer
             </Button>
           </div>
+        </Modal>
+      )}
+
+      {banTarget && (
+        <Modal isOpen={true} title={`Bannir le compte : ${banTarget.email}`} onClose={() => setBanTarget(null)}>
+          <form onSubmit={handleBan} className="grid gap-5">
+            {banError && <div className="form-error">{banError}</div>}
+            <div className="grid gap-2">
+              <Label htmlFor="ban-reason">Raison du blocage</Label>
+              <Input
+                id="ban-reason"
+                type="text"
+                value={banReason}
+                onChange={e => setBanReason(e.target.value)}
+                placeholder="Ex: Non-respect des conditions d'utilisation"
+                autoFocus
+                required
+              />
+            </div>
+            <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setBanTarget(null)}>
+                Annuler
+              </Button>
+              <Button type="submit" variant="destructive">
+                Bannir
+              </Button>
+            </div>
+          </form>
         </Modal>
       )}
     </div>

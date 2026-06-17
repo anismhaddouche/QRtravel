@@ -174,6 +174,10 @@ export const api = {
     request(`/users/${id}/reset-password`, { method: 'POST', body: { password } }),
   extendUserTrial: (id, months) =>
     request(`/users/${id}/extend-trial`, { method: 'POST', body: { months } }),
+  banUser: (id, reason) =>
+    request(`/users/${id}/ban`, { method: 'POST', body: { reason } }),
+  unbanUser: (id) =>
+    request(`/users/${id}/unban`, { method: 'POST' }),
 
   // Health
   health: () => fetch(`${API_BASE}/health`).then(r => r.json()),

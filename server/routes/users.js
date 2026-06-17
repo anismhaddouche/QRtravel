@@ -327,4 +327,92 @@ router.post('/:id/extend-trial', requireSuperAdmin, async (req, res) => {
   }
 });
 
+router.post('/:id/ban', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+
+    const user = await get('SELECT id, role, "agencyId" FROM "user" WHERE id = $1', [id]);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Permission checks
+    if (!isSuperAdmin(req.user)) {
+      if (user.role === 'super_admin' || user.role === 'agency_admin') {
+        return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+      }
+      if (user.agencyId !== effectiveAgencyId(req.user)) {
+        return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN_AGENCY_SCOPE' });
+      }
+    }
+
+    const now = new Date();
+    // Update user to banned in DB
+    await run(
+      'UPDATE "user" SET banned = $1, "banReason" = $2, "banExpires" = $3, "updatedAt" = $4 WHERE id = $5',
+      [true, reason || 'Compte bloqué', null, now, id]
+    );
+
+    // Propagate to all admin users of the same agency if target is agency_admin
+    if (user.role === 'agency_admin' && user.agencyId) {
+      await run(
+        'UPDATE "user" SET banned = $1, "banReason" = $2, "banExpires" = $3, "updatedAt" = $4 WHERE "agencyId" = $5 AND role = \'admin\'',
+        [true, reason || 'Compte bloqué', null, now, user.agencyId]
+      );
+    }
+
+    // Revoke sessions so the users are immediately logged out
+    await run('DELETE FROM "session" WHERE "userId" = $1', [id]);
+    if (user.role === 'agency_admin' && user.agencyId) {
+      await run(
+        `DELETE FROM "session" WHERE "userId" IN (SELECT id FROM "user" WHERE "agencyId" = $1 AND role = 'admin')`,
+        [user.agencyId]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[USERS] ban error:', err.message);
+    res.status(500).json({ error: 'Failed to ban user' });
+  }
+});
+
+router.post('/:id/unban', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await get('SELECT id, role, "agencyId" FROM "user" WHERE id = $1', [id]);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Permission checks
+    if (!isSuperAdmin(req.user)) {
+      if (user.role === 'super_admin' || user.role === 'agency_admin') {
+        return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+      }
+      if (user.agencyId !== effectiveAgencyId(req.user)) {
+        return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN_AGENCY_SCOPE' });
+      }
+    }
+
+    const now = new Date();
+    // Update user to unbanned in DB
+    await run(
+      'UPDATE "user" SET banned = $1, "banReason" = $2, "banExpires" = $3, "updatedAt" = $4 WHERE id = $5',
+      [false, null, null, now, id]
+    );
+
+    // Propagate to all admin users of the same agency if target is agency_admin
+    if (user.role === 'agency_admin' && user.agencyId) {
+      await run(
+        'UPDATE "user" SET banned = $1, "banReason" = $2, "banExpires" = $3, "updatedAt" = $4 WHERE "agencyId" = $5 AND role = \'admin\'',
+        [false, null, null, now, user.agencyId]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[USERS] unban error:', err.message);
+    res.status(500).json({ error: 'Failed to unban user' });
+  }
+});
+
 module.exports = router;
