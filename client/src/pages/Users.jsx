@@ -29,6 +29,7 @@ function emptyForm(isSuperAdmin) {
   return {
     email: '',
     password: '',
+    phone: '',
     role: isSuperAdmin ? 'agency_admin' : 'admin',
     agencyId: isSuperAdmin ? '' : null,
   };
@@ -96,6 +97,7 @@ export default function Users({ currentUsername, currentRole }) {
         email: form.email,
         password: form.password,
         role: form.role,
+        phone: form.phone ? form.phone.trim() : undefined,
       };
       if (form.role !== 'super_admin' && isSuperAdmin) payload.agencyId = form.agencyId;
       await api.createUser(payload);
@@ -224,6 +226,7 @@ export default function Users({ currentUsername, currentRole }) {
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                     {ROLE_LABEL[u.role] || u.role}
+                    {u.phone && <> · {u.phone}</>}
                     {isSuperAdmin && u.role !== 'super_admin' && (
                       <> · {agencyName(u.agencyId)}</>
                     )}
@@ -322,6 +325,16 @@ export default function Users({ currentUsername, currentRole }) {
                 onChange={e => setForm({ ...form, password: e.target.value })}
                 minLength={8}
                 required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="user-phone">Téléphone</Label>
+              <Input
+                id="user-phone"
+                type="tel"
+                value={form.phone}
+                onChange={e => setForm({ ...form, phone: e.target.value })}
+                placeholder="Ex: 0555123456"
               />
             </div>
             <div className="grid gap-2">

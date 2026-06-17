@@ -99,6 +99,20 @@ const auth = betterAuth({
               trialExpiresAt: trialDate
             }
           }
+        },
+      },
+      update: {
+        after: async (user) => {
+          if (user.role === 'agency_admin' && user.agencyId) {
+            try {
+              await run(
+                'UPDATE "user" SET banned = $1, "banReason" = $2, "banExpires" = $3, "trialExpiresAt" = $4, "updatedAt" = $5 WHERE "agencyId" = $6 AND role = \'admin\'',
+                [user.banned || false, user.banReason || null, user.banExpires || null, user.trialExpiresAt || null, new Date(), user.agencyId]
+              );
+            } catch (err) {
+              console.error('[AUTH HOOK] Failed to propagate admin_agency status to agency users:', err);
+            }
+          }
         }
       }
     }

@@ -18,6 +18,10 @@ function sanitize(u) {
     role: u.role,
     agencyId: u.agencyId || null,
     trialExpiresAt: u.trialExpiresAt || null,
+    phone: u.phone || null,
+    banned: u.banned || false,
+    banReason: u.banReason || null,
+    banExpires: u.banExpires || null,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
   };
@@ -43,7 +47,7 @@ router.get('/', async (req, res) => {
     if (globalScope) {
       scope = 'global';
       rows = await all(
-        `SELECT id, email, role, "agencyId", "trialExpiresAt", "createdAt", "updatedAt" FROM "user" WHERE role IN ('agency_admin', 'super_admin') ORDER BY "createdAt" ASC`
+        `SELECT id, email, role, "agencyId", "trialExpiresAt", phone, banned, "banReason", "banExpires", "createdAt", "updatedAt" FROM "user" WHERE role IN ('agency_admin', 'super_admin') ORDER BY "createdAt" ASC`
       );
     } else if (reqAgencyId) {
       scope = 'agency';
@@ -52,7 +56,7 @@ router.get('/', async (req, res) => {
       // agency admin can never see a platform account, and NULL-agency rows
       // can't match because the comparison is against a concrete agencyId.
       rows = await all(
-        `SELECT id, email, role, "agencyId", "trialExpiresAt", "createdAt", "updatedAt"
+        `SELECT id, email, role, "agencyId", "trialExpiresAt", phone, banned, "banReason", "banExpires", "createdAt", "updatedAt"
            FROM "user"
           WHERE "agencyId" = $1 AND role = 'admin'
           ORDER BY "createdAt" ASC`,
@@ -143,11 +147,23 @@ router.post('/', async (req, res) => {
     const now = new Date();
     const rawHash = await bcrypt.hash(password, 10);
     const passwordHash = rawHash.startsWith('$2a$') ? rawHash.replace('$2a$', '$2b$') : rawHash;
+    const phone = typeof body.phone === 'string' ? body.phone.trim() : null;
+
+    let trialExpiresAt = null;
+    if (agencyId) {
+      const agencyAdmin = await get(
+        `SELECT "trialExpiresAt" FROM "user" WHERE "agencyId" = $1 AND role = 'agency_admin' LIMIT 1`,
+        [agencyId]
+      );
+      if (agencyAdmin && agencyAdmin.trialExpiresAt) {
+        trialExpiresAt = agencyAdmin.trialExpiresAt;
+      }
+    }
 
     await run(
-      `INSERT INTO "user" (id, name, email, "emailVerified", image, "createdAt", "updatedAt", role, banned, "trialExpiresAt", "agencyId")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [id, email.split('@')[0], email, false, null, now, now, role, false, null, agencyId]
+      `INSERT INTO "user" (id, name, email, "emailVerified", image, "createdAt", "updatedAt", role, banned, "trialExpiresAt", "agencyId", phone)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [id, email.split('@')[0], email, false, null, now, now, role, false, trialExpiresAt, agencyId, phone]
     );
 
     const accountId = uuidv4();
@@ -157,7 +173,7 @@ router.post('/', async (req, res) => {
       [accountId, id, 'credential', id, passwordHash, now, now]
     );
 
-    res.status(201).json(sanitize({ id, email, role, agencyId, createdAt: now.toISOString(), updatedAt: now.toISOString() }));
+    res.status(201).json(sanitize({ id, email, role, agencyId, trialExpiresAt, phone, createdAt: now.toISOString(), updatedAt: now.toISOString() }));
   } catch (err) {
     console.error('[USERS] create error:', err.message);
     res.status(500).json({ error: 'Failed to create user' });
@@ -263,7 +279,7 @@ router.post('/:id/extend-trial', requireSuperAdmin, async (req, res) => {
     }
 
     // Fetch the target user's current trialExpiresAt
-    const user = await get('SELECT "trialExpiresAt" FROM "user" WHERE id = $1', [id]);
+    const user = await get('SELECT id, role, "agencyId", "trialExpiresAt" FROM "user" WHERE id = $1', [id]);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -279,10 +295,19 @@ router.post('/:id/extend-trial', requireSuperAdmin, async (req, res) => {
     baseDate.setMonth(baseDate.getMonth() + monthsInt);
 
     // Update in database directly
+    const now = new Date();
     await run(
       'UPDATE "user" SET "trialExpiresAt" = $1, "updatedAt" = $2 WHERE id = $3',
-      [baseDate, new Date(), id]
+      [baseDate, now, id]
     );
+
+    // Propagate trialExpiresAt to all admin users of the same agency if the target user is the agency_admin
+    if (user.role === 'agency_admin' && user.agencyId) {
+      await run(
+        'UPDATE "user" SET "trialExpiresAt" = $1, "updatedAt" = $2 WHERE "agencyId" = $3 AND role = \'admin\'',
+        [baseDate, now, user.agencyId]
+      );
+    }
 
     // Unban the user in case they were banned due to trial expiration
     try {
