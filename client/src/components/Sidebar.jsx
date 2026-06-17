@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, ScanLine, Map, LogOut, Shield, Building2, RefreshCw, Clock } from 'lucide-react';
 import { api, getActiveAgencyId, setActiveAgencyId, onActiveAgencyChange } from '../utils/api';
+import logo from '../assets/logo.png';
 import ThemeToggle from './ThemeToggle';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,9 +41,9 @@ export default function Sidebar({ isOnline, queueLength, syncStatus, trips, sele
       borderRight: '1px solid var(--border)',
     }}>
       <div className="brand" style={{ marginBottom: '20px' }}>
-        <div>
-          <div className="brand__name">QRtravel</div>
-          <div className="brand__sub">Check-in avec QR code personnalisé</div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <img src={logo} alt="QRtravel Logo" style={{ height: '150px', width: 'auto', marginBottom: '8px' }} />
+          <div className="brand__sub" style={{ textAlign: 'center' }}>Check-in avec QR code personnalisé</div>
         </div>
       </div>
 

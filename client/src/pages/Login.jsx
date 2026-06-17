@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plane, Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import {
   CardContent,
 } from '@/components/ui/card';
 import { authClient } from '../utils/auth-client';
+import logo from '../assets/logo.png';
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -64,7 +65,7 @@ export default function Login({ onLogin }) {
         phone: phone || undefined,
       });
       if (error) throw new Error(error.message);
-      
+
       onLogin(data.user);
     } catch (err) {
       setError(err.message || 'Erreur lors de la création du compte');
@@ -80,14 +81,9 @@ export default function Login({ onLogin }) {
     >
       <Card className="w-full max-w-md">
         <CardHeader className="items-center text-center">
-          <div
-            className="brand__mark mx-auto mb-2"
-            style={{ width: 44, height: 44, borderRadius: 12 }}
-            aria-hidden
-          >
-            <Plane size={22} />
+          <div className="mx-auto mb-4">
+            <img src={logo} alt="QRtravel Logo" className="h-60 w-auto" />
           </div>
-          <CardTitle className="text-xl">QRtravel</CardTitle>
           <CardDescription>Espace administration</CardDescription>
         </CardHeader>
 
@@ -181,7 +177,7 @@ export default function Login({ onLogin }) {
                     required
                   />
                 </div>
-                
+
                 <div className="grid gap-2">
                   <Label htmlFor="signup-email">Email</Label>
                   <Input
