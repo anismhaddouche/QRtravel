@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { run, get, all } = require('../db');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('crypto');
 const { isSuperAdmin, effectiveAgencyId } = require('../lib/scope');
 
 const CSV_MAX_BYTES = 1024 * 1024; // 1 MB

@@ -4,7 +4,7 @@
 // and never overwrites existing user passwords.
 require('dotenv').config();
 const { initDb, get, run, all, getPool } = require('./db');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('crypto');
 const bcrypt = require('bcryptjs');
 
 const SUPER_ADMIN = {

@@ -27,8 +27,7 @@
     "dotenv": "^17.4.1",
     "express": "^4.21.0",
     "pg": "^8.13.0",
-    "qrcode": "^1.5.4",
-    "uuid": "^14.0.0"
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

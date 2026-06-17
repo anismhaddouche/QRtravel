@@ -3,7 +3,6 @@
 
 const DEFAULT_USERNAME = 'ADMIN';
 const DEFAULT_PASSWORD = 'ADMIN123';
-const DEFAULT_SESSION_SECRET = 'dev-secret-change-me-in-production';
 
 function warnIfDefaultCredentials() {
   if (process.env.NODE_ENV !== 'production') return;
@@ -19,10 +18,6 @@ function warnIfDefaultCredentials() {
     if (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD === DEFAULT_PASSWORD) {
       problems.push('ADMIN_PASSWORD is the default "ADMIN123" — rotate it (or set ADMIN_PASSWORD_HASH)');
     }
-  }
-
-  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === DEFAULT_SESSION_SECRET) {
-    problems.push('SESSION_SECRET is missing or default — set a random 32+ char value');
   }
 
   if (problems.length === 0) return;

@@ -6,7 +6,7 @@
 //   npm run create-agency -- "Bouatit Travel" bouatit@example.com
 
 require('dotenv').config();
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('crypto');
 const { initDb, get, run, getPool } = require('./db');
 
 async function main() {

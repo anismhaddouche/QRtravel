@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('crypto');
 const { all, get, run } = require('../db');
 const { isSuperAdmin, isAgencyAdmin, effectiveAgencyId, requireManageUsers, requireSuperAdmin, AGENCY_USER_LIMIT } = require('../lib/scope');
 
