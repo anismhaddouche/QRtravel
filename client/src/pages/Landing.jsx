@@ -57,60 +57,63 @@ export default function Landing() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-page)' }}>
       {/* Navbar */}
-      <header className="flex items-center justify-between px-6 py-4 border-b bg-white/50 backdrop-blur-md sticky top-0 z-50">
+      <header className="flex items-center justify-between px-4 md:px-6 py-4 border-b bg-white/50 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-2 font-bold text-xl text-primary">
           QRtravel
         </div>
-        <nav className="flex items-center gap-4">
-          <Link to="/login" className="text-sm font-medium hover:text-primary transition-colors">
+        <nav className="flex items-center gap-3 md:gap-4">
+          <Link to="/login" className="hidden sm:block text-sm font-medium hover:text-primary transition-colors">
             Se connecter
           </Link>
           <Link to="/login">
-            <Button>Essayer gratuitement</Button>
+            <Button className="hidden sm:flex">Essayer gratuitement</Button>
+            <Button size="sm" className="sm:hidden text-xs">Essayer</Button>
           </Link>
         </nav>
       </header>
 
       {/* Hero Section */}
-      <section className="py-24 px-6 text-center max-w-4xl mx-auto">
-        <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-6 text-gray-900" style={{ lineHeight: 1.1 }}>
+      <section className="py-16 md:py-24 px-4 md:px-6 text-center max-w-4xl mx-auto">
+        <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 md:mb-6 text-gray-900" style={{ lineHeight: 1.1 }}>
           Ne perdez plus jamais la trace d'un <span className="text-primary">voyageur</span>
         </h1>
-        <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
+        <p className="text-lg md:text-xl text-gray-600 mb-8 md:mb-10 max-w-2xl mx-auto">
           L'outil de pointage par QR code conçu pour les agences de voyages. Assurez un suivi parfait de vos groupes sur le terrain, facilitez le travail de vos guides et offrez une expérience rassurante à vos clients.
         </p>
 
         {/* Video Embedding */}
-        <div className="mt-12 rounded-2xl border bg-white shadow-2xl p-2 mx-auto aspect-video max-w-5xl relative overflow-hidden group">
-          {!isVideoPlaying && (
-            <div 
-              className="absolute inset-2 z-10 cursor-pointer bg-white rounded-xl overflow-hidden flex items-center justify-center group/cover"
-              onClick={() => setIsVideoPlaying(true)}
-            >
-              <img 
-                src={logo} 
-                alt="Cover de la vidéo" 
-                className="absolute inset-0 w-full h-full object-contain p-12 opacity-80 transition-opacity group-hover/cover:opacity-60"
-              />
-              <div className="relative z-20 bg-primary text-white p-5 rounded-full shadow-2xl transform transition-transform group-hover/cover:scale-110 flex items-center justify-center">
-                <Play className="h-10 w-10 ml-1" />
+        <div className="mt-8 md:mt-12 rounded-2xl border bg-white shadow-2xl p-1 md:p-2 mx-auto max-w-5xl group">
+          <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-100">
+            {!isVideoPlaying && (
+              <div 
+                className="absolute inset-0 z-10 cursor-pointer bg-white flex items-center justify-center group/cover"
+                onClick={() => setIsVideoPlaying(true)}
+              >
+                <img 
+                  src={logo} 
+                  alt="Cover de la vidéo" 
+                  className="absolute inset-0 w-full h-full object-contain p-8 md:p-12 opacity-80 transition-opacity group-hover/cover:opacity-60"
+                />
+                <div className="relative z-20 bg-primary text-white p-4 md:p-5 rounded-full shadow-xl transform transition-transform group-hover/cover:scale-110 flex items-center justify-center">
+                  <Play className="h-8 w-8 md:h-10 md:w-10 ml-1" />
+                </div>
               </div>
-            </div>
-          )}
-          <iframe
-            src="https://drive.google.com/file/d/1tZODTP6P7gC9up_6wsnsihQpKfDv0VizX0K2fc_odp0/preview"
-            className="w-full h-full rounded-xl bg-gray-100"
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-            title="Vidéo de démonstration QRtravel"
-          ></iframe>
+            )}
+            <iframe
+              src="https://drive.google.com/file/d/1tZODTP6P7gC9up_6wsnsihQpKfDv0VizX0K2fc_odp0/preview"
+              className="absolute top-0 left-0 w-full h-full border-0"
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+              title="Vidéo de démonstration QRtravel"
+            ></iframe>
+          </div>
         </div>
 
         {/* Tester l'application button below video */}
-        <div className="mt-12 flex justify-center">
+        <div className="mt-8 md:mt-12 flex justify-center">
           <Link to="/login">
-            <Button size="lg" className="text-lg px-10 py-7 rounded-full shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all">
-              Tester l'application <ChevronRight className="ml-2 h-5 w-5" />
+            <Button size="lg" className="text-base md:text-lg px-8 md:px-10 py-6 md:py-7 rounded-full shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all">
+              Tester l'application <ChevronRight className="ml-2 h-4 w-4 md:h-5 md:w-5" />
             </Button>
           </Link>
         </div>
@@ -126,18 +129,18 @@ export default function Landing() {
             </p>
 
             {/* Toggle Monthly / Annual */}
-            <div className="inline-flex items-center bg-gray-200 p-1.5 rounded-full">
+            <div className="inline-flex flex-col sm:flex-row items-stretch sm:items-center bg-gray-200 p-1.5 rounded-2xl sm:rounded-full gap-1 sm:gap-0">
               <button
                 onClick={() => setIsAnnual(false)}
-                className={`px-8 py-2.5 rounded-full text-sm font-semibold transition-all ${!isAnnual ? 'bg-white shadow-md text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
+                className={`px-4 sm:px-8 py-2.5 rounded-xl sm:rounded-full text-sm font-semibold transition-all ${!isAnnual ? 'bg-white shadow-md text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
               >
                 Facturation mensuelle
               </button>
               <button
                 onClick={() => setIsAnnual(true)}
-                className={`px-8 py-2.5 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${isAnnual ? 'bg-white shadow-md text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
+                className={`px-4 sm:px-8 py-2.5 rounded-xl sm:rounded-full text-sm font-semibold transition-all flex items-center justify-center gap-2 ${isAnnual ? 'bg-white shadow-md text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
               >
-                Facturation annuelle <span className="text-[10px] bg-primary/20 text-primary px-2.5 py-1 rounded-full font-bold">2 MOIS OFFERTS</span>
+                Facturation annuelle <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">2 MOIS OFFERTS</span>
               </button>
             </div>
           </div>
