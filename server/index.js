@@ -28,7 +28,7 @@ app.set('trust proxy', 1);
 // because we send credentials.
 const allowedOrigins = (process.env.ALLOWED_ORIGIN || '')
   .split(',')
-  .map(s => s.trim())
+  .map(s => s.trim().replace(/\/$/, '')) // Remove trailing slash
   .filter(Boolean);
 
 app.use(cors({
@@ -39,7 +39,9 @@ app.use(cors({
         return cb(null, true);
       }
     }
-    if (allowedOrigins.includes(origin)) return cb(null, true);
+    const cleanOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(cleanOrigin)) return cb(null, true);
+    // Allow vercel preview URLs dynamically if you want, but sticking to ALLOWED_ORIGIN is safer.
     return cb(new Error('CORS: origin not allowed'), false);
   },
   credentials: true,
