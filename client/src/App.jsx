@@ -5,6 +5,7 @@ import BottomNav from './components/BottomNav';
 import { ToastProvider } from './components/Toast';
 import { LoadingState } from './components/Skeleton';
 import Login from './pages/Login';
+import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Scanner from './pages/Scanner';
 import TravelerDetails from './pages/TravelerDetails';
@@ -135,9 +136,17 @@ export default function App() {
     );
   }
 
-  // Show login page if not authenticated
+  // Show login/landing pages if not authenticated
   if (authState === 'unauthenticated') {
-    return <Login onLogin={handleLogin} />;
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <Route path="*" element={<Landing />} />
+        </Routes>
+      </BrowserRouter>
+    );
   }
 
   // Show trial expired page if trial/subscription is expired
