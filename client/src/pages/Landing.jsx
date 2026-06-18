@@ -83,7 +83,7 @@ export default function Landing() {
 
         {/* Video Embedding */}
         <div className="mt-8 md:mt-12 rounded-2xl border bg-white shadow-2xl p-1 md:p-2 mx-auto max-w-5xl group">
-          <div className="relative w-full aspect-[16/10] md:aspect-video rounded-xl overflow-hidden bg-gray-100">
+          <div className="relative w-full aspect-[4/3] sm:aspect-[16/10] md:aspect-video rounded-xl overflow-hidden bg-gray-100">
             {!isVideoPlaying && (
               <div 
                 className="absolute inset-0 z-10 cursor-pointer bg-white flex items-center justify-center group/cover"
