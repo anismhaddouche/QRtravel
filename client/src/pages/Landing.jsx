@@ -83,7 +83,7 @@ export default function Landing() {
 
         {/* Video Embedding */}
         <div className="mt-8 md:mt-12 rounded-2xl border bg-white shadow-2xl p-1 md:p-2 mx-auto max-w-5xl group">
-          <div className="relative w-full aspect-[4/3] sm:aspect-[16/10] md:aspect-video rounded-xl overflow-hidden bg-gray-100">
+          <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-100">
             {!isVideoPlaying && (
               <div 
                 className="absolute inset-0 z-10 cursor-pointer bg-white flex items-center justify-center group/cover"
@@ -101,7 +101,8 @@ export default function Landing() {
             )}
             <iframe
               src="https://drive.google.com/file/d/1tZODTP6P7gC9up_6wsnsihQpKfDv0VizX0K2fc_odp0/preview"
-              className="absolute top-0 left-0 w-full h-full border-0"
+              className="absolute left-0 w-full border-0"
+              style={{ top: "-56px", height: "calc(100% + 56px)" }}
               allow="autoplay; encrypted-media"
               allowFullScreen
               title="Vidéo de démonstration QRtravel"
